@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retention · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="retention" data-title="Retention &amp; Archival">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm"><i data-icon="download"></i>Compliance report</button>
+        <button class="btn btn--primary btn--sm" data-open="modal-policy"><i data-icon="plus"></i>New policy</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="t-eyebrow">Governance &amp; compliance</div>
+          <h1 class="t-h1 mt-1">Retention policy management</h1>
+          <p>Policies are rule-driven and auditable by document type, department or regulation,
+            with legal holds that override any schedule.</p>
+        </div>
+
+        <div class="banner banner--grey mb-3">
+          <i data-icon="info"></i>
+          <div><strong>Module preview.</strong> The retention engine ships in Phase&nbsp;4. This screen
+            shows the designed experience against representative data.</div>
+        </div>
+
+        <!-- Lifecycle -->
+        <section class="mb-3">
+          <div class="flowline">
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="file"></i></span><h4>Active</h4>
+              <p>Created and in daily use</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step is-current">
+              <span class="tile-icon tile-icon--solid"><i data-icon="clock"></i></span><h4>Retention period</h4>
+              <p>Held per legal, tax or regulatory rule</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="archive"></i></span><h4>Archive</h4>
+              <p>Long-term, low-cost storage</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon tile-icon--danger"><i data-icon="scale"></i></span><h4>Disposition</h4>
+              <p>Reviewed, then destroyed or preserved</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid grid-4">
+          <div class="card stat"><div class="stat__label">Documents under policy</div>
+            <div class="stat__value">51,208</div><div class="stat__foot">96.5% of the repository</div></div>
+          <div class="card stat"><div class="stat__label">In archive tier</div>
+            <div class="stat__value">18,940</div><div class="stat__foot">Cold storage · 62% cost saving</div></div>
+          <div class="card stat stat--danger"><div class="stat__label">Due for disposition</div>
+            <div class="stat__value">23</div><div class="stat__foot">Dual approval required</div></div>
+          <div class="card stat"><div class="stat__label">Under legal hold</div>
+            <div class="stat__value">12</div><div class="stat__foot">Disposition suspended</div></div>
+        </section>
+
+        <div class="tabs mt-4" data-tabs="ret">
+          <button data-tab="policies" class="is-active">Policies<span class="tabs__count">9</span></button>
+          <button data-tab="due">Disposition queue<span class="tabs__count">23</span></button>
+          <button data-tab="holds">Legal holds<span class="tabs__count">3</span></button>
+        </div>
+
+        <!-- Policies -->
+        <div class="tab-panel is-active" data-panel="policies" data-scope="ret">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Policy</th><th>Scope</th><th>Trigger</th><th>Retain</th><th>Then</th><th>Documents</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><div class="cell-title">Financial records</div>
+                      <div class="cell-sub">Companies Act &amp; Income Tax Act</div></td>
+                    <td><span class="badge">Finance</span></td><td>Financial year end</td>
+                    <td class="mono">8 years</td><td>Review then destroy</td>
+                    <td class="num">18,402</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Commercial contracts</div>
+                      <div class="cell-sub">Limitation period + 4 years</div></td>
+                    <td><span class="badge">Legal</span></td><td>Contract expiry</td>
+                    <td class="mono">7 years</td><td>Review then destroy</td>
+                    <td class="num">9,118</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Employee records</div>
+                      <div class="cell-sub">Restricted to HR only</div></td>
+                    <td><span class="badge">Human Resources</span></td><td>Date of leaving</td>
+                    <td class="mono">7 years</td><td>Review then destroy</td>
+                    <td class="num">6,480</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Statutory &amp; incorporation</div>
+                      <div class="cell-sub">Never destroyed</div></td>
+                    <td><span class="badge">Legal</span></td><td>Creation</td>
+                    <td class="mono">Permanent</td><td><span class="badge badge--accent">Preserve</span></td>
+                    <td class="num">312</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Operational logs</div>
+                      <div class="cell-sub">Low-value transient records</div></td>
+                    <td><span class="badge">Operations</span></td><td>Creation</td>
+                    <td class="mono">3 years</td><td>Auto-destroy</td>
+                    <td class="num">10,511</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Procurement &amp; tenders</div>
+                      <div class="cell-sub">Audit trail requirement</div></td>
+                    <td><span class="badge">Procurement</span></td><td>Award date</td>
+                    <td class="mono">6 years</td><td>Review then destroy</td>
+                    <td class="num">4,027</td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid grid-2 mt-3">
+            <div class="card card--pad">
+              <h3 class="t-h3">Coming due</h3>
+              <p class="t-sm muted mt-1">Volume entering each lifecycle state over the next 12 months.</p>
+              <div class="bars mt-3">
+                <div class="bars__col"><div class="bars__bar" style="height:24%"></div><span class="bars__label">Aug</span></div>
+                <div class="bars__col"><div class="bars__bar" style="height:41%"></div><span class="bars__label">Sep</span></div>
+                <div class="bars__col is-accent"><div class="bars__bar" style="height:78%"></div><span class="bars__label">Oct</span></div>
+                <div class="bars__col"><div class="bars__bar" style="height:36%"></div><span class="bars__label">Nov</span></div>
+                <div class="bars__col"><div class="bars__bar" style="height:52%"></div><span class="bars__label">Dec</span></div>
+                <div class="bars__col"><div class="bars__bar" style="height:19%"></div><span class="bars__label">Jan</span></div>
+              </div>
+            </div>
+            <div class="card card--pad">
+              <h3 class="t-h3">Policy coverage</h3>
+              <div class="row mt-3" style="gap:22px">
+                <div class="donut" style="background:conic-gradient(var(--blue-500) 0 96.5%, var(--red-500) 96.5% 100%)">
+                  <div class="donut__center"><strong>96.5%</strong><span>covered</span></div>
+                </div>
+                <div class="stack-sm t-sm">
+                  <div class="row"><span class="dot dot--accent"></span>Under a policy · 51,208</div>
+                  <div class="row"><span class="dot dot--danger"></span>Unclassified · 1,867</div>
+                  <button class="btn btn--sm btn--danger-soft mt-2">Assign a policy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Disposition queue -->
+        <div class="tab-panel" data-panel="due" data-scope="ret">
+          <div class="banner banner--danger mb-3">
+            <i data-icon="alert"></i>
+            <div><strong>Destruction is irreversible.</strong> Every batch needs two approvers and
+              produces a certificate of destruction. Items under legal hold are excluded automatically.</div>
+          </div>
+          <div class="card">
+            <div class="card__head">
+              <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+              <span class="t-sm muted">23 records eligible</span>
+              <span class="spacer"></span>
+              <div class="btn-row">
+                <button class="btn btn--sm btn--outline"><i data-icon="shield"></i>Preserve permanently</button>
+                <button class="btn btn--sm btn--outline"><i data-icon="clock"></i>Extend retention</button>
+                <button class="btn btn--sm btn--danger" id="btn-destroy"><i data-icon="trash"></i>Submit for destruction</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th></th><th>Record</th><th>Policy</th><th>Retained since</th><th>Eligible since</th><th>State</th></tr></thead>
+                <tbody>
+                  <tr><td><label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label></td>
+                    <td class="cell-title">Vendor invoices for FY 2017-18 (batch 1)</td><td>Financial records</td>
+                    <td>31 Mar 2018</td><td>31 Mar 2026</td><td><span class="badge badge--danger">Overdue 4 mo</span></td></tr>
+                  <tr><td><label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label></td>
+                    <td class="cell-title">Vendor invoices for FY 2017-18 (batch 2)</td><td>Financial records</td>
+                    <td>31 Mar 2018</td><td>31 Mar 2026</td><td><span class="badge badge--danger">Overdue 4 mo</span></td></tr>
+                  <tr><td><label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label></td>
+                    <td class="cell-title">Facilities service logs for 2022</td><td>Operational logs</td>
+                    <td>12 Jun 2022</td><td>12 Jun 2026</td><td><span class="badge">Eligible</span></td></tr>
+                  <tr><td><label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label></td>
+                    <td class="cell-title">Tender responses for Q2 2019</td><td>Procurement &amp; tenders</td>
+                    <td>04 Jul 2019</td><td>04 Jul 2026</td><td><span class="badge">Eligible</span></td></tr>
+                  <tr><td></td>
+                    <td class="cell-title">Northwind dispute bundle</td><td>Commercial contracts</td>
+                    <td>18 Aug 2018</td><td>Not applicable</td><td><span class="badge badge--danger"><i data-icon="lock"></i>Legal hold</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legal holds -->
+        <div class="tab-panel" data-panel="holds" data-scope="ret">
+          <div class="grid grid-sidebar">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Active holds</h3>
+                <span class="spacer"></span>
+                <button class="btn btn--sm btn--danger" data-open="modal-hold"><i data-icon="lock"></i>Apply hold</button>
+              </div>
+              <ul class="list">
+                <li><div class="list-item">
+                  <span class="tile-icon tile-icon--danger"><i data-icon="lock"></i></span>
+                  <span class="list-item__body">
+                    <span class="list-item__title">Northwind Logistics commercial dispute</span>
+                    <span class="list-item__sub">Applied 12 Feb 2026 by Legal · 7 records · custodians: 3</span></span>
+                  <span class="list-item__end"><button class="btn btn--sm btn--outline">Release</button></span>
+                </div></li>
+                <li><div class="list-item">
+                  <span class="tile-icon tile-icon--danger"><i data-icon="lock"></i></span>
+                  <span class="list-item__body">
+                    <span class="list-item__title">Tax assessment for AY 2021-22</span>
+                    <span class="list-item__sub">Applied 03 Apr 2026 by Compliance · 4 records</span></span>
+                  <span class="list-item__end"><button class="btn btn--sm btn--outline">Release</button></span>
+                </div></li>
+                <li><div class="list-item">
+                  <span class="tile-icon tile-icon--danger"><i data-icon="lock"></i></span>
+                  <span class="list-item__body">
+                    <span class="list-item__title">Internal investigation INV-2026-02</span>
+                    <span class="list-item__sub">Applied 21 Jun 2026 by Internal Audit · 1 record · restricted visibility</span></span>
+                  <span class="list-item__end"><button class="btn btn--sm btn--outline">Release</button></span>
+                </div></li>
+              </ul>
+            </div>
+
+            <aside class="stack">
+              <div class="card card--danger card--pad">
+                <div class="row-top">
+                  <span class="tile-icon tile-icon--danger"><i data-icon="shield"></i></span>
+                  <div>
+                    <h3 class="t-h3 danger-text">Holds always win</h3>
+                    <p class="t-sm mt-1" style="color:var(--red-700)">A legal hold suspends disposition
+                      instantly and cannot be bypassed by a retention rule, a workflow or an
+                      administrator delete.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="card card--pad">
+                <h3 class="t-h3">Recently released</h3>
+                <div class="timeline mt-3">
+                  <div class="timeline__item">
+                    <div class="timeline__title">Kestrel Tech arbitration</div>
+                    <div class="timeline__meta">Released 02 Jun 2026 · 11 records returned to schedule</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">GST audit for FY 2019-20</div>
+                    <div class="timeline__meta">Released 14 Mar 2026 · 38 records</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- New policy -->
+  <div class="modal" id="modal-policy">
+    <div class="modal__head">
+      <h3 class="t-h2">New retention policy</h3>
+      <p class="t-sm muted mt-1">Rules evaluate on capture and re-evaluate whenever metadata changes.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Policy name</span>
+        <input class="input" placeholder="e.g. Financial records, 8 years"></label>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Applies to department</span>
+          <select class="select"><option>All departments</option><option>Finance</option><option>Legal</option>
+            <option>Operations</option><option>Human Resources</option><option>Procurement</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Document type</span>
+          <select class="select"><option>All types</option><option>Invoice</option><option>Contract</option>
+            <option>Employee record</option><option>Purchase order</option></select></label>
+      </div>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Retention trigger</span>
+          <select class="select"><option>Document date</option><option>Financial year end</option>
+            <option>Contract expiry</option><option>Date of leaving</option><option>Workflow completion</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Retain for</span>
+          <div class="row"><input class="input" type="number" value="7" style="width:80px">
+            <select class="select"><option>years</option><option>months</option></select></div></label>
+      </div>
+      <label class="field"><span class="field__label">Disposition action</span>
+        <select class="select"><option>Review then destroy (dual approval)</option>
+          <option>Auto-destroy</option><option>Preserve permanently</option><option>Transfer to archive authority</option></select></label>
+      <div class="banner banner--danger mt-3">
+        <i data-icon="alert"></i>
+        <div>Auto-destroy removes documents without human review. Use only for transient,
+          low-value record classes.</div>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" data-close>Create policy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apply hold -->
+  <div class="modal" id="modal-hold">
+    <div class="modal__head">
+      <h3 class="t-h2">Apply legal hold</h3>
+      <p class="t-sm muted mt-1">Disposition is suspended immediately for every matching record.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Matter name</span>
+        <input class="input" placeholder="e.g. Northwind Logistics commercial dispute"></label>
+      <label class="field"><span class="field__label">Scope</span>
+        <select class="select"><option>Selected documents</option><option>All documents for a correspondent</option>
+          <option>A records series</option><option>A department, by date range</option></select></label>
+      <label class="field"><span class="field__label">Reason (recorded in the audit trail)</span>
+        <textarea class="textarea" placeholder="Litigation reference, regulator notice, investigation ID…"></textarea></label>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--danger" data-close><i data-icon="lock"></i>Apply hold</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    document.getElementById('btn-destroy').onclick = async () => {
+      const ok = await DMS.confirmDanger({
+        title: 'Submit records for destruction?',
+        message: 'This starts the dual-approval disposition workflow. Once both approvers sign off, the records and their files are destroyed permanently and a certificate is issued.',
+        confirmLabel: 'Submit for destruction'
+      });
+      if (ok) DMS.toast('Disposition batch submitted', 'Routed to two approvers for sign-off');
+    };
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4 · Track Status · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="track" data-step="4" data-title="Track Status">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm" id="btn-remind" hidden>
+          <i data-icon="bell"></i>Send a reminder</button>
+        <!-- This prints the page, which IS the approval record: every step,
+             who decided, when, and their signature. It was labelled "Approval
+             certificate" behind a download icon, which promised a file. -->
+        <button class="btn btn--outline btn--sm" id="btn-print" hidden>
+          <i data-icon="documents"></i>Print the approval trail</button>
+        <a class="btn btn--primary btn--sm" id="btn-publish" href="/publish" hidden>
+          <i data-icon="send"></i>Publish it</a>
+      </div>
+
+      <main class="page">
+        <div data-journey></div>
+
+        <div class="t-eyebrow mb-3">Step 4 of 5 · Status &amp; Tracking</div>
+
+        <!-- Two ways to read the same set: one at a time with its full history,
+             or all of them side by side. Neither is a filter on the other, so
+             the choice is a view, not a tab of different data. -->
+        <div class="viewswitch mb-3">
+          <button data-view="split" class="is-active">
+            <i data-icon="layers"></i>One at a time</button>
+          <button data-view="table">
+            <i data-icon="grid"></i>All in one table</button>
+        </div>
+
+        <!-- Search across everything in flight -->
+        <div class="filter-bar mb-3">
+          <label class="input-icon" style="flex:1;min-width:230px">
+            <i data-icon="search"></i>
+            <input class="input" id="q" type="search"
+                   placeholder="Search by document, vendor, type or approval name">
+          </label>
+          <select class="select" id="f-status" style="width:auto">
+            <option value="">All statuses</option>
+            <option value="active">In progress</option>
+            <option value="changes_requested">Changes needed</option>
+            <option value="approved">Approved</option>
+            <option value="published">Published</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select class="select" id="f-priority" style="width:auto">
+            <option value="">Any priority</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <label class="check"><input type="checkbox" id="f-overdue">
+            <span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">Overdue only</span></label>
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="result-count"></span>
+        </div>
+
+        <!-- A little wider than the default aside: these rows carry a document
+             title and a status, and a title cut to three characters is not a
+             title. -->
+        <div class="grid grid-aside-left" id="view-split"
+             style="grid-template-columns:330px minmax(0,1fr)">
+          <aside>
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Approvals</h3>
+                <span class="spacer"></span>
+                <button class="icon-btn tip" data-tip="Refresh" id="btn-refresh">
+                  <i data-icon="refresh"></i></button>
+              </div>
+              <ul class="list" id="wf-list" style="max-height:70vh;overflow-y:auto">
+                <li><div class="list-item"><div class="skeleton" style="height:34px;width:100%"></div></div></li>
+              </ul>
+            </div>
+          </aside>
+
+          <section id="detail">
+            <div class="card card--pad"><div class="skeleton" style="height:200px"></div></div>
+          </section>
+        </div>
+
+        <!-- Everything at once. The panel beside the list answers one document
+             at a time, which is the wrong shape for "who is holding up what" -
+             a question about the whole set rather than about any one of them. -->
+        <div id="view-table" hidden>
+          <div class="table-wrap table-wrap--framed">
+            <table class="table table--clickable" id="wf-table">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Waiting on</th>
+                  <th>Step</th>
+                  <th>Signature</th>
+                  <th>Started by</th>
+                  <th>Started</th>
+                  <th>Needed by</th>
+                  <th>Step due</th>
+                </tr>
+              </thead>
+              <tbody id="wf-rows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Steps 1-3 all end in one of these. Step 4 had none, so the journey
+             appeared to stop here. What "next" means depends on where the
+             document has got to, so the bar says so rather than offering a
+             button that would only be refused. -->
+        <div class="next-bar" id="next-bar" hidden>
+          <div>
+            <div class="next-bar__text" id="next-text">Waiting on its approvers.</div>
+            <div class="t-xs muted-2" id="next-sub">Nothing to do here until they act.</div>
+          </div>
+          <div class="btn-row">
+            <a class="btn btn--outline" id="btn-back-process" href="/process">
+              <i data-icon="chevronLeft"></i>Change the approvers</a>
+            <a class="btn btn--primary btn--lg" id="btn-next" href="/publish" hidden>
+              Publish it<i data-icon="arrowRight"></i></a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script src="/static/ui/js/viewer.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon, flow, workflow, signatureMark,
+              confirmDanger } = DMS;
+      const $ = s => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+
+      let list = [];
+      let selected = null;
+      let wantDocId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+
+      if (params.get('filter') === 'overdue') $('#f-overdue').checked = true;
+
+      /* --------------------------------------------------------- the list */
+      async function loadList(keepSelection) {
+        const query = new URLSearchParams();
+        if ($('#f-status').value) query.set('status', $('#f-status').value);
+        if ($('#f-priority').value) query.set('priority', $('#f-priority').value);
+        if ($('#q').value.trim()) query.set('q', $('#q').value.trim());
+        query.set('limit', '60');
+
+        const data = await api.safe('/api/workflow/?' + query.toString(), { workflows: [] });
+        list = data.workflows || [];
+
+        // Overdue is a property of the step, so it is filtered here rather
+        // than pushed into the query: the server already told us.
+        if ($('#f-overdue').checked) {
+          list = list.filter(w => w.current_step && w.current_step.overdue);
+        }
+
+        renderList();
+
+        if (!list.length) { renderEmptyDetail($('#q').value.trim()); return; }
+
+        const keep = keepSelection && selected ? list.find(w => w.id === selected.id) : null;
+        const wanted = wantDocId ? list.find(w => w.document_id === wantDocId) : null;
+        wantDocId = null;
+        await select((keep || wanted || list[0]).id);
+      }
+
+      function renderList() {
+        $('#result-count').textContent = list.length
+          ? list.length + (list.length === 1 ? ' approval' : ' approvals') : 'Nothing found';
+
+        const host = $('#wf-list');
+        if (!list.length) {
+          host.innerHTML = '<li><div class="empty" style="padding:28px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('search') + '</span>' +
+            '<h3>Nothing matches</h3><p>Try a different search, or clear the filters.</p>' +
+            '</div></li>';
+          return;
+        }
+
+        host.innerHTML = list.map(w => {
+          const step = w.current_step;
+          const doc = w.document || {};
+          const active = selected && selected.id === w.id;
+          return '<li><button class="list-item' + (active ? ' is-active' : '') +
+            '" style="width:100%;text-align:left" data-wf="' + escapeHtml(w.id) + '">' +
+            '<span class="tile-icon tile-icon--grey">' +
+              icon(doc.origin === 'composed' ? 'compose' : 'file') + '</span>' +
+            '<span class="list-item__body">' +
+              '<span class="list-item__title truncate">' +
+                escapeHtml(doc.title || 'Untitled') + '</span>' +
+              // Abbreviated here and only here: the column is 330px wide and
+              // this line has a step number in front of it. The full list of
+              // names is spelled out in the panel and in the table.
+              '<span class="list-item__sub truncate">' +
+                (step ? 'Step ' + step.order + '/' + w.progress.total + ' · ' +
+                        escapeHtml(workflow.addressee(step, { short: true }))
+                      : ((workflow.STATUS[w.status] || {}).label || w.status)) +
+              '</span></span>' +
+            '<span class="list-item__end">' +
+              (step && step.overdue
+                ? '<span class="badge badge--danger">' + icon('alert') + 'Late</span>'
+                : workflow.statusBadge(w.status)) +
+            '</span></button></li>';
+        }).join('');
+
+        renderTable();
+      }
+
+      /* ------------------------------------------------------- table view
+         Every approval in flight on one screen. The panel beside the list
+         answers "what is happening to this document"; this answers "what is
+         happening to all of them", which is a different question and the one
+         asked when chasing a deadline. */
+      function renderTable() {
+        const host = $('#wf-rows');
+        if (!list.length) {
+          host.innerHTML = '<tr><td colspan="10" style="padding:26px;text-align:center">' +
+            '<span class="muted">Nothing matches. Try a different search, or clear ' +
+            'the filters.</span></td></tr>';
+          return;
+        }
+
+        host.innerHTML = list.map(w => {
+          const step = w.current_step;
+          const doc = w.document || {};
+          const done = (w.progress && w.progress.done) || 0;
+          const total = (w.progress && w.progress.total) || 0;
+
+          // Who is holding it up. On a step needing everybody this is the
+          // people who have NOT answered yet, not the whole assignee list -
+          // naming somebody who already signed as "waiting on" is wrong.
+          const waiting = step
+            ? ((step.outstanding || []).length
+                ? step.outstanding.map(p => p.name).join(', ')
+                : workflow.addressee(step))
+            : '—';
+
+          const signed = (step && step.requires_signature)
+            ? '<span class="badge badge--accent">' + icon('stamp') + 'Required</span>'
+            : step ? '<span class="badge">Approval only</span>' : '—';
+
+          return '<tr data-wf="' + escapeHtml(w.id) + '"' +
+              (selected && selected.id === w.id ? ' class="is-active"' : '') + '>' +
+            '<td><div class="cell-title truncate" style="max-width:290px">' +
+              escapeHtml(doc.title || 'Untitled') + '</div>' +
+              '<div class="cell-sub truncate" style="max-width:290px">' +
+              escapeHtml(w.name || 'Approval') + '</div></td>' +
+            '<td>' + workflow.statusBadge(w.status) + '</td>' +
+            '<td>' + workflow.priorityBadge(w.priority) + '</td>' +
+            '<td><div class="truncate" style="max-width:230px">' +
+              escapeHtml(waiting) + '</div>' +
+              (step && (step.outstanding || []).length > 1
+                ? '<div class="cell-sub">all ' + step.outstanding.length +
+                  ' must act</div>' : '') + '</td>' +
+            '<td>' + (step ? escapeHtml(step.name || '') +
+                '<div class="cell-sub">' + step.order + ' of ' + total + '</div>'
+              : '<span class="muted-2">' + done + ' of ' + total + ' done</span>') + '</td>' +
+            '<td>' + signed + '</td>' +
+            '<td class="truncate" style="max-width:150px">' +
+              escapeHtml((w.created_by && w.created_by.name) || 'Not set') + '</td>' +
+            '<td>' + escapeHtml(fmt.date(w.started_at) || '—') + '</td>' +
+            '<td>' + (w.due_date
+                ? (step && step.overdue
+                    ? '<span class="badge badge--danger">' + icon('alert') +
+                      escapeHtml(fmt.date(w.due_date)) + '</span>'
+                    : escapeHtml(fmt.date(w.due_date)))
+                : '<span class="muted-2">Not set</span>') + '</td>' +
+            '<td>' + (step && step.due_date
+                ? escapeHtml(fmt.date(step.due_date))
+                : '<span class="muted-2">—</span>') + '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      $('#wf-list').addEventListener('click', e => {
+        const btn = e.target.closest('[data-wf]');
+        if (btn) select(btn.dataset.wf);
+      });
+
+      /* -------------------------------------------------------- view switch
+         Choosing a row in the table opens it in the one-at-a-time view, so
+         the table is a way in rather than a dead end. */
+      $('#wf-rows').addEventListener('click', e => {
+        const row = e.target.closest('[data-wf]');
+        if (!row) return;
+        setView('split');
+        select(row.dataset.wf);
+      });
+
+      function setView(which) {
+        $('#view-split').hidden = which !== 'split';
+        $('#view-table').hidden = which !== 'table';
+        document.querySelectorAll('.viewswitch button').forEach(b => {
+          b.classList.toggle('is-active', b.dataset.view === which);
+        });
+        try { localStorage.setItem('dms.track.view', which); } catch (err) { /* private mode */ }
+      }
+
+      document.querySelector('.viewswitch').addEventListener('click', e => {
+        const btn = e.target.closest('[data-view]');
+        if (btn) setView(btn.dataset.view);
+      });
+
+      // Whichever view was last used is the one that opens.
+      try {
+        const saved = localStorage.getItem('dms.track.view');
+        if (saved === 'table') setView('table');
+      } catch (err) { /* private mode */ }
+
+      async function select(id) {
+        const loaded = await api.safe('/api/workflow/' + encodeURIComponent(id), null);
+        // A response without steps is not a workflow. Falling through with a
+        // half-formed object throws deep inside the render and leaves a blank
+        // panel with no explanation, so refuse it here.
+        selected = (loaded && loaded.progress && Array.isArray(loaded.steps)) ? loaded : null;
+        renderList();
+        if (selected) renderDetail();
+        else renderEmptyDetail('');
+      }
+
+      /* ------------------------------------------------------- the detail */
+      function renderEmptyDetail(q) {
+        selected = null;
+        ['#btn-remind', '#btn-print', '#btn-publish'].forEach(s => { $(s).hidden = true; });
+        // Nothing is selected, so there is no "next" for anything.
+        $('#next-bar').hidden = true;
+        $('#detail').innerHTML = '<div class="card card--pad">' +
+          '<div class="empty" style="padding:44px">' +
+          '<span class="tile-icon tile-icon--grey">' + icon('workflow') + '</span>' +
+          '<h3>' + (q ? 'No approval matches “' + escapeHtml(q) + '”'
+                      : 'Nothing is in an approval process') + '</h3>' +
+          '<p>' + (q ? 'Try another word, or clear the search.'
+                     : 'Choose a document and set up who approves it.') + '</p>' +
+          '<div class="btn-row">' +
+            '<a class="btn btn--outline" href="/documents">Browse documents</a>' +
+            '<a class="btn btn--primary" href="/process">Set up an approval</a>' +
+          '</div></div></div>';
+      }
+
+      function renderDetail() {
+        if (!selected) return;
+        const w = selected;
+        const doc = w.document || {};
+        const step = w.current_step;
+        const mine = step && step.can_act;
+
+        const docId = doc.id || '';
+        $('#btn-remind').hidden = w.status !== 'active';
+        $('#btn-print').hidden = !['approved', 'published'].includes(w.status);
+        $('#btn-publish').hidden = w.status !== 'approved';
+        if (docId) $('#btn-publish').href = '/publish?id=' + encodeURIComponent(docId);
+
+        renderNextBar(w, step, docId);
+
+        $('#detail').innerHTML =
+          outcomeBar(w) +
+          (mine ? decisionCard(w, step) : blockedNote(step)) +
+          '<div class="grid grid-sidebar mt-3">' +
+            '<div class="stack">' + progressCard(w) + viewerCard(doc) + '</div>' +
+            '<aside class="stack">' + summaryCard(w, doc) + signaturesCard(w) +
+              versionsCard(doc) + trailCard(w) + '</aside>' +
+          '</div>';
+
+        wireDetail(w, step, doc);
+      }
+
+      /**
+       * The bar along the bottom: one way back, and the one way forward if
+       * there is one. It states plainly why there is no forward move when
+       * there is not, which is most of the time on this screen.
+       */
+      function renderNextBar(w, step, docId) {
+        const bar = $('#next-bar');
+        const next = $('#btn-next');
+        const back = $('#btn-back-process');
+        bar.hidden = false;
+
+        next.href = docId ? '/publish?id=' + encodeURIComponent(docId) : '/publish';
+
+        // Going back only means "change the approvers" while there is still an
+        // approval to change. Once it is published or rejected the chain is
+        // history, so back means back to the document itself.
+        const settled = ['published', 'rejected'].includes(w.status);
+        if (settled) {
+          back.innerHTML = icon('chevronLeft') + 'Open the document';
+          back.href = docId ? '/documents/detail?id=' + encodeURIComponent(docId) : '/documents';
+        } else {
+          back.innerHTML = icon('chevronLeft') + 'Change the approvers';
+          back.href = docId ? '/process?id=' + encodeURIComponent(docId) : '/process';
+        }
+
+        const say = (text, sub, forward) => {
+          $('#next-text').textContent = text;
+          $('#next-sub').textContent = sub;
+          next.hidden = !forward;
+        };
+
+        if (w.status === 'approved') {
+          say('Every approver has acted.', 'Next: release it, export it, or print it.', true);
+        } else if (w.status === 'published') {
+          say('Published and filed.', 'This document has completed all five steps.', false);
+        } else if (w.status === 'rejected') {
+          say('Rejected, so the process has ended.',
+              'Edit the document and start a new approval when it is ready.', false);
+        } else if (w.status === 'changes_requested') {
+          say('Sent back to its author.',
+              'It returns to step 1 of the chain once they resubmit it.', false);
+        } else if (step) {
+          say('Waiting on ' + workflow.addressee(step) + '.',
+              'Step ' + step.order + ' of ' + w.progress.total +
+              '. Publishing opens once every step is done.', false);
+        } else {
+          say('In progress.', 'Publishing opens once every step is done.', false);
+        }
+      }
+
+      function outcomeBar(w) {
+        if (w.status === 'approved') {
+          const to = (w.document || {}).id
+            ? '/publish?id=' + encodeURIComponent(w.document.id) : '/publish';
+          return '<div class="decision mb-3">' +
+            '<span class="tile-icon">' + icon('check') + '</span>' +
+            '<div><div class="decision__prompt">Fully approved</div>' +
+            '<div class="decision__sub">Completed ' + fmt.dateTime(w.completed_at) +
+            ' · ready to publish</div></div><span class="spacer"></span>' +
+            '<a class="btn btn--primary" href="' + to + '">' + icon('send') + 'Publish it</a></div>';
+        }
+        if (w.status === 'published') {
+          return '<div class="decision mb-3">' +
+            '<span class="tile-icon">' + icon('send') + '</span>' +
+            '<div><div class="decision__prompt">Published</div>' +
+            '<div class="decision__sub">Released ' + fmt.dateTime(w.published_at) +
+            (w.published_by ? ' by ' + escapeHtml(w.published_by.name) : '') + '</div></div></div>';
+        }
+        if (w.status === 'rejected') {
+          const r = (w.steps || []).find(x => x.status === 'rejected') || {};
+          return '<div class="decision mb-3 card--danger">' +
+            '<span class="tile-icon tile-icon--danger">' + icon('x') + '</span>' +
+            '<div><div class="decision__prompt danger-text">Rejected</div>' +
+            '<div class="decision__sub">' + escapeHtml(r.reason || '') +
+            (r.decided_by ? ' · ' + escapeHtml(r.decided_by.name) : '') +
+            (r.decided_at ? ' · ' + fmt.dateTime(r.decided_at) : '') + '</div></div></div>';
+        }
+        if (w.status === 'changes_requested') {
+          const s = (w.steps || []).find(x => x.status === 'changes_requested') || {};
+          return '<div class="decision mb-3">' +
+            '<span class="tile-icon tile-icon--warn">' + icon('refresh') + '</span>' +
+            '<div><div class="decision__prompt">Sent back for changes</div>' +
+            '<div class="decision__sub">' + escapeHtml(s.comment || '') +
+            (s.decided_by ? ' · ' + escapeHtml(s.decided_by.name) : '') + '</div></div>' +
+            '<span class="spacer"></span>' +
+            '<a class="btn btn--outline" href="/studio?id=' + encodeURIComponent(w.document_id) + '">' +
+              icon('compose') + 'Edit the document</a>' +
+            '<button class="btn btn--primary" data-resubmit>' + icon('refresh') +
+              'Resubmit</button></div>';
+        }
+        return '';
+      }
+
+      /**
+       * When somebody cannot act, say why rather than showing nothing. The
+       * server supplies the reason, so the explanation on screen is always the
+       * same rule the API would enforce.
+       */
+      function blockedNote(step) {
+        if (!step || !step.blocked_reason) return '';
+        return '<div class="banner mb-3">' + icon('info') +
+          '<div><strong>Waiting on ' + escapeHtml(workflow.addressee(step)) + '.</strong> ' +
+          escapeHtml(step.blocked_reason) + '</div></div>';
+      }
+
+      /**
+       * The decision card appears only when the server says this person may act.
+       * It names the requirement plainly: sign, or simply approve. Two different
+       * authorities deserve two different words.
+       */
+      function decisionCard(w, step) {
+        return '<div class="card">' +
+          '<div class="card__head">' +
+            '<span class="tile-icon tile-icon--solid">' + icon('approvals') + '</span>' +
+            '<div><h3 class="t-h3">It is waiting on you</h3>' +
+            '<div class="t-xs muted">Step ' + step.order + ' of ' + w.progress.total + ' · ' +
+              escapeHtml(step.name) +
+              (step.due_date ? ' · due ' + fmt.date(step.due_date) : '') + '</div></div>' +
+            '<span class="spacer"></span>' +
+            (step.requires_signature
+              ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature required</span>'
+              : '<span class="badge">Approval only</span>') +
+          '</div>' +
+          '<div class="card__body"><div class="decision">' +
+            '<div><div class="decision__prompt">Do you approve this document?</div>' +
+            '<div class="decision__sub">' +
+              (step.requires_signature
+                ? 'Your signature is applied to the document and locks this version.'
+                : 'Your approval is recorded against your name. No signature is needed here.') +
+            '</div></div>' +
+            '<div class="decision__actions">' +
+              '<button class="btn btn--danger" data-act="reject">' + icon('x') + 'Reject</button>' +
+              '<button class="btn btn--warn" data-act="changes">' + icon('refresh') +
+                'Request changes</button>' +
+              '<button class="btn btn--primary" data-act="approve">' +
+                icon(step.requires_signature ? 'stamp' : 'check') +
+                (step.requires_signature ? 'Approve &amp; sign' : 'Approve') + '</button>' +
+            '</div></div></div></div>';
+      }
+
+      function progressCard(w) {
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">Approval progress</h3>' +
+            '<span class="spacer"></span>' +
+            '<span class="t-sm muted">' + w.progress.done + ' of ' + w.progress.total +
+            ' approved</span></div>' +
+          '<div class="card__body">' +
+            '<div class="progress progress--tall mb-3"><div class="progress__bar" style="width:' +
+              w.progress.percent + '%"></div></div>' +
+            (w.steps || []).map(stepRow).join('') +
+          '</div></div>';
+      }
+
+      function stepRow(s) {
+        const cls = { approved: 'is-approved', current: 'is-current', rejected: 'is-rejected',
+                      changes_requested: 'is-changes', pending: 'is-pending',
+                      skipped: 'is-pending' }[s.status] || '';
+        const mark = { approved: 'check', current: 'clock', rejected: 'x',
+                       changes_requested: 'refresh' }[s.status] || 'clock';
+        const verb = { approved: 'Approved', current: 'Waiting', rejected: 'Rejected',
+                       changes_requested: 'Sent back', skipped: 'Not reached',
+                       pending: 'Not started' }[s.status] || s.status;
+
+        return '<div class="trail__item ' + cls + '">' +
+          '<span class="trail__icon">' + icon(mark) + '</span>' +
+          '<div class="trail__body">' +
+            '<div class="row wrap" style="gap:6px">' +
+              '<span class="trail__title">' + s.order + '. ' + escapeHtml(s.name) + '</span>' +
+              '<span class="spacer"></span>' +
+              (s.status === 'current' ? '<span class="badge badge--accent">Now</span>' : '') +
+              (s.requires_signature
+                ? '<span class="badge">' + icon('stamp') + 'Signature</span>'
+                : '<span class="badge">Approval only</span>') +
+              (s.status === 'current' ? workflow.dueBadge(s) : '') +
+            '</div>' +
+            '<div class="trail__meta">' + escapeHtml(verb) + ' · ' +
+              escapeHtml(workflow.addressee(s)) +
+              (s.decided_by ? ' · by ' + escapeHtml(s.decided_by.name) : '') +
+              (s.decided_at ? ' · ' + fmt.dateTime(s.decided_at) : '') +
+            '</div>' +
+            (s.reason ? '<div class="trail__note"><strong>Reason:</strong> ' +
+              escapeHtml(s.reason) + '</div>' : '') +
+            (s.comment ? '<div class="trail__note">' + escapeHtml(s.comment) + '</div>' : '') +
+            (s.signature ? '<div class="mt-2">' + signatureMark(s.signature,
+              'Signed ' + fmt.dateTime(s.signature.signedAt)) + '</div>' : '') +
+          '</div></div>';
+      }
+
+      function viewerCard(doc) {
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">The document as it stands</h3>' +
+            '<span class="spacer"></span>' +
+            '<span class="version__tag">v' + escapeHtml(doc.version || '1.0') + '</span>' +
+            '<a class="btn btn--sm btn--outline" target="_blank" rel="noopener" ' +
+              'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
+              icon('external') + 'Open in a new tab</a>' +
+          '</div>' +
+          '<div class="viewer" id="track-viewer" style="min-height:430px;border-radius:0;border:0;' +
+            'border-top:1px solid var(--border)"></div></div>';
+      }
+
+      function summaryCard(w, doc) {
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">This approval</h3>' +
+            '<span class="spacer"></span>' + workflow.statusBadge(w.status) + '</div>' +
+          '<div class="card__body"><dl class="dl">' +
+            '<dt>Document</dt><dd class="truncate"><a class="accent-text" href="/documents/detail?id=' +
+              encodeURIComponent(doc.id || '') + '">' +
+              escapeHtml(doc.title || 'Untitled') + '</a></dd>' +
+            '<dt>Priority</dt><dd>' + workflow.priorityBadge(w.priority) + '</dd>' +
+            // Every name, and separately the ones still to act: on a step
+            // requiring everybody, "assigned to" and "waiting on" stop being
+            // the same list the moment the first person signs.
+            '<dt>Assigned to</dt><dd>' +
+              (w.current_step ? escapeHtml(workflow.addressee(w.current_step))
+                              : '<span class="muted-2">Nobody, it is finished</span>') + '</dd>' +
+            (w.current_step && (w.current_step.outstanding || []).length
+              ? '<dt>Still to act</dt><dd>' +
+                escapeHtml(w.current_step.outstanding.map(p => p.name).join(', ')) +
+                '</dd>'
+              : '') +
+            (w.current_step && (w.current_step.approved_by || []).length
+              ? '<dt>Already approved</dt><dd>' +
+                escapeHtml(w.current_step.approved_by.map(p => p.name).join(', ')) +
+                '</dd>'
+              : '') +
+            '<dt>This step needs</dt><dd>' +
+              (w.current_step
+                ? (w.current_step.requires_signature ? 'A signature' : 'Approval only') +
+                  ((w.current_step.assignees || []).length > 1
+                    ? ' · ' + (w.current_step.approval_mode === 'any'
+                        ? 'any one of them' : 'all of them')
+                    : '')
+                : '<span class="muted-2">—</span>') + '</dd>' +
+            '<dt>Started by</dt><dd>' +
+              (w.created_by ? escapeHtml(w.created_by.name) : 'Not set') + '</dd>' +
+            '<dt>Started</dt><dd>' + fmt.dateTime(w.started_at) + '</dd>' +
+            '<dt>Needed by</dt><dd>' +
+              (w.due_date
+                ? (w.current_step && w.current_step.overdue
+                    ? '<span class="badge badge--danger">' + icon('alert') +
+                      fmt.date(w.due_date) + '</span>'
+                    : fmt.date(w.due_date))
+                : 'Not set') + '</dd>' +
+            '<dt>This step due</dt><dd>' +
+              (w.current_step && w.current_step.due_date
+                ? fmt.dateTime(w.current_step.due_date) : 'Not set') + '</dd>' +
+            '<dt>Route</dt><dd>' + escapeHtml(w.name || 'Approval') + '</dd>' +
+            '<dt>Retention</dt><dd>' + escapeHtml(w.retention_policy || 'Not set') + '</dd>' +
+            '<dt>After approval</dt><dd>' + escapeHtml(w.after_approval || 'File it') + '</dd>' +
+          '</dl>' +
+          '<div class="divider"></div>' +
+          '<div class="btn-row" style="flex-wrap:wrap">' +
+            '<a class="btn btn--sm btn--outline" href="/documents/detail?id=' +
+              encodeURIComponent(doc.id || '') + '">' + icon('eye') + 'Document</a>' +
+            '<a class="btn btn--sm btn--outline" href="/studio?id=' +
+              encodeURIComponent(doc.id || '') + '">' + icon('compose') + 'Edit</a>' +
+            (w.status === 'active'
+              ? '<button class="btn btn--sm btn--danger-soft" data-cancel>' + icon('x') +
+                'Cancel</button>' : '') +
+          '</div></div></div>';
+      }
+
+      function signaturesCard(w) {
+        const sigs = w.signatures || [];
+        const canPlace = sigs.length && ['approved', 'active', 'changes_requested']
+          .includes(w.status);
+
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">Signatures</h3>' +
+            '<span class="spacer"></span><span class="t-sm muted">' + sigs.length + '</span></div>' +
+          '<div class="card__body">' +
+            (sigs.length
+              ? sigs.map(s => '<div class="mb-2">' +
+                  signatureMark({ dataUrl: s.dataUrl, name: s.name, signedAt: s.signedAt },
+                    (s.designation ? s.designation + ' · ' : '') +
+                    'Step ' + s.order + ' · ' + fmt.dateTime(s.signedAt)) + '</div>').join('') +
+                // These go onto the document itself when it is published.
+                '<div class="divider"></div>' +
+                '<p class="t-xs muted-2">Stamped onto the document when it is published. ' +
+                  'The approved version is kept separately and never overwritten.</p>' +
+                (canPlace
+                  ? '<div class="btn-row mt-2" style="flex-wrap:wrap">' +
+                      '<button class="btn btn--sm btn--outline" data-place>' +
+                        icon('signature') + 'Adjust placement</button>' +
+                      '<a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" ' +
+                        'href="/api/signatures/' + encodeURIComponent(w.id) + '/preview">' +
+                        icon('eye') + 'Preview signed</a>' +
+                    '</div>'
+                  : w.status === 'published'
+                    ? '<div class="banner banner--grey mt-2">' + icon('check') +
+                      '<div>Already stamped on the published version.</div></div>'
+                    : '')
+              : '<p class="t-sm muted-2">None yet. Signatures appear here as approvers sign. ' +
+                'Steps marked “approval only” never produce one, by design.</p>') +
+          '</div></div>';
+      }
+
+      function versionsCard(doc) {
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">Versions</h3>' +
+            '<span class="spacer"></span>' +
+            '<a class="btn btn--sm btn--ghost" href="/documents/detail?id=' +
+              encodeURIComponent(doc.id || '') + '">All' + icon('chevronRight') + '</a></div>' +
+          '<ul class="list" id="version-list">' +
+            '<li><div class="list-item"><div class="skeleton" style="height:26px;width:100%">' +
+            '</div></div></li></ul></div>';
+      }
+
+      function trailCard(w) {
+        const events = w.events || [];
+        return '<div class="card">' +
+          '<div class="card__head"><h3 class="t-h3">What has happened</h3></div>' +
+          '<div class="card__body"><div class="timeline">' +
+            (events.length
+              ? events.slice().reverse().map(e =>
+                  '<div class="timeline__item ' +
+                    ({ approved: 'is-accent', published: 'is-accent', rejected: 'is-danger',
+                       changes: 'is-warn' }[e.kind] || '') + '">' +
+                    '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
+                    '<div class="timeline__meta">' + fmt.dateTime(e.at) +
+                      (e.detail ? ' · “' + escapeHtml(e.detail) + '”' : '') + '</div>' +
+                  '</div>').join('')
+              : '<p class="t-sm muted-2">Nothing yet.</p>') +
+          '</div></div></div>';
+      }
+
+      /* ------------------------------------------------------ interactions */
+      function wireDetail(w, step, doc) {
+        if (doc && doc.id && window.DMSViewer) {
+          DMSViewer.mount(document.getElementById('track-viewer'), doc.id);
+        }
+
+        if (doc && doc.id) {
+          api.safe('/api/documents/' + doc.id + '/versions', { versions: [] }).then(data => {
+            const host = document.getElementById('version-list');
+            if (!host) return;
+            const versions = data.versions || [];
+            host.innerHTML = versions.length
+              ? versions.slice(0, 5).map(v =>
+                  '<li><a class="list-item" target="_blank" rel="noopener" href="' +
+                    escapeHtml(v.file_url) + '">' +
+                    '<span class="version__tag' + (v.is_locked ? ' is-locked' : '') + '">v' +
+                      escapeHtml(v.version) + '</span>' +
+                    '<span class="list-item__body">' +
+                      '<span class="list-item__title truncate">' +
+                        escapeHtml(v.note || 'Saved') + '</span>' +
+                      '<span class="list-item__sub">' +
+                        (v.author ? escapeHtml(v.author) + ' · ' : '') + fmt.ago(v.created_at) +
+                      '</span></span>' +
+                    (v.is_current ? '<span class="badge badge--accent">Current</span>'
+                      : v.is_locked ? '<span class="badge">' + icon('lock') + 'Locked</span>' : '') +
+                  '</a></li>').join('')
+              : '<li><div class="list-item"><span class="t-sm muted-2">' +
+                'No versions recorded yet.</span></div></li>';
+          });
+        }
+
+        const detail = $('#detail');
+
+        detail.querySelectorAll('[data-act]').forEach(btn => {
+          btn.onclick = async () => {
+            let updated;
+            try {
+              updated = await workflow.decide(w, step, btn.dataset.act, {
+                subject: (doc && doc.title) || 'this document',
+              });
+            } catch (err) {
+              if (err.stale) {
+                toast('Already dealt with', err.message, 'danger');
+                await loadList(true);
+                return;
+              }
+              toast('Could not record that', String(err.message || err).slice(0, 220), 'danger');
+              return;
+            }
+            if (!updated) return;
+
+            toast({ approve: 'Approved', reject: 'Rejected',
+                    changes: 'Sent back for changes' }[btn.dataset.act],
+              updated.current_step
+                ? 'Now with ' + workflow.addressee(updated.current_step)
+                : ((workflow.STATUS[updated.status] || {}).label || ''));
+            selected = updated;
+            await loadList(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+        });
+
+        const resubmit = detail.querySelector('[data-resubmit]');
+        if (resubmit) {
+          resubmit.onclick = async () => {
+            try {
+              selected = await api.post('/api/workflow/' + w.id + '/resubmit', { note: '' });
+              toast('Resubmitted', 'Approvals restart from step 1 against the current version.');
+              await loadList(true);
+            } catch (err) {
+              toast('Could not resubmit', String(err.message || err).slice(0, 200), 'danger');
+            }
+          };
+        }
+
+        const place = detail.querySelector('[data-place]');
+        if (place) {
+          place.onclick = async () => {
+            const saved = await DMS.placeSignatures(w.id);
+            if (saved) {
+              selected = await api.safe('/api/workflow/' + w.id, selected);
+              renderDetail();
+            }
+          };
+        }
+
+        const cancel = detail.querySelector('[data-cancel]');
+        if (cancel) {
+          cancel.onclick = async () => {
+            const ok = await confirmDanger({
+              title: 'Cancel this approval?',
+              message: 'The chain stops and nobody is asked to act. The document is not deleted, ' +
+                       'and everything already recorded stays in the trail.',
+              confirmLabel: 'Cancel approval',
+            });
+            if (!ok) return;
+            try {
+              await api.post('/api/workflow/' + w.id + '/cancel', {});
+              toast('Approval cancelled');
+              selected = null;
+              await loadList(false);
+            } catch (err) {
+              toast('Could not cancel', String(err.message || err).slice(0, 200), 'danger');
+            }
+          };
+        }
+      }
+
+      /* ------------------------------------------------------- top actions */
+      $('#btn-remind').onclick = async () => {
+        if (!selected) return;
+        try {
+          const r = await api.post('/api/workflow/' + selected.id + '/remind', {});
+          toast('Reminder sent', r.notified);
+          selected = await api.safe('/api/workflow/' + selected.id, selected);
+          renderDetail();
+        } catch (err) {
+          toast('Could not send a reminder', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+      $('#btn-print').onclick = () => window.print();
+      $('#btn-refresh').onclick = () => loadList(true);
+
+      /* ------------------------------------------------------------ filters */
+      let debounce = null;
+      $('#q').addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => loadList(false), 280);
+      });
+      ['#f-status', '#f-priority', '#f-overdue'].forEach(sel => {
+        $(sel).addEventListener('change', () => loadList(false));
+      });
+
+      /* --------------------------------------------------------------- boot */
+      (async function () {
+        await loadList(false);
+        flow.advance(4);
+      })();
+    })();
+  </script>
+</body>
+
+</html>

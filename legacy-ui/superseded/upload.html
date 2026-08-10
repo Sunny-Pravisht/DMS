@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add a file · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="upload" data-step="1" data-title="Add a file">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--ghost btn--sm" href="/documents">Skip and use an existing document</a>
+      </div>
+
+      <main class="page">
+        <div data-journey></div>
+
+        <div class="page-head">
+          <div class="t-eyebrow">Step 1 · bringing a file in</div>
+          <h1 class="t-display mt-1">Add a file you already have</h1>
+          <p>Drop it in and the system reads it: the title, the supplier, the dates and the
+            document type. You confirm all of that on the next screen, and correct anything
+            that is wrong.</p>
+        </div>
+
+        <!-- The two ways a document begins. Both land in the same repository
+             and take the same four steps from here. -->
+        <!-- Upload -->
+        <div>
+          <div class="grid grid-sidebar">
+            <div class="stack">
+              <div class="dropzone" id="dropzone">
+                <span class="tile-icon tile-icon--lg"><i data-icon="capture"></i></span>
+                <h3 class="t-h2">Drop your file here</h3>
+                <p class="t-sm muted mt-1">or <span class="accent-text" style="font-weight:600">browse your computer</span></p>
+                <input type="file" id="file-input" multiple hidden>
+                <div class="row wrap mt-3" style="justify-content:center;gap:6px">
+                  <span class="badge">PDF</span><span class="badge">Word</span><span class="badge">Excel</span>
+                  <span class="badge">Scans &amp; photos</span><span class="badge">Email</span>
+                </div>
+              </div>
+
+              <!-- Per-file confirmation -->
+              <div class="card hidden" id="result-card">
+                <div class="card__head">
+                  <h3 class="t-h3">Upload result</h3>
+                  <span class="spacer"></span>
+                  <span class="t-sm muted" id="result-summary"></span>
+                </div>
+                <div class="card__body" id="result-list"></div>
+              </div>
+
+              <div class="card">
+                <div class="card__head"><h3 class="t-h3">What happens the moment you drop a file</h3></div>
+                <div class="card__body">
+                  <div class="flowline">
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="capture"></i></span>
+                      <h4>Stored safely</h4><p>Encrypted, versioned, logged</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="eye"></i></span>
+                      <h4>Read by AI</h4><p>Text pulled from scans too</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="tag"></i></span>
+                      <h4>Details filled in</h4><p>Supplier, date, amount, type</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="search"></i></span>
+                      <h4>Findable</h4><p>Searchable in seconds</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="stack">
+              <div class="card card--pad">
+                <h3 class="t-h3">What happens next</h3>
+                <p class="t-sm muted mt-1">The file is stored, its text is read, and the details
+                  are filled in automatically. You check them on step 2 and change anything the
+                  system got wrong.</p>
+                <div class="divider"></div>
+                <div class="row">
+                  <span class="dot dot--accent dot--pulse"></span>
+                  <span class="t-sm">Watching the intake folder</span>
+                  <span class="spacer"></span>
+                  <button class="btn btn--sm btn--outline" id="btn-process">Check now</button>
+                </div>
+                <p class="t-xs muted-2 mt-2">Anything dropped into the intake folder on disk is
+                  picked up the same way.</p>
+              </div>
+
+              <div class="card card--pad">
+                <h3 class="t-h3">Would you rather write it?</h3>
+                <p class="t-sm muted mt-1">The Studio has HARMAN and vendor letterheads, an image
+                  library, signatures and AI drafting.</p>
+                <a class="btn btn--outline btn--sm btn--block mt-3" href="/studio">
+                  <i data-icon="compose"></i>Open the Document Studio</a>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- Next -->
+        <div class="next-bar" id="next-bar" hidden>
+          <div>
+            <div class="next-bar__text"><strong id="next-name">Document</strong> is in.</div>
+            <div class="t-xs muted-2">Next: check the details we read and correct anything that is wrong.</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--outline" id="btn-more">Upload another</button>
+            <a class="btn btn--primary btn--lg" id="btn-next" href="/review">
+              Review details<i data-icon="arrowRight"></i></a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon, flow } = DMS;
+      const zone = document.getElementById('dropzone');
+      const input = document.getElementById('file-input');
+      const card = document.getElementById('result-card');
+      const list = document.getElementById('result-list');
+      const summary = document.getElementById('result-summary');
+      const nextBar = document.getElementById('next-bar');
+      let ok = 0, failed = 0;
+
+      zone.onclick = () => input.click();
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('is-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('is-over');
+        queue(e.dataTransfer.files);
+      });
+      input.onchange = () => { queue(input.files); input.value = ''; };
+      document.getElementById('btn-more').onclick = () => input.click();
+
+      function queue(files) {
+        if (!files || !files.length) return;
+        card.classList.remove('hidden');
+        Array.from(files).forEach(upload);
+      }
+
+      function sync() {
+        summary.textContent = ok + ' succeeded' + (failed ? ' · ' + failed + ' failed' : '');
+      }
+
+      /**
+       * One row per file, showing plainly whether it worked. A failure offers
+       * Try again; a success offers Replace, because the commonest real mistake
+       * is uploading the right way but the wrong file.
+       */
+      async function upload(file) {
+        const row = document.createElement('div');
+        row.className = 'upload-row';
+        row.innerHTML =
+          '<span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+          '<div class="upload-row__body">' +
+            '<div class="row"><span class="t-sm truncate" style="font-weight:560">' +
+              escapeHtml(file.name) + '</span>' +
+            '<span class="spacer"></span><span class="t-xs muted-2">' + fmt.bytes(file.size) + '</span></div>' +
+            '<div class="progress mt-1"><div class="progress__bar" style="width:10%"></div></div>' +
+          '</div>' +
+          '<div data-state style="min-width:190px;text-align:right"><span class="badge">Uploading…</span></div>';
+        list.appendChild(row);
+
+        const bar = row.querySelector('.progress__bar');
+        const state = row.querySelector('[data-state]');
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+          await api.request('/api/documents/upload', { method: 'POST', body: fd });
+          bar.style.width = '100%';
+          ok++;
+          state.innerHTML =
+            '<span class="badge badge--accent">' + icon('check') + 'Uploaded successfully</span>' +
+            '<div class="btn-row mt-2" style="justify-content:flex-end">' +
+              '<button class="btn btn--sm btn--ghost" data-replace>Wrong file? Replace</button></div>';
+          state.querySelector('[data-replace]').onclick = () => {
+            row.remove();
+            ok = Math.max(0, ok - 1);
+            sync();
+            input.click();
+          };
+          await remember(file);
+        } catch (e) {
+          bar.style.width = '100%';
+          bar.classList.add('is-danger');
+          failed++;
+          state.innerHTML =
+            '<span class="badge badge--danger">' + icon('alert') + 'Upload failed</span>' +
+            '<div class="t-xs danger-text mt-1">' + escapeHtml(String(e.message || e).slice(0, 90)) + '</div>' +
+            '<div class="btn-row mt-2" style="justify-content:flex-end">' +
+              '<button class="btn btn--sm btn--danger-soft" data-retry>Try again</button></div>';
+          state.querySelector('[data-retry]').onclick = () => { row.remove(); failed--; sync(); upload(file); };
+        }
+        sync();
+        nextBar.hidden = ok === 0;
+      }
+
+      /** Find the document the server just created and carry it into step 2. */
+      async function remember(file) {
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const docs = await api.safe('/api/documents/?limit=5', []);
+          const items = Array.isArray(docs) ? docs : [];
+          const match = items.find(d =>
+            (d.original_filename === file.name) ||
+            (d.filename === file.name) ||
+            (d.title && file.name.toLowerCase().includes(String(d.title).toLowerCase().slice(0, 12)))) || items[0];
+          if (match) {
+            flow.patch({ doc: { id: match.id, title: match.title || file.name }, confirmed: false });
+            document.getElementById('next-name').textContent = match.title || file.name;
+            document.getElementById('btn-next').href = '/review?id=' + encodeURIComponent(match.id);
+            return;
+          }
+          await new Promise(r => setTimeout(r, 900));
+        }
+        document.getElementById('next-name').textContent = file.name;
+      }
+
+      document.getElementById('btn-process').onclick = async () => {
+        try { await api.post('/api/documents/process-staging', {}); toast('Checking for new files'); }
+        catch (e) { toast('Could not check right now', String(e.message || e), 'danger'); }
+      };
+    })();
+  </script>
+</body>
+
+</html>

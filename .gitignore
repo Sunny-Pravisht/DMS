@@ -1,0 +1,29 @@
+# Local credentials and environments
+.env
+.venv/
+venv/
+
+# Runtime data
+/backups/
+/chroma/
+/data/
+/logs/
+/staging/
+/storage/
+/uploads/
+.local-smoke-credentials.json
+
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+
+# Generated first-page previews; rebuilt on demand.
+/data/thumbnails/

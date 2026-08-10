@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="dashboard" data-title="Dashboard">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--outline btn--sm" href="/capture"><i data-icon="upload"></i>Capture</a>
+        <a class="btn btn--primary btn--sm" href="/search"><i data-icon="search"></i>Find a document</a>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="page-head__row">
+            <div>
+              <div class="t-eyebrow">Enterprise content platform</div>
+              <h1 class="t-display mt-1">Platform overview</h1>
+              <p>One governed repository for capture, classification, workflow, retention and
+                third-party exchange — across every department.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key figures -->
+        <section class="grid grid-4">
+          <div class="card stat">
+            <div class="stat__label">Documents under management</div>
+            <div class="stat__value" data-stat="total">—</div>
+            <div class="stat__foot"><span class="delta delta--up"><i data-icon="arrowUp"></i>8.2%</span>
+              vs. last month</div>
+          </div>
+          <div class="card stat stat--accent">
+            <div class="stat__label">Awaiting approval</div>
+            <div class="stat__value" data-stat="pending">6</div>
+            <div class="stat__foot">Across 4 active workflows</div>
+          </div>
+          <div class="card stat stat--danger">
+            <div class="stat__label">Due for disposition</div>
+            <div class="stat__value">23</div>
+            <div class="stat__foot">Next review in 5 days</div>
+          </div>
+          <div class="card stat">
+            <div class="stat__label">Awaiting processing</div>
+            <div class="stat__value" data-stat="processing">—</div>
+            <div class="stat__foot">OCR &amp; AI extraction queue</div>
+          </div>
+        </section>
+
+        <!-- Lifecycle -->
+        <section class="section">
+          <div class="section__head">
+            <h2 class="t-h2">Document lifecycle</h2>
+            <span class="spacer"></span>
+            <span class="badge badge--accent"><span class="dot dot--accent dot--pulse"></span>All stages healthy</span>
+          </div>
+
+          <div class="flowline">
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="capture"></i></span>
+              <h4>Capture</h4>
+              <p>Structured &amp; unstructured sources</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="search"></i></span>
+              <h4>Index &amp; Classify</h4>
+              <p>Metadata, OCR, AI tagging</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step is-current">
+              <span class="tile-icon tile-icon--solid"><i data-icon="layers"></i></span>
+              <h4>Core repository</h4>
+              <p>Versioning, workflow, retention</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="users"></i></span>
+              <h4>Govern &amp; Access</h4>
+              <p>Org / department permissions</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="integrations"></i></span>
+              <h4>Integrate</h4>
+              <p>APIs to third-party systems</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section grid grid-sidebar">
+          <!-- Left column -->
+          <div class="stack-lg">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Ingestion volume</h3>
+                <span class="spacer"></span>
+                <div class="segmented">
+                  <button data-value="7" class="is-active">7 days</button>
+                  <button data-value="30">30 days</button>
+                  <button data-value="90">Quarter</button>
+                </div>
+              </div>
+              <div class="card__body">
+                <div class="bars">
+                  <div class="bars__col"><div class="bars__bar" style="height:38%"></div><span class="bars__label">Mon</span></div>
+                  <div class="bars__col"><div class="bars__bar" style="height:57%"></div><span class="bars__label">Tue</span></div>
+                  <div class="bars__col"><div class="bars__bar" style="height:44%"></div><span class="bars__label">Wed</span></div>
+                  <div class="bars__col"><div class="bars__bar" style="height:76%"></div><span class="bars__label">Thu</span></div>
+                  <div class="bars__col is-accent"><div class="bars__bar" style="height:92%"></div><span class="bars__label">Fri</span></div>
+                  <div class="bars__col"><div class="bars__bar" style="height:21%"></div><span class="bars__label">Sat</span></div>
+                  <div class="bars__col"><div class="bars__bar" style="height:14%"></div><span class="bars__label">Sun</span></div>
+                </div>
+                <div class="divider"></div>
+                <div class="kv-strip">
+                  <div class="kv"><div class="kv__k">Unstructured</div><div class="kv__v">1,284</div></div>
+                  <div class="kv"><div class="kv__k">Structured</div><div class="kv__v">906</div></div>
+                  <div class="kv"><div class="kv__k">OCR processed</div><div class="kv__v">1,102</div></div>
+                  <div class="kv"><div class="kv__k">Auto-classified</div><div class="kv__v">96.4%</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Repository by department</h3>
+                <span class="spacer"></span>
+                <a class="btn btn--ghost btn--sm" href="/organization">Manage<i data-icon="chevronRight"></i></a>
+              </div>
+              <div class="card__body stack-sm">
+                <div class="meter-row">
+                  <span class="meter-row__label">Finance</span>
+                  <span class="progress full"><span class="progress__bar" style="width:82%"></span></span>
+                  <span class="meter-row__value">18,402</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Legal</span>
+                  <span class="progress full"><span class="progress__bar" style="width:61%"></span></span>
+                  <span class="meter-row__value">13,655</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Operations</span>
+                  <span class="progress full"><span class="progress__bar" style="width:47%"></span></span>
+                  <span class="meter-row__value">10,511</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Human Resources</span>
+                  <span class="progress full"><span class="progress__bar" style="width:29%"></span></span>
+                  <span class="meter-row__value">6,480</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Procurement</span>
+                  <span class="progress full"><span class="progress__bar" style="width:18%"></span></span>
+                  <span class="meter-row__value">4,027</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column -->
+          <div class="stack-lg">
+            <div class="card card--danger card--pad">
+              <div class="row-top">
+                <span class="tile-icon tile-icon--danger"><i data-icon="alert"></i></span>
+                <div>
+                  <h3 class="t-h3 danger-text">3 SLA breaches</h3>
+                  <p class="t-sm mt-1" style="color:var(--red-700)">Approval steps past their deadline in
+                    Invoice Processing and Contract Review.</p>
+                  <a class="btn btn--danger btn--sm mt-2" href="/approvals">Review now<i data-icon="chevronRight"></i></a>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Recent activity</h3></div>
+              <div class="card__body">
+                <div class="timeline">
+                  <div class="timeline__item is-accent">
+                    <div class="timeline__title">Contract MSA-2291 approved &amp; locked</div>
+                    <div class="timeline__meta">v2.0 · Legal · 12 min ago</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">142 invoices captured from ERP connector</div>
+                    <div class="timeline__meta">Finance · 48 min ago</div>
+                  </div>
+                  <div class="timeline__item is-danger">
+                    <div class="timeline__title">Legal hold applied to Vendor Dispute series</div>
+                    <div class="timeline__meta">Disposition suspended · 2 h ago</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Retention schedule updated — Tax Records, 7 yrs</div>
+                    <div class="timeline__meta">Compliance · 5 h ago</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Box FIN-A-118 returned to warehouse rack 4</div>
+                    <div class="timeline__meta">Records · yesterday</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__foot">
+                <a class="btn btn--ghost btn--sm" href="/audit">Open audit trail<i data-icon="chevronRight"></i></a>
+              </div>
+            </div>
+
+            <div class="card card--pad">
+              <h3 class="t-h3">Classification confidence</h3>
+              <div class="row mt-3" style="gap:22px">
+                <div class="donut" style="background:conic-gradient(var(--blue-500) 0 87%, var(--grey-150) 87% 100%)">
+                  <div class="donut__center"><strong>87%</strong><span>auto-filed</span></div>
+                </div>
+                <div class="stack-sm t-sm">
+                  <div class="row"><span class="dot dot--accent"></span>High confidence · 87%</div>
+                  <div class="row"><span class="dot dot--muted"></span>Review queue · 13%</div>
+                  <p class="t-xs muted-2" style="max-width:22ch">Low-confidence items are held for
+                    human review before filing.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Business value -->
+        <section class="section">
+          <div class="section__head"><h2 class="t-h2">Business value targets</h2></div>
+          <div class="grid grid-4">
+            <div class="card stat">
+              <div class="stat__value accent-text">70%</div>
+              <div class="stat__label mt-2">Faster retrieval with AI-powered search &amp; indexing</div>
+            </div>
+            <div class="card stat">
+              <div class="stat__value accent-text">60%</div>
+              <div class="stat__label mt-2">Less manual approval time via workflow automation</div>
+            </div>
+            <div class="card stat">
+              <div class="stat__value accent-text">100%</div>
+              <div class="stat__label mt-2">Audit-ready trail across versions, access and records</div>
+            </div>
+            <div class="card stat">
+              <div class="stat__value accent-text">Open</div>
+              <div class="stat__label mt-2">API-first architecture for seamless integration</div>
+            </div>
+          </div>
+          <p class="t-xs muted-2 mt-2">Illustrative targets — validated against your current baselines during discovery.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (async function () {
+      const stats = await DMS.api.safe('/api/documents/stats/overview', null);
+      if (!stats) return;
+      const set = (k, v) => {
+        const el = document.querySelector('[data-stat="' + k + '"]');
+        if (el && v != null) el.textContent = DMS.fmt.num(v);
+      };
+      set('total', stats.total_documents ?? stats.total);
+      set('processing', (stats.pending_ocr ?? 0) + (stats.pending_ai ?? 0));
+    })();
+  </script>
+</body>
+
+</html>

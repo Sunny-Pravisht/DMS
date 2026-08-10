@@ -1,0 +1,112 @@
+# Document Manager - Optimized Production Image
+# Multi-stage build for minimal final image size
+
+# Stage 1: Build dependencies
+FROM python:3.12-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    g++ \
+    libmagic-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install Python dependencies
+WORKDIR /build
+COPY requirements.txt .
+
+# Upgrade pip and install dependencies
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Runtime image
+FROM python:3.12-slim AS runtime
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    # Tesseract OCR (English only)
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    # PDF utilities
+    poppler-utils \
+    # Image processing libraries
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    # File type detection
+    libmagic1 \
+    # Health check
+    curl \
+    # Clean up
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Copy Python environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Create non-root user with specific UID for consistency
+RUN groupadd -r -g 1000 appuser && \
+    useradd -r -u 1000 -g appuser -m -d /home/appuser -s /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser frontend/ ./frontend/
+# Model configuration. Mount over this path to change models without a rebuild:
+#   -v $(pwd)/config:/app/config
+COPY --chown=appuser:appuser config/ ./config/
+COPY --chown=appuser:appuser cli.py ./
+COPY --chown=appuser:appuser docker-entrypoint.sh ./
+
+# Create necessary directories with correct permissions
+RUN mkdir -p data/logs data/staging data/storage data/uploads data/backups data/.cache && \
+    chmod +x docker-entrypoint.sh && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Runtime environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    # Tesseract and Poppler paths
+    TESSERACT_PATH=/usr/bin/tesseract \
+    POPPLER_PATH=/usr/bin \
+    # Application settings
+    DATABASE_URL=sqlite:///./data/documents.db \
+    AI_PROVIDER=groq \
+    # Groq has no embeddings endpoint; embeddings run locally on the CPU.
+    EMBEDDING_PROVIDER=local \
+    OCR_ENGINE=auto \
+    # Cache the ONNX embedding model inside the mounted data volume so it is
+    # downloaded once rather than on every container start.
+    HF_HOME=/app/data/.cache \
+    XDG_CACHE_HOME=/app/data/.cache \
+    TRUSTED_PROXY_IPS=127.0.0.1
+
+# Add metadata labels
+LABEL maintainer="Jannik Reinhard" \
+      version="1.0.0" \
+      description="AI-powered document management system" \
+      org.opencontainers.image.source="https://github.com/JayRHa/DocumentManager"
+
+# Expose application port
+EXPOSE 8000
+
+# Health check with proper timing
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+# Use entrypoint script for initialization
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

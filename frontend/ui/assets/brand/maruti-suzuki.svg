@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" width="320" height="72" role="img" aria-label="Maruti Suzuki">
+  <g transform="translate(6,14)">
+    <path d="M2 32 L14 6 L26 32 L20.5 32 L14 18 L7.5 32 Z" fill="#E01E26"/>
+    <path d="M24 32 L36 6 L48 32 L42.5 32 L36 18 L29.5 32 Z" fill="#00559B"/>
+  </g>
+  <text x="70" y="41" font-family="'Segoe UI Variable Display','Segoe UI',-apple-system,'Helvetica Neue',Arial,sans-serif"
+        font-size="27" font-weight="700" letter-spacing="1.2" fill="#00559B">MARUTI SUZUKI</text>
+  <text x="71" y="58" font-family="'Segoe UI',-apple-system,'Helvetica Neue',Arial,sans-serif"
+        font-size="11" font-weight="500" letter-spacing="2.2" fill="#E01E26">WAY OF LIFE</text>
+</svg>

@@ -1,0 +1,62 @@
+# Development Dockerfile with hot reload support
+# Based on the production Dockerfile but with development tools
+
+FROM python:3.12-slim
+
+# Install all dependencies (no multi-stage for dev)
+RUN apt-get update && apt-get install -y \
+    # Build essentials
+    build-essential gcc g++ \
+    # Tesseract OCR (English only)
+    tesseract-ocr tesseract-ocr-eng \
+    # PDF utilities
+    poppler-utils \
+    # Image processing
+    libglib2.0-0 libsm6 libxext6 libxrender-dev libgomp1 \
+    # File type detection
+    libmagic1 libmagic-dev \
+    # Health check
+    curl \
+    # Development tools
+    vim nano htop \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app/ ./app/
+COPY frontend/ ./frontend/
+COPY config/ ./config/
+COPY cli.py ./
+COPY docker-entrypoint.sh ./
+
+# Create necessary directories
+RUN mkdir -p data/logs data/staging data/storage data/uploads data/backups data/.cache && \
+    chmod +x docker-entrypoint.sh
+
+# Development environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    ENVIRONMENT=development \
+    LOG_LEVEL=DEBUG \
+    DATABASE_URL=sqlite:///./data/documents.db \
+    AI_PROVIDER=groq \
+    EMBEDDING_PROVIDER=local \
+    OCR_ENGINE=auto \
+    HF_HOME=/app/data/.cache \
+    XDG_CACHE_HOME=/app/data/.cache \
+    TESSERACT_PATH=/usr/bin/tesseract \
+    POPPLER_PATH=/usr/bin
+
+# Expose ports
+EXPOSE 8000
+
+# Use the same entrypoint as production
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

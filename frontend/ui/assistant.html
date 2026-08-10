@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Assistant · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="assistant" data-title="Ask AI">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm" id="btn-clear"><i data-icon="refresh"></i>New conversation</button>
+      </div>
+
+      <main class="page">
+        <div class="grid grid-sidebar">
+          <div>
+            <div class="chat">
+              <div class="chat__log" id="log">
+                <div class="empty" id="intro">
+                  <span class="tile-icon tile-icon--lg"><i data-icon="ai"></i></span>
+                  <h3 class="t-h2">Ask anything about your documents</h3>
+                  <p>The assistant reads only what you are permitted to see, and cites the
+                    document and page behind every answer.</p>
+                  <div class="btn-row" style="flex-direction:column;align-items:center;gap:8px;margin-top:22px">
+                    <button class="chip" data-ask="Summarise the key obligations in our active vendor contracts.">Summarise key obligations in active vendor contracts</button>
+                    <button class="chip" data-ask="Which invoices from last quarter are still unmatched?">Which invoices from last quarter are still unmatched?</button>
+                    <button class="chip" data-ask="What are the payment terms with Northwind Logistics?">What are the payment terms with Northwind Logistics?</button>
+                    <button class="chip" data-ask="Which documents are due for disposition in the next 30 days?">Which documents are due for disposition next month?</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer">
+                <textarea id="input" rows="1" placeholder="Ask a question. Enter to send, Shift+Enter for a new line"></textarea>
+                <div class="composer__bar">
+                  <span class="badge"><i data-icon="shield"></i>Permission-scoped</span>
+                  <div class="btn-row">
+                    <button class="btn btn--primary btn--sm" id="send"><i data-icon="send"></i>Send</button>
+                  </div>
+                </div>
+              </div>
+              <p class="t-xs muted-2 mt-2">Answers are generated from your repository. Verify anything
+                you rely on for a legal or financial decision.</p>
+            </div>
+          </div>
+
+          <aside class="stack">
+            <div class="card card--pad">
+              <h3 class="t-h3">What the assistant can do</h3>
+              <div class="stack-sm mt-3 t-sm">
+                <div class="row-top"><span class="tile-icon"><i data-icon="search"></i></span>
+                  <div><strong>Find</strong><div class="muted t-xs mt-1">Locate documents by meaning, not keywords</div></div></div>
+                <div class="row-top"><span class="tile-icon"><i data-icon="file"></i></span>
+                  <div><strong>Summarise</strong><div class="muted t-xs mt-1">Condense long documents and whole sets</div></div></div>
+                <div class="row-top"><span class="tile-icon"><i data-icon="zap"></i></span>
+                  <div><strong>Extract</strong><div class="muted t-xs mt-1">Pull out numbers, dates and parties</div></div></div>
+                <div class="row-top"><span class="tile-icon"><i data-icon="workflow"></i></span>
+                  <div><strong>Act</strong><div class="muted t-xs mt-1">Route a document into a workflow from chat</div></div></div>
+              </div>
+            </div>
+
+            <div class="card card--pad">
+              <h3 class="t-h3">Scope</h3>
+              <label class="field mt-2">
+                <span class="field__label">Search within</span>
+                <select class="select"><option>Everything I can access</option><option>Finance</option>
+                  <option>Legal</option><option>Operations</option><option>Selected documents only</option></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Documents to ground on</span>
+                <select class="select" id="max-docs">
+                  <option value="5">5 most relevant</option>
+                  <option value="10">10 most relevant</option>
+                  <option value="20">20 most relevant</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="banner banner--grey">
+              <i data-icon="info"></i>
+              <div>Conversations are logged to the audit trail with the documents each answer
+                was grounded on.</div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, escapeHtml, icon, initials, markdown } = DMS;
+      const log = document.getElementById('log');
+      const input = document.getElementById('input');
+      const send = document.getElementById('send');
+      const intro = document.getElementById('intro');
+
+      document.querySelectorAll('[data-ask]').forEach(b => {
+        b.onclick = () => { input.value = b.dataset.ask; ask(); };
+      });
+
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 190) + 'px';
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+      });
+      send.onclick = ask;
+      document.getElementById('btn-clear').onclick = () => location.reload();
+
+      function bubble(who, initialsText, accent) {
+        const el = document.createElement('div');
+        el.className = 'chat__msg';
+        el.innerHTML =
+          '<span class="avatar' + (accent ? '' : ' avatar--grey') + '">' + escapeHtml(initialsText) + '</span>' +
+          '<div style="flex:1;min-width:0"><div class="chat__who">' + escapeHtml(who) + '</div>' +
+          '<div class="chat__text"></div></div>';
+        log.appendChild(el);
+        log.scrollTop = log.scrollHeight;
+        return el.querySelector('.chat__text');
+      }
+
+      async function ask() {
+        const question = input.value.trim();
+        if (!question) return;
+        if (intro) intro.remove();
+        input.value = '';
+        input.style.height = 'auto';
+
+        const meName = document.querySelector('[data-user-name]');
+        bubble('You', initials(meName ? meName.textContent : 'You'), false).textContent = question;
+
+        const answer = bubble('DMS Assistant', 'AI', true);
+        answer.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+        send.disabled = true;
+
+        try {
+          const res = await api.post('/api/search/rag', {
+            question: question,
+            max_documents: Number(document.getElementById('max-docs').value),
+          });
+          const text = (res && res.answer) || 'No answer was returned.';
+          const sources = (res && res.sources) || [];
+
+          // The model answers in Markdown - headings, tables, bullets - and
+          // used to be printed verbatim, so a reply arrived as a page of ##
+          // and **. Passing the sources in turns its [Doc1] markers into links
+          // to the documents they refer to.
+          answer.classList.add('md');
+          answer.innerHTML = markdown(text, { citations: sources });
+
+          if (sources.length) {
+            answer.innerHTML += '<div class="chat__cites">' + sources.map((s, n) =>
+              '<a class="cite" href="/documents/detail?id=' + encodeURIComponent(s.id) + '">' +
+              icon('file') + '<span class="cite__n">' + (n + 1) + '</span>' +
+              escapeHtml(s.title || s.original_filename || 'Document') + '</a>').join('') + '</div>';
+          }
+        } catch (e) {
+          answer.innerHTML = '<div class="banner banner--danger">' + icon('alert') +
+            '<div>The assistant could not answer. ' + escapeHtml(String(e.message || e)) + '</div></div>';
+        }
+        send.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      }
+    })();
+  </script>
+</body>
+
+</html>

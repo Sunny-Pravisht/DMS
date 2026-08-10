@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+  <style>
+    /* This page is the document and nothing else, so it drops the shell:
+       no sidebar, no navigation, no page padding. Long documents are read
+       here, and everything on screen that is not the document is a
+       distraction from it. */
+    body { overflow: hidden; }
+    @media print {
+      .viewer-bar { display: none; }
+      .viewer-shell { height: auto; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="viewer-shell">
+    <header class="viewer-bar">
+      <a class="icon-btn tip" data-tip="Back to the document" id="back" href="/documents">
+        <i data-icon="chevronLeft"></i></a>
+      <div style="min-width:0">
+        <div class="viewer-bar__title truncate" id="v-title">Loading…</div>
+        <div class="viewer-bar__meta truncate" id="v-meta">&nbsp;</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="badge badge--accent" id="v-badge" hidden></span>
+      <a class="btn btn--outline btn--sm" id="v-edit" hidden><i data-icon="compose"></i>Edit</a>
+      <a class="btn btn--outline btn--sm" id="v-download"><i data-icon="download"></i>Download</a>
+      <a class="btn btn--outline btn--sm" id="v-detail"><i data-icon="external"></i>Details</a>
+    </header>
+
+    <div class="viewer viewer--full" id="viewer"></div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script src="/static/ui/js/viewer.js"></script>
+  <script>
+    (function () {
+      const { escapeHtml, fmt, toast } = DMS;
+      const id = new URLSearchParams(location.search).get('id');
+      const $ = s => document.querySelector(s);
+
+      if (!id) {
+        $('#v-title').textContent = 'No document selected';
+        $('#viewer').innerHTML =
+          '<div class="viewer__stage"><div class="viewer__fallback">' +
+          '<h3 class="t-h3">Nothing to show</h3>' +
+          '<p class="t-sm muted mt-2">Open a document from the repository and choose ' +
+          '“Open in a new tab”.</p>' +
+          '<div class="btn-row mt-3" style="justify-content:center">' +
+          '<a class="btn btn--primary btn--sm" href="/documents">Go to the repository</a>' +
+          '</div></div></div>';
+        return;
+      }
+
+      $('#v-download').href = '/api/documents/' + encodeURIComponent(id) + '/download';
+      $('#v-detail').href = '/documents/detail?id=' + encodeURIComponent(id);
+      $('#back').href = '/documents/detail?id=' + encodeURIComponent(id);
+
+      (async function () {
+        const info = await DMSViewer.mount($('#viewer'), id, { full: true });
+        if (!info) { $('#v-title').textContent = 'Document unavailable'; return; }
+
+        document.title = (info.title || 'Document') + ' · DMS';
+        $('#v-title').textContent = info.title || info.filename || 'Untitled';
+        $('#v-meta').textContent = [
+          info.filename,
+          fmt.bytes(info.file_size),
+          info.page_hint ? info.page_hint + (info.page_hint === 1 ? ' page' : ' pages') : '',
+          'v' + (info.version || '1.0'),
+        ].filter(Boolean).join('  ·  ');
+
+        if (info.origin === 'composed') {
+          const badge = $('#v-badge');
+          badge.hidden = false;
+          badge.textContent = 'Written in the Studio';
+        }
+
+        if (info.editable) {
+          const edit = $('#v-edit');
+          edit.hidden = false;
+          edit.href = '/studio?id=' + encodeURIComponent(id);
+        }
+      })();
+    })();
+  </script>
+</body>
+
+</html>

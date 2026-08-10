@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connected Systems · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="integrations" data-title="Connected Systems">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--outline btn--sm" href="/docs" target="_blank"><i data-icon="external"></i>API reference</a>
+        <button class="btn btn--primary btn--sm" data-open="modal-key"><i data-icon="key"></i>New API key</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="t-eyebrow">Open connectivity</div>
+          <h1 class="t-h1 mt-1">API capability for third-party integrations</h1>
+          <p>An API-first core. Every capability in this platform is reachable over the same
+            permission-scoped REST surface the interface uses.</p>
+        </div>
+
+        <section class="grid grid-sidebar mb-3">
+          <div class="card card--pad">
+            <div class="row wrap" style="gap:18px;align-items:center;justify-content:center;padding:14px 0">
+              <div style="text-align:center">
+                <span class="tile-icon tile-icon--solid tile-icon--lg" style="margin:0 auto"><i data-icon="integrations"></i></span>
+                <div class="t-h3 mt-2">DMS<br>Core API</div>
+              </div>
+              <div style="color:var(--grey-300)"><i data-icon="arrowRight"></i></div>
+              <div class="grid grid-2" style="gap:10px;min-width:min(420px,100%)">
+                <div class="card card--flat card--pad row"><span class="tile-icon"><i data-icon="sitemap"></i></span>
+                  <span class="t-sm" style="font-weight:560">ERP systems</span></div>
+                <div class="card card--flat card--pad row"><span class="tile-icon"><i data-icon="users"></i></span>
+                  <span class="t-sm" style="font-weight:560">CRM platforms</span></div>
+                <div class="card card--flat card--pad row"><span class="tile-icon"><i data-icon="database"></i></span>
+                  <span class="t-sm" style="font-weight:560">Cloud storage</span></div>
+                <div class="card card--flat card--pad row"><span class="tile-icon"><i data-icon="zap"></i></span>
+                  <span class="t-sm" style="font-weight:560">Custom apps</span></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="card card--pad">
+            <h3 class="t-h3">Integration capabilities</h3>
+            <ul class="stack-sm mt-3 t-sm">
+              <li class="row"><span class="dot dot--accent"></span>REST &amp; SOAP endpoints</li>
+              <li class="row"><span class="dot dot--accent"></span>Webhooks &amp; event triggers</li>
+              <li class="row"><span class="dot dot--accent"></span>SSO / identity federation</li>
+              <li class="row"><span class="dot dot--accent"></span>Bulk import &amp; export</li>
+              <li class="row"><span class="dot dot--accent"></span>Scoped, department-bound API keys</li>
+            </ul>
+            <div class="divider"></div>
+            <div class="kv-strip">
+              <div class="kv"><div class="kv__k">Uptime 30 d</div><div class="kv__v">99.98%</div></div>
+              <div class="kv"><div class="kv__k">p95 latency</div><div class="kv__v">142 ms</div></div>
+            </div>
+          </aside>
+        </section>
+
+        <div class="tabs" data-tabs="int">
+          <button data-tab="keys" class="is-active">API keys</button>
+          <button data-tab="webhooks">Webhooks</button>
+          <button data-tab="sso">SSO &amp; provisioning</button>
+          <button data-tab="reference">Quick reference</button>
+        </div>
+
+        <!-- Keys -->
+        <div class="tab-panel is-active" data-panel="keys" data-scope="int">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Integration</th><th>Key</th><th>Scopes</th><th>Department</th><th>Last used</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-title">SAP ERP connector</td><td class="mono t-xs">dms_live_••••••4471</td>
+                    <td class="muted">documents.write · metadata.write</td><td>Finance</td>
+                    <td class="muted">2 min ago</td><td><span class="badge badge--accent">Active</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="refresh"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td class="cell-title">Salesforce sync</td><td class="mono t-xs">dms_live_••••••9020</td>
+                    <td class="muted">documents.read · documents.write</td><td>Legal</td>
+                    <td class="muted">18 min ago</td><td><span class="badge badge--accent">Active</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="refresh"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td class="cell-title">Auditor portal (read-only)</td><td class="mono t-xs">dms_live_••••••1188</td>
+                    <td class="muted">documents.read</td><td>Finance</td>
+                    <td class="muted">3 h ago</td>
+                    <td><span class="badge badge--danger"><i data-icon="clock"></i>Expires in 7 d</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="refresh"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td class="cell-title">Legacy archive migration</td><td class="mono t-xs">dms_live_••••••0042</td>
+                    <td class="muted">documents.bulk_import</td><td>All</td>
+                    <td class="muted">14 d ago</td><td><span class="badge">Revoked</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="banner banner--danger mt-3">
+            <i data-icon="alert"></i>
+            <div>A key is shown once, at creation. Rotating a key immediately invalidates the previous
+              secret, so any integration still using it will start failing.</div>
+          </div>
+        </div>
+
+        <!-- Webhooks -->
+        <div class="tab-panel" data-panel="webhooks" data-scope="int">
+          <div class="grid grid-sidebar">
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Endpoints</h3><span class="spacer"></span>
+                <button class="btn btn--sm btn--primary"><i data-icon="plus"></i>Add endpoint</button></div>
+              <ul class="list">
+                <li><div class="list-item"><span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title mono t-sm">https://erp.internal/hooks/dms</span>
+                    <span class="list-item__sub">document.created · document.classified · 4,102 deliveries · 0 failed</span></span>
+                  <button class="icon-btn"><i data-icon="more"></i></button></div></li>
+                <li><div class="list-item"><span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title mono t-sm">https://ops.internal/dms-events</span>
+                    <span class="list-item__sub">workflow.completed · 918 deliveries · 0 failed</span></span>
+                  <button class="icon-btn"><i data-icon="more"></i></button></div></li>
+                <li><div class="list-item"><span class="dot dot--danger"></span>
+                  <span class="list-item__body"><span class="list-item__title mono t-sm">https://legacy.vendor.io/in</span>
+                    <span class="list-item__sub">retention.due · 12 deliveries · <span class="danger-text">9 failed with a 502</span></span></span>
+                  <button class="btn btn--sm btn--danger-soft">Retry</button></div></li>
+              </ul>
+            </div>
+            <aside class="card card--pad">
+              <h3 class="t-h3">Available events</h3>
+              <div class="row wrap mt-3" style="gap:6px">
+                <span class="badge">document.created</span><span class="badge">document.classified</span>
+                <span class="badge">document.version.added</span><span class="badge">document.deleted</span>
+                <span class="badge">workflow.started</span><span class="badge">workflow.step.assigned</span>
+                <span class="badge">workflow.sla.breached</span><span class="badge">workflow.completed</span>
+                <span class="badge">retention.due</span><span class="badge">disposition.approved</span>
+                <span class="badge badge--danger">hold.applied</span><span class="badge badge--danger">hold.released</span>
+                <span class="badge">permission.changed</span><span class="badge">record.moved</span>
+              </div>
+              <div class="divider"></div>
+              <p class="t-xs muted">Payloads are signed with an HMAC header. Failed deliveries retry with
+                exponential backoff for 24 hours, then move to the dead-letter queue.</p>
+            </aside>
+          </div>
+        </div>
+
+        <!-- SSO -->
+        <div class="tab-panel" data-panel="sso" data-scope="int">
+          <div class="grid grid-2">
+            <div class="card card--pad">
+              <div class="row-top"><span class="tile-icon"><i data-icon="key"></i></span>
+                <div><h3 class="t-h3">Identity federation</h3>
+                  <p class="t-sm muted mt-1">Sign in with the corporate directory. Local passwords can be
+                    disabled entirely once federation is verified.</p></div></div>
+              <div class="divider"></div>
+              <label class="field"><span class="field__label">Protocol</span>
+                <select class="select"><option>OpenID Connect (OIDC)</option><option>SAML 2.0</option></select></label>
+              <label class="field"><span class="field__label">Issuer URL</span>
+                <input class="input mono" placeholder="https://login.microsoftonline.com/&lt;tenant&gt;/v2.0"></label>
+              <label class="field"><span class="field__label">Client ID</span>
+                <input class="input mono" placeholder="00000000-0000-0000-0000-000000000000"></label>
+              <label class="switch mt-3"><input type="checkbox">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Disable local password sign-in</span></label>
+              <div class="btn-row mt-3"><button class="btn btn--outline">Test connection</button>
+                <button class="btn btn--primary">Save</button></div>
+            </div>
+
+            <div class="card card--pad">
+              <div class="row-top"><span class="tile-icon"><i data-icon="users"></i></span>
+                <div><h3 class="t-h3">SCIM provisioning</h3>
+                  <p class="t-sm muted mt-1">Map directory groups to departments so joiners, movers and
+                    leavers are handled without manual admin.</p></div></div>
+              <div class="divider"></div>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Directory group</th><th>Department</th><th>Role</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono t-xs">CN=Finance-All</td><td>Finance</td><td><span class="badge">Contributor</span></td></tr>
+                    <tr><td class="mono t-xs">CN=Legal-Counsel</td><td>Legal</td><td><span class="badge">Contributor</span></td></tr>
+                    <tr><td class="mono t-xs">CN=Internal-Audit</td><td>Compliance</td><td><span class="badge">Reader</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <button class="btn btn--outline btn--sm mt-3"><i data-icon="plus"></i>Add mapping</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reference -->
+        <div class="tab-panel" data-panel="reference" data-scope="int">
+          <div class="grid grid-sidebar">
+            <div class="stack">
+              <div class="card">
+                <div class="card__head"><h3 class="t-h3">Core endpoints</h3><span class="spacer"></span>
+                  <a class="btn btn--sm btn--outline" href="/docs" target="_blank">Full reference<i data-icon="external"></i></a></div>
+                <ul class="list">
+                  <li><div class="list-item"><span class="method is-post">POST</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/auth/login</span>
+                      <span class="list-item__sub">Start a session</span></span></div></li>
+                  <li><div class="list-item"><span class="method">GET</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/documents/</span>
+                      <span class="list-item__sub">List documents in scope</span></span></div></li>
+                  <li><div class="list-item"><span class="method is-post">POST</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/documents/upload</span>
+                      <span class="list-item__sub">Capture a file</span></span></div></li>
+                  <li><div class="list-item"><span class="method is-post">POST</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/search/</span>
+                      <span class="list-item__sub">Full-text and semantic search</span></span></div></li>
+                  <li><div class="list-item"><span class="method is-post">POST</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/search/rag</span>
+                      <span class="list-item__sub">Grounded question answering</span></span></div></li>
+                  <li><div class="list-item"><span class="method">GET</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/documents/{id}/download</span>
+                      <span class="list-item__sub">Retrieve the original file</span></span></div></li>
+                  <li><div class="list-item"><span class="method is-del">DELETE</span>
+                    <span class="list-item__body"><span class="list-item__title mono t-sm">/api/documents/{id}</span>
+                      <span class="list-item__sub">Delete, blocked under retention or hold</span></span></div></li>
+                </ul>
+              </div>
+            </div>
+
+            <aside class="card card--pad">
+              <h3 class="t-h3">Capture a document</h3>
+              <pre class="code mt-3"><span class="s"># Authenticate, then upload</span>
+<span class="k">curl</span> -X POST https://dms.company.com/api/documents/upload \
+  -H <span class="s">"Authorization: Bearer $DMS_KEY"</span> \
+  -F <span class="s">"file=@invoice.pdf"</span> \
+  -F <span class="s">"department=finance"</span> \
+  -F <span class="s">"tags=invoice,q3"</span></pre>
+              <p class="t-xs muted mt-2">The response returns the document id, the classification the
+                platform assigned, and the retention policy it fell under.</p>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-key">
+    <div class="modal__head">
+      <h3 class="t-h2">New API key</h3>
+      <p class="t-sm muted mt-1">Keys are scoped to a department and a permission set, never organization-wide by default.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Integration name</span>
+        <input class="input" placeholder="e.g. SAP ERP connector"></label>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Department scope</span>
+          <select class="select"><option>Finance</option><option>Legal</option><option>Operations</option>
+            <option>Human Resources</option><option>Procurement</option><option>All departments</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Expires</span>
+          <select class="select"><option>90 days</option><option>1 year</option><option>Never (not recommended)</option></select></label>
+      </div>
+      <div class="field"><span class="field__label">Scopes</span>
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" checked><span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">documents.read</span></label>
+          <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">documents.write</span></label>
+          <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">metadata.write</span></label>
+          <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">workflow.trigger</span></label>
+          <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+            <span class="check__text">records.read</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" data-close>Create key</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+</body>
+
+</html>

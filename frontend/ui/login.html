@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body>
+  <div class="auth">
+    <!-- Form -->
+    <div class="auth__panel">
+      <div class="auth__form">
+        <img class="auth__wordmark" src="/static/ui/assets/brand/harman.png" alt="HARMAN">
+
+        <!-- Sign in -->
+        <div id="view-login">
+          <h1 class="t-display">Sign in</h1>
+          <p class="muted mt-1">HARMAN DMS. Capture, author, approve and retain every document
+            in one place.</p>
+
+          <form id="form-login" class="mt-4">
+            <label class="field">
+              <span class="field__label">Username</span>
+              <input class="input" id="username" autocomplete="username" autofocus required>
+            </label>
+            <label class="field">
+              <span class="field__label">Password</span>
+              <input class="input" id="password" type="password" autocomplete="current-password" required>
+            </label>
+
+            <div class="row mt-3">
+              <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+                <span class="check__text">Keep me signed in</span></label>
+            </div>
+
+            <div class="banner banner--danger mt-3 hidden" id="login-error">
+              <i data-icon="alert"></i><div id="login-error-text"></div>
+            </div>
+
+            <button class="btn btn--primary btn--lg btn--block mt-3" id="btn-login" type="submit">Sign in</button>
+          </form>
+
+          <div class="divider"></div>
+          <button class="btn btn--outline btn--block"><i data-icon="key"></i>Sign in with corporate SSO</button>
+          <p class="t-xs muted-2 mt-3">Access is governed by your organization unit, department and role.
+            Every sign-in is recorded in the audit trail.</p>
+        </div>
+
+        <!-- First-run setup -->
+        <div id="view-setup" class="hidden">
+          <h1 class="t-display">Create the first administrator</h1>
+          <p class="muted mt-1">No accounts exist yet. This account will own the organization structure.</p>
+
+          <form id="form-setup" class="mt-4">
+            <label class="field"><span class="field__label">Full name</span>
+              <input class="input" id="s-name" required></label>
+            <label class="field"><span class="field__label">Username</span>
+              <input class="input" id="s-username" autocomplete="username" required></label>
+            <label class="field"><span class="field__label">Work email</span>
+              <input class="input" id="s-email" type="email" autocomplete="email" required></label>
+            <label class="field"><span class="field__label">Password</span>
+              <input class="input" id="s-password" type="password" autocomplete="new-password" required>
+              <span class="field__hint">Minimum 12 characters.</span></label>
+
+            <div class="banner banner--danger mt-3 hidden" id="setup-error">
+              <i data-icon="alert"></i><div id="setup-error-text"></div>
+            </div>
+
+            <button class="btn btn--primary btn--lg btn--block mt-3" type="submit">Create administrator</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aside -->
+    <aside class="auth__aside">
+      <div style="max-width:440px">
+        <div class="t-eyebrow">Four steps, start to finish</div>
+        <h2 class="t-h1 mt-2">From an email attachment to a signed, filed record.</h2>
+
+        <div class="auth__aside-list">
+          <div class="auth__aside-item">
+            <span class="tile-icon"><i data-icon="capture"></i></span>
+            <div><div class="t-h3">1 · Upload it</div>
+              <p class="t-sm muted mt-1">Drag a file in, forward an email, or let it arrive from
+                SAP, Salesforce or the office scanner.</p></div>
+          </div>
+          <div class="auth__aside-item">
+            <span class="tile-icon"><i data-icon="eye"></i></span>
+            <div><div class="t-h3">2 · Confirm what we read</div>
+              <p class="t-sm muted mt-1">Supplier, dates, amounts and type are filled in for you.
+                Correct anything in one click.</p></div>
+          </div>
+          <div class="auth__aside-item">
+            <span class="tile-icon"><i data-icon="workflow"></i></span>
+            <div><div class="t-h3">3 · Choose who approves</div>
+              <p class="t-sm muted mt-1">Pick a ready-made route. The right people, in the right
+                order, with deadlines.</p></div>
+          </div>
+          <div class="auth__aside-item">
+            <span class="tile-icon"><i data-icon="stamp"></i></span>
+            <div><div class="t-h3">4 · Watch it get signed</div>
+              <p class="t-sm muted mt-1">Every approval, signature, comment and rejection,
+                on record, with no chasing.</p></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, escapeHtml } = DMS;
+
+      function showError(id, message) {
+        const box = document.getElementById(id);
+        document.getElementById(id + '-text').textContent = message;
+        box.classList.remove('hidden');
+      }
+
+      // First-run detection
+      (async function () {
+        const status = await api.safe('/api/auth/setup/check', null);
+        if (status && status.setup_complete === false) {
+          document.getElementById('view-login').classList.add('hidden');
+          document.getElementById('view-setup').classList.remove('hidden');
+        }
+      })();
+
+      document.getElementById('form-login').onsubmit = async e => {
+        e.preventDefault();
+        document.getElementById('login-error').classList.add('hidden');
+        const btn = document.getElementById('btn-login');
+        btn.disabled = true;
+        btn.textContent = 'Signing in…';
+        try {
+          await api.post('/api/auth/login', {
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value,
+          });
+          window.location.href = '/home';
+        } catch (err) {
+          showError('login-error', 'Sign-in failed. Check your username and password.');
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+        }
+      };
+
+      document.getElementById('form-setup').onsubmit = async e => {
+        e.preventDefault();
+        document.getElementById('setup-error').classList.add('hidden');
+        const password = document.getElementById('s-password').value;
+        if (password.length < 12) {
+          showError('setup-error', 'Use a password of at least 12 characters.');
+          return;
+        }
+        try {
+          await api.post('/api/auth/setup/initial-user', {
+            username: document.getElementById('s-username').value.trim(),
+            email: document.getElementById('s-email').value.trim(),
+            full_name: document.getElementById('s-name').value.trim(),
+            password: password,
+            is_admin: true,
+          });
+          await api.post('/api/auth/login', {
+            username: document.getElementById('s-username').value.trim(),
+            password: password,
+          });
+          window.location.href = '/home';
+        } catch (err) {
+          showError('setup-error', String(err.message || err));
+        }
+      };
+    })();
+  </script>
+</body>
+
+</html>

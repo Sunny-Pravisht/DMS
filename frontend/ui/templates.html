@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Templates · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="templates" data-title="Templates">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--primary btn--sm" id="btn-new"><i data-icon="plus"></i>New template</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="t-eyebrow">Build once, reuse forever</div>
+          <h1 class="t-h1 mt-1">Templates</h1>
+          <p>A template remembers who approves what, in which order, by when, and how long the
+            document must be kept. Nobody rebuilds an approval chain twice.</p>
+        </div>
+
+        <!-- Counted from the approvals that were actually started from a
+             route, so a route nobody has used says so. -->
+        <section class="grid grid-3 mb-3">
+          <div class="card stat"><div class="stat__label">Routes available</div>
+            <div class="stat__value" id="s-count">0</div>
+            <div class="stat__foot" id="s-depts">Across your departments</div></div>
+          <div class="card stat"><div class="stat__label">Approvals started from a route</div>
+            <div class="stat__value" id="s-uses">0</div>
+            <div class="stat__foot">Out of <span id="s-total">0</span> in total</div></div>
+          <div class="card stat"><div class="stat__label">Most used</div>
+            <div class="stat__value" id="s-top" style="font-size:19px;letter-spacing:-.01em">None yet</div>
+            <div class="stat__foot" id="s-top-uses"></div></div>
+        </section>
+
+        <div class="filter-bar">
+          <label class="input-icon" style="width:280px"><i data-icon="search"></i>
+            <input class="input" id="q" placeholder="Find a template"></label>
+          <select class="select" id="f-dept" style="width:auto">
+            <option value="">All departments</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="count"></span>
+        </div>
+
+        <div class="grid grid-3" id="grid"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Template detail -->
+  <div class="drawer" id="drawer">
+    <div class="drawer__head">
+      <span class="tile-icon"><i data-icon="workflow"></i></span>
+      <div style="min-width:0">
+        <h3 class="t-h3 truncate" id="dt-name">Template</h3>
+        <div class="t-xs muted" id="dt-dept">Loading…</div>
+      </div>
+      <span class="spacer"></span>
+      <button class="icon-btn" data-close><i data-icon="x"></i></button>
+    </div>
+    <div class="drawer__body">
+      <p class="t-body muted" id="dt-desc">Loading…</p>
+
+      <div class="divider"></div>
+      <h4 class="t-h3 mb-2">Approval steps</h4>
+      <div id="dt-steps"></div>
+
+      <div class="divider"></div>
+      <dl class="dl">
+        <dt>Applies to</dt><dd id="dt-applies">Not set</dd>
+        <dt>Retention</dt><dd id="dt-retention">Not set</dd>
+        <dt>Times used</dt><dd id="dt-uses">0</dd>
+        <dt>Owner</dt><dd id="dt-owner">Not set</dd>
+      </dl>
+    </div>
+    <div class="drawer__foot">
+      <button class="btn btn--outline" data-close>Close</button>
+      <button class="btn btn--outline" id="dt-duplicate"><i data-icon="copy"></i>Duplicate</button>
+      <button class="btn btn--danger-soft hidden" id="dt-delete"><i data-icon="trash"></i>Delete</button>
+      <div class="btn-row" style="margin-left:auto">
+        <a class="btn btn--primary" id="dt-use" href="/process"><i data-icon="play"></i>Use this template</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- New / duplicate template -->
+  <div class="modal modal--wide" id="modal-new">
+    <div class="modal__head">
+      <h3 class="t-h2" id="modal-title">New template</h3>
+      <p class="t-sm muted mt-1">Choose the department first and everything below fills in for you.
+        Adjust anything that does not fit.</p>
+    </div>
+    <div class="modal__body">
+      <div class="grid grid-2">
+        <label class="field" style="margin:0"><span class="field__label">Department</span>
+          <select class="select" id="t-dept">
+            <option value="">Choose a department…</option>
+          </select>
+          <span class="field__hint">Sets the document types, roles, people and retention rule.</span>
+        </label>
+        <label class="field" style="margin:0"><span class="field__label">Template name</span>
+          <input class="input" id="t-name" placeholder="Choose a department first" disabled></label>
+      </div>
+
+      <label class="field"><span class="field__label">What is it for?</span>
+        <textarea class="textarea" id="t-desc" style="min-height:64px"
+          placeholder="One line a colleague would understand" disabled></textarea></label>
+
+      <div class="grid grid-2">
+        <label class="field" style="margin:0"><span class="field__label">Use it for these documents</span>
+          <select class="select" id="t-doctype" disabled><option value="">Choose a department first</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Keep documents for</span>
+          <select class="select" id="t-retention" disabled><option value="">Choose a department first</option></select></label>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row mb-2">
+        <h4 class="t-h3">Approval steps</h4>
+        <span class="spacer"></span>
+        <span class="t-sm muted" id="t-step-count"></span>
+        <button class="btn btn--sm btn--outline" id="t-add-step" disabled>
+          <i data-icon="plus"></i>Add a step</button>
+      </div>
+
+      <div id="t-steps"></div>
+
+      <div class="problems mt-3 hidden" id="t-problems">
+        <div class="problems__title">Fix this before saving</div>
+        <ul id="t-problems-list"></ul>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" id="t-save">Create template</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, escapeHtml, fmt, icon, toast, templates, dir, peoplePicker,
+              openOverlay, closeOverlays, confirmDanger, DEPARTMENTS, SLA_OPTIONS } = DMS;
+      const $ = s => document.querySelector(s);
+      const grid = $('#grid');
+
+      const OWNERS = {
+        'Finance': 'Sudha Iyer', 'Legal': 'Rahul Menon', 'Procurement': 'Nikhil Sharma',
+        'Human Resources': 'Divya Varma', 'Operations': 'Prakash Krishnan',
+        'Compliance & Internal Audit': 'Vikram Chandra', 'Any': 'Platform team',
+      };
+
+      /* ----------------------------------------------------------- library */
+      DEPARTMENTS.concat(['Any']).forEach(d => {
+        const o = document.createElement('option');
+        o.value = d; o.textContent = d;
+        $('#f-dept').appendChild(o);
+      });
+
+      // How often each route has actually been used, counted from the
+      // approvals started from it. Empty until the first one runs.
+      let usage = {};
+      let totalWorkflows = 0;
+
+      async function loadUsage() {
+        const data = await api.safe('/api/workflow/?limit=500', { workflows: [] });
+        const workflows = data.workflows || [];
+        totalWorkflows = workflows.length;
+        usage = {};
+        workflows.forEach(w => {
+          if (w.template_id) usage[w.template_id] = (usage[w.template_id] || 0) + 1;
+        });
+      }
+
+      function shortRetention(value) {
+        const parts = String(value || '').split(',');
+        return parts[1] ? parts[1].trim() : (value || 'Not set');
+      }
+
+      function stats() {
+        const all = templates.all();
+        $('#s-count').textContent = all.length;
+        $('#s-depts').textContent = new Set(all.map(t => t.department)).size + ' departments covered';
+        $('#s-uses').textContent = fmt.num(Object.values(usage).reduce((a, b) => a + b, 0));
+        $('#s-total').textContent = fmt.num(totalWorkflows);
+        const top = all.slice().sort((a, b) => (usage[b.id] || 0) - (usage[a.id] || 0))[0];
+        if (top) {
+          $('#s-top').textContent = top.name;
+          const n = usage[top.id] || 0;
+          $('#s-top-uses').textContent = n
+            ? fmt.num(n) + (n === 1 ? ' approval' : ' approvals')
+            : 'Not used yet';
+        }
+      }
+
+      function render(list) {
+        $('#count').textContent = list.length + (list.length === 1 ? ' template' : ' templates');
+        if (!list.length) {
+          grid.innerHTML = '<div class="empty" style="grid-column:1/-1">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('layers') + '</span>' +
+            '<h3>No templates match</h3><p>Try a different department or search term.</p></div>';
+          return;
+        }
+        grid.innerHTML = list.map(t =>
+          '<button class="tpl-card" data-id="' + escapeHtml(t.id) + '">' +
+            '<div class="row"><span class="tile-icon">' + icon('workflow') + '</span>' +
+              '<div style="min-width:0"><div class="tpl-card__title">' + escapeHtml(t.name) + '</div>' +
+              '<div class="t-xs muted-2">' + escapeHtml(t.department) + '</div></div>' +
+              '<span class="spacer"></span>' +
+              (t.custom ? '<span class="badge badge--accent">Yours</span>' : '') +
+              '<span class="badge">' + t.steps.length + ' step' + (t.steps.length > 1 ? 's' : '') + '</span>' +
+            '</div>' +
+            '<div class="tpl-card__desc">' + escapeHtml(t.description || '') + '</div>' +
+            '<div class="tpl-steps">' + t.steps.map(s =>
+              '<span class="tpl-steps__pill">' + escapeHtml(s.who) + '</span>').join(
+              '<span class="tpl-steps__arrow">' + icon('chevronRight') + '</span>') + '</div>' +
+            '<div class="tpl-card__meta">' +
+              '<span class="badge">' + ((usage[t.id] || 0)
+                ? 'Used ' + fmt.num(usage[t.id]) + '×' : 'Not used yet') + '</span>' +
+              (t.steps.some(s => s.sign)
+                ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature</span>' : '') +
+              '<span class="badge">' + escapeHtml(shortRetention(t.retention)) + '</span>' +
+            '</div>' +
+          '</button>').join('');
+      }
+
+      function filter() {
+        const q = $('#q').value.trim().toLowerCase();
+        const dept = $('#f-dept').value;
+        render(templates.all().filter(t =>
+          (!q || (t.name + ' ' + (t.description || '') + ' ' + (t.appliesTo || []).join(' '))
+            .toLowerCase().includes(q)) &&
+          (!dept || t.department === dept)));
+      }
+
+      $('#q').addEventListener('input', filter);
+      $('#f-dept').addEventListener('change', filter);
+
+      /* ------------------------------------------------------------ drawer */
+      grid.addEventListener('click', e => {
+        const card = e.target.closest('[data-id]');
+        if (!card) return;
+        const t = templates.get(card.dataset.id);
+        if (!t) return;
+
+        $('#dt-name').textContent = t.name;
+        $('#dt-dept').textContent = t.department + ' · ' + ((usage[t.id] || 0)
+          ? 'used ' + fmt.num(usage[t.id]) + ' times' : 'not used yet');
+        $('#dt-desc').textContent = t.description || 'No description.';
+        $('#dt-applies').textContent = (t.appliesTo || []).join(', ') || 'Any document';
+        $('#dt-retention').textContent = t.retention;
+        $('#dt-uses').textContent = fmt.num(usage[t.id] || 0);
+        $('#dt-owner').textContent = OWNERS[t.department] || 'Platform team';
+        $('#dt-use').href = '/process?template=' + encodeURIComponent(t.id);
+        $('#dt-delete').classList.toggle('hidden', !t.custom);
+        $('#dt-delete').dataset.id = t.id;
+        $('#dt-duplicate').dataset.id = t.id;
+
+        $('#dt-steps').innerHTML = t.steps.map((s, i) =>
+          (i ? '<div class="step-connector">' + icon('arrowDown') + '</div>' : '') +
+          '<div class="step-card">' +
+            '<div class="step-card__head"><span class="step-card__num">' + (i + 1) + '</span>' +
+              '<span class="step-card__title">' + escapeHtml(s.name) + '</span>' +
+              (s.sign ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature</span>' : '') +
+            '</div>' +
+            '<div class="t-sm muted mt-2">Goes to <strong>' + escapeHtml(s.who) + '</strong>' +
+              (s.dept && s.dept !== 'None' ? ' in ' + escapeHtml(s.dept) : '') +
+              ' · deadline ' + escapeHtml(s.sla) + '</div>' +
+            (s.people && s.people.length
+              ? '<div class="row wrap mt-2" style="gap:5px">' + s.people.map(p =>
+                  '<span class="chip">' + escapeHtml(p) + '</span>').join('') + '</div>'
+              : '') +
+          '</div>').join('');
+
+        openOverlay($('#drawer'));
+      });
+
+      $('#dt-delete').onclick = async () => {
+        const id = $('#dt-delete').dataset.id;
+        const ok = await confirmDanger({
+          title: 'Delete this template?',
+          message: 'Routes already running are unaffected. Nobody will be able to start a new one from it.',
+          confirmLabel: 'Delete template',
+        });
+        if (!ok) return;
+        templates.remove(id);
+        closeOverlays();
+        stats(); filter();
+        toast('Template deleted');
+      };
+
+      $('#dt-duplicate').onclick = () => {
+        const t = templates.get($('#dt-duplicate').dataset.id);
+        if (!t) return;
+        closeOverlays();
+        setTimeout(() => openBuilder(Object.assign({}, t, {
+          id: null, name: t.name + ' (copy)',
+        })), 260);
+      };
+
+      /* ----------------------------------------------------------- builder */
+      let draft = null;
+      const pickers = {};
+
+      DEPARTMENTS.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d; o.textContent = d;
+        $('#t-dept').appendChild(o);
+      });
+
+      $('#btn-new').onclick = () => openBuilder(null);
+
+      function openBuilder(existing) {
+        draft = existing
+          ? JSON.parse(JSON.stringify(existing))
+          : { id: null, name: '', department: '', description: '', appliesTo: [], retention: '', steps: [] };
+
+        $('#modal-title').textContent = existing ? 'Duplicate template' : 'New template';
+        $('#t-save').textContent = existing ? 'Create copy' : 'Create template';
+        $('#t-dept').value = draft.department || '';
+        $('#t-name').value = draft.name || '';
+        $('#t-desc').value = draft.description || '';
+        showProblems([]);
+
+        if (draft.department) applyDepartment(draft.department, { keepSteps: true });
+        else { lockFields(true); renderSteps(); }
+
+        openOverlay($('#modal-new'));
+      }
+
+      /** Everything below the department stays inert until one is chosen. */
+      function lockFields(locked) {
+        ['#t-name', '#t-desc', '#t-doctype', '#t-retention', '#t-add-step']
+          .forEach(sel => { $(sel).disabled = locked; });
+        if (locked) {
+          $('#t-name').placeholder = 'Choose a department first';
+          $('#t-doctype').innerHTML = '<option value="">Choose a department first</option>';
+          $('#t-retention').innerHTML = '<option value="">Choose a department first</option>';
+        } else {
+          $('#t-name').placeholder = 'e.g. Capex Authorisation';
+        }
+      }
+
+      $('#t-dept').addEventListener('change', e => applyDepartment(e.target.value));
+
+      /**
+       * Choosing a department fills in the document types, the retention rule,
+       * a starting name and description, and the usual steps for that team.
+       */
+      function applyDepartment(dept, opts) {
+        opts = opts || {};
+        draft.department = dept;
+
+        if (!dept) { lockFields(true); draft.steps = []; renderSteps(); return; }
+        lockFields(false);
+
+        $('#t-doctype').innerHTML = dir.docTypes(dept)
+          .map(t => '<option>' + escapeHtml(t) + '</option>').join('') +
+          '<option>Any document</option>';
+        if (draft.appliesTo && draft.appliesTo.length) {
+          const match = [...$('#t-doctype').options].find(o => o.value === draft.appliesTo[0]);
+          if (match) $('#t-doctype').value = draft.appliesTo[0];
+        }
+
+        const retentions = [...new Set(DEPARTMENTS.map(d => dir.retention(d)))].concat(['Default, 5 years']);
+        $('#t-retention').innerHTML = retentions
+          .map(r => '<option>' + escapeHtml(r) + '</option>').join('');
+        $('#t-retention').value = draft.retention && retentions.includes(draft.retention)
+          ? draft.retention : dir.retention(dept);
+
+        if (!$('#t-name').value.trim()) $('#t-name').value = dept + ' approval';
+        if (!$('#t-desc').value.trim()) {
+          $('#t-desc').value = 'Standard approval route for ' + dept + ' documents.';
+        }
+
+        if (!opts.keepSteps || !draft.steps.length) draft.steps = dir.defaultSteps(dept);
+        renderSteps();
+      }
+
+      /* ----------------------------------------------------- builder steps */
+      function renderSteps() {
+        const host = $('#t-steps');
+        const steps = (draft && draft.steps) || [];
+        $('#t-step-count').textContent = steps.length
+          ? steps.length + (steps.length === 1 ? ' step' : ' steps') : '';
+
+        if (!steps.length) {
+          host.innerHTML = '<div class="card card--flat card--pad" style="text-align:center">' +
+            '<p class="t-sm muted">' +
+            (draft && draft.department
+              ? 'No steps yet. Use "Add a step" above.'
+              : 'Choose a department and the usual steps appear here.') +
+            '</p></div>';
+          return;
+        }
+
+        host.innerHTML = steps.map((s, i) => {
+          const roles = dir.roles(s.dept);
+          return (i ? '<div class="step-connector">' + icon('arrowDown') + '</div>' : '') +
+            '<div class="step-card" data-step="' + i + '">' +
+              '<div class="step-card__head">' +
+                '<span class="step-card__sub">Step <b>' + (i + 1) + '</b></span>' +
+                '<input class="input" data-name value="' + escapeHtml(s.name || '') + '" ' +
+                  'placeholder="Name this step" style="max-width:250px;font-weight:560">' +
+                (s.sign ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature</span>' : '') +
+                '<span class="spacer"></span>' +
+                (i > 0 ? '<button class="icon-btn tip" data-tip="Move up" data-up>' + icon('arrowUp') + '</button>' : '') +
+                (i < steps.length - 1 ? '<button class="icon-btn tip" data-tip="Move down" data-down>' + icon('arrowDown') + '</button>' : '') +
+                '<button class="icon-btn is-danger tip" data-tip="Remove step" data-remove>' + icon('trash') + '</button>' +
+              '</div>' +
+              '<div class="step-card__body">' +
+                '<label class="field" style="margin:0"><span class="field__label">In department</span>' +
+                  '<select class="select" data-dept>' +
+                    DEPARTMENTS.map(d => '<option' + (d === s.dept ? ' selected' : '') + '>' +
+                      escapeHtml(d) + '</option>').join('') +
+                  '</select></label>' +
+                '<label class="field" style="margin:0"><span class="field__label">Goes to (role)</span>' +
+                  '<select class="select" data-who>' +
+                    roles.map(r => '<option' + (r === s.who ? ' selected' : '') + '>' +
+                      escapeHtml(r) + '</option>').join('') +
+                  '</select></label>' +
+                '<label class="field" style="margin:0"><span class="field__label">Deadline</span>' +
+                  '<select class="select" data-sla>' +
+                    SLA_OPTIONS.map(o => '<option' + (o === s.sla ? ' selected' : '') + '>' +
+                      escapeHtml(o) + '</option>').join('') +
+                  '</select></label>' +
+              '</div>' +
+              '<div class="grid grid-2 mt-3" style="align-items:start">' +
+                '<label class="field" style="margin:0">' +
+                  '<span class="field__label">Suggested people</span>' +
+                  '<span class="picker" data-people data-idx="' + i + '" ' +
+                    'data-dept="' + escapeHtml(s.dept || '') + '" data-role="' + escapeHtml(s.who || '') + '"></span>' +
+                  '<span class="field__hint">Pick one, several, or the whole team. Leave empty to use ' +
+                  'whoever holds the role at the time.</span>' +
+                '</label>' +
+                '<label class="check" style="margin-top:26px"><input type="checkbox" data-sign' +
+                  (s.sign ? ' checked' : '') + '>' +
+                  '<span class="check__box">' + icon('check') + '</span>' +
+                  '<span class="check__text">This person must sign, not just click approve</span></label>' +
+              '</div>' +
+            '</div>';
+        }).join('');
+
+        host.querySelectorAll('[data-people]').forEach(el => {
+          const i = Number(el.dataset.idx);
+          pickers[i] = peoplePicker(el, { selected: steps[i].people || [] });
+        });
+      }
+
+      $('#t-steps').addEventListener('peoplechange', e => {
+        const card = e.target.closest('[data-step]');
+        if (card) draft.steps[Number(card.dataset.step)].people = e.detail;
+      });
+
+      $('#t-steps').addEventListener('input', e => {
+        const card = e.target.closest('[data-step]');
+        if (card && e.target.matches('[data-name]')) {
+          draft.steps[Number(card.dataset.step)].name = e.target.value;
+        }
+      });
+
+      $('#t-steps').addEventListener('change', e => {
+        const card = e.target.closest('[data-step]');
+        if (!card) return;
+        const i = Number(card.dataset.step);
+        const s = draft.steps[i];
+
+        if (e.target.matches('[data-dept]')) {
+          s.dept = e.target.value;
+          s.who = dir.roles(s.dept)[0] || '';
+          s.people = [];
+          renderSteps();
+          return;
+        }
+        if (e.target.matches('[data-who]')) {
+          s.who = e.target.value;
+          s.people = [];
+          if (pickers[i]) pickers[i].refresh(s.dept, s.who);
+          return;
+        }
+        if (e.target.matches('[data-sla]')) s.sla = e.target.value;
+        if (e.target.matches('[data-sign]')) { s.sign = e.target.checked; renderSteps(); }
+      });
+
+      $('#t-steps').addEventListener('click', e => {
+        const card = e.target.closest('[data-step]');
+        if (!card) return;
+        const i = Number(card.dataset.step);
+        if (e.target.closest('[data-remove]')) { draft.steps.splice(i, 1); renderSteps(); }
+        else if (e.target.closest('[data-up]')) { draft.steps.splice(i - 1, 0, draft.steps.splice(i, 1)[0]); renderSteps(); }
+        else if (e.target.closest('[data-down]')) { draft.steps.splice(i + 1, 0, draft.steps.splice(i, 1)[0]); renderSteps(); }
+      });
+
+      $('#t-add-step').onclick = () => {
+        if (!draft || !draft.department) { toast('Choose a department first', '', 'danger'); return; }
+        const last = draft.steps[draft.steps.length - 1];
+        const dept = (last && last.dept) || draft.department;
+        const roles = dir.roles(dept);
+        draft.steps.push({
+          name: draft.steps.length ? 'Additional approval' : 'Review',
+          dept: dept,
+          who: roles[roles.length - 1] || '',
+          sla: '2 days',
+          sign: false,
+          people: [],
+        });
+        renderSteps();
+        const cards = $('#t-steps').querySelectorAll('[data-step]');
+        const el = cards[cards.length - 1];
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+
+      /* -------------------------------------------------------------- save */
+      function showProblems(list) {
+        $('#t-problems').classList.toggle('hidden', !list.length);
+        $('#t-problems-list').innerHTML = list.map(p => '<li>' + escapeHtml(p) + '</li>').join('');
+      }
+
+      $('#t-save').onclick = () => {
+        draft.name = $('#t-name').value.trim();
+        draft.description = $('#t-desc').value.trim();
+        draft.department = $('#t-dept').value;
+        draft.retention = $('#t-retention').value;
+        draft.appliesTo = $('#t-doctype').value ? [$('#t-doctype').value] : ['Any document'];
+
+        const problems = templates.validate(draft);
+        if (problems.length) {
+          showProblems(problems);
+          toast('Not ready to save', problems[0], 'danger');
+          return;
+        }
+
+        const saved = templates.save({
+          name: draft.name,
+          department: draft.department,
+          description: draft.description,
+          appliesTo: draft.appliesTo,
+          retention: draft.retention,
+          steps: draft.steps.map(s => ({
+            name: s.name, who: s.who, dept: s.dept, sla: s.sla,
+            sign: !!s.sign, people: s.people || [],
+          })),
+        });
+
+        closeOverlays();
+        stats();
+        filter();
+        toast('Template created', saved.name + ' is ready to use in step 3');
+      };
+
+      (async function () {
+        await loadUsage();
+        stats();
+        filter();
+      })();
+    })();
+  </script>
+</body>
+
+</html>

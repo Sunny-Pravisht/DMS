@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documents · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="documents" data-title="All Documents">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--outline btn--sm" href="/studio#add"><i data-icon="upload"></i>Add a file</a>
+        <a class="btn btn--primary btn--sm" href="/studio"><i data-icon="compose"></i>Write a document</a>
+      </div>
+
+      <main class="page">
+        <!-- The top bar already says "All Documents". -->
+        <div class="grid grid-aside-left">
+          <!-- Filters. Every entry here is counted from the repository, so a
+               view with nothing in it says zero rather than a plausible number. -->
+          <aside class="stack">
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Views</h3></div>
+              <ul class="list" id="views">
+                <li><div class="list-item"><div class="skeleton" style="height:24px;width:100%"></div></div></li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">By supplier</h3></div>
+              <ul class="list" id="by-corr">
+                <li><div class="list-item"><div class="skeleton" style="height:24px;width:100%"></div></div></li>
+              </ul>
+            </div>
+          </aside>
+
+          <!-- Results -->
+          <section>
+            <div class="filter-bar">
+              <label class="input-icon" style="width:288px">
+                <i data-icon="search"></i>
+                <input class="input" id="q" type="search" placeholder="Filter by title, supplier or type">
+              </label>
+              <select class="select" id="f-type" style="width:auto"><option value="">All document types</option></select>
+              <select class="select" id="f-corr" style="width:auto"><option value="">All suppliers</option></select>
+              <span class="spacer"></span>
+              <div class="segmented" id="view-mode">
+                <button data-value="list" class="is-active"><i data-icon="list"></i></button>
+                <button data-value="grid"><i data-icon="grid"></i></button>
+              </div>
+            </div>
+
+            <div class="row wrap mb-2" id="active-filters"></div>
+
+            <div class="card">
+              <div class="card__head">
+                <span class="t-sm muted" id="result-count">Loading…</span>
+              </div>
+
+              <div class="table-wrap">
+                <table class="table table--clickable" id="doc-table">
+                  <colgroup><col><col><col><col><col class="w-tight"></colgroup>
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>Type</th>
+                      <th>Supplier</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="doc-rows">
+                    <tr><td colspan="5" style="padding:0">
+                      <div class="skeleton" style="height:52px;border-radius:0"></div>
+                      <div class="skeleton" style="height:52px;border-radius:0;margin-top:1px"></div>
+                      <div class="skeleton" style="height:52px;border-radius:0;margin-top:1px"></div>
+                    </td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="card__foot row">
+                <span class="t-sm muted" id="page-info"></span>
+                <span class="spacer"></span>
+                <div class="btn-row">
+                  <button class="btn btn--sm btn--outline" id="prev" disabled><i data-icon="chevronLeft"></i>Previous</button>
+                  <button class="btn btn--sm btn--outline" id="next">Next<i data-icon="chevronRight"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="doc-grid mt-3 hidden" id="doc-grid"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, confirmDanger, icon, workflow } = DMS;
+      const $ = s => document.querySelector(s);
+      const rows = $('#doc-rows');
+      const grid = $('#doc-grid');
+      const count = $('#result-count');
+      const pageInfo = $('#page-info');
+      const LIMIT = 20;
+
+      let skip = 0, items = [], all = [], flows = {};
+      let filter = { view: '', corr: '', type: '', q: '' };
+
+      /**
+       * A document's status is the status of its approval, when it has one.
+       * "In review" used to be shown for everything without an approval, which
+       * described a state the document was not in.
+       */
+      function statusBadge(d) {
+        const wf = flows[d.id];
+        if (wf) return workflow.statusBadge(wf.status);
+        if (d.ocr_status === 'failed' || d.ai_status === 'failed') {
+          return '<span class="badge badge--danger">' + icon('alert') + 'Processing failed</span>';
+        }
+        if (['processing', 'pending'].includes(d.ocr_status) ||
+            ['processing', 'pending'].includes(d.ai_status)) {
+          return '<span class="badge"><span class="dot dot--accent dot--pulse"></span>Processing</span>';
+        }
+        return '<span class="badge">No approval yet</span>';
+      }
+
+      function render() {
+        if (!items.length) {
+          rows.innerHTML = '<tr><td colspan="5"><div class="empty">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('documents') + '</span>' +
+            '<h3>' + (filter.q || filter.view || filter.corr || filter.type
+              ? 'Nothing matches' : 'No documents yet') + '</h3>' +
+            '<p>' + (filter.q || filter.view || filter.corr || filter.type
+              ? 'Try a different filter, or clear them.'
+              : 'Write one on a HARMAN or vendor letterhead, or bring in a file you already have.') +
+            '</p><div class="btn-row">' +
+              '<a class="btn btn--outline" href="/studio#add">' + icon('upload') + 'Add a file</a>' +
+              '<a class="btn btn--primary" href="/studio">' + icon('compose') + 'Write a document</a>' +
+            '</div></div></td></tr>';
+          grid.innerHTML = '';
+          count.textContent = 'No documents';
+          pageInfo.textContent = '';
+          return;
+        }
+
+        rows.innerHTML = items.map(d => {
+          const title = escapeHtml(d.title || d.original_filename || d.filename || 'Untitled');
+          return '<tr data-id="' + escapeHtml(d.id) + '">' +
+            '<td><div class="cell-title truncate" style="max-width:44ch">' + title + '</div>' +
+              '<div class="cell-sub">v' + escapeHtml(d.version || '1.0') + ' · ' +
+              fmt.bytes(d.file_size) + ' · ' + fmt.ago(d.created_at) +
+              (d.origin === 'composed' ? ' · written here' : '') + '</div></td>' +
+            '<td>' + (d.doctype ? '<span class="badge">' + escapeHtml(d.doctype.name) + '</span>'
+                                : '<span class="muted-2">Not set</span>') + '</td>' +
+            '<td class="truncate" style="max-width:26ch">' +
+              escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
+            '<td>' + statusBadge(d) + '</td>' +
+            '<td class="actions"><span class="row-actions">' +
+              '<button class="icon-btn tip" data-tip="Edit in the Studio" data-act="edit">' +
+                icon('compose') + '</button>' +
+              '<button class="icon-btn tip" data-tip="Download" data-act="download">' +
+                icon('download') + '</button>' +
+              '<button class="icon-btn is-danger tip" data-tip="Delete" data-act="delete">' +
+                icon('trash') + '</button>' +
+            '</span></td></tr>';
+        }).join('');
+
+        grid.innerHTML = items.map(d => {
+          const title = escapeHtml(d.title || d.original_filename || 'Untitled');
+          return '<article class="doc-card" data-id="' + escapeHtml(d.id) + '">' +
+            '<div class="doc-card__thumb">' + icon('file') +
+              '<span class="doc-card__flag">' + statusBadge(d) + '</span></div>' +
+            '<div class="doc-card__body"><div class="doc-card__title truncate">' + title + '</div>' +
+            '<div class="doc-card__meta">' + fmt.date(d.document_date || d.created_at) + ' · ' + fmt.bytes(d.file_size) + '</div>' +
+            '</div></article>';
+        }).join('');
+
+        count.textContent = items.length + (items.length === 1 ? ' document' : ' documents') +
+          (all.length > items.length ? ' of ' + all.length : '');
+        pageInfo.textContent = 'Showing ' + (skip + 1) + ' to ' + (skip + items.length);
+        renderActiveFilters();
+      }
+
+      /**
+       * Everything is loaded once and filtered in the browser.
+       *
+       * A repository this size fits comfortably in memory, and it means the
+       * view counts in the sidebar are the real number of matching documents
+       * rather than an estimate that disagrees with the list beside it.
+       */
+      async function load() {
+        const data = await api.safe('/api/documents/?limit=500', []);
+        all = Array.isArray(data) ? data : (data.items || []);
+
+        // The approval state of each document, so the Status column and the
+        // views are talking about the same thing.
+        const live = await api.safe('/api/workflow/?limit=200', { workflows: [] });
+        flows = {};
+        (live.workflows || []).forEach(w => { flows[w.document_id] = w; });
+
+        applyFilter();
+        renderViews();
+        renderSuppliers();
+      }
+
+      function matches(d) {
+        if (filter.type && (!d.doctype || d.doctype.id !== filter.type)) return false;
+        if (filter.corr && (!d.correspondent || d.correspondent.id !== filter.corr)) return false;
+
+        if (filter.q) {
+          const hay = [d.title, d.original_filename, d.filename,
+                       d.doctype && d.doctype.name,
+                       d.correspondent && d.correspondent.name,
+                       d.summary].filter(Boolean).join(' ').toLowerCase();
+          if (!hay.includes(filter.q)) return false;
+        }
+
+        const wf = flows[d.id];
+        switch (filter.view) {
+          case 'none':      return !wf;
+          case 'active':    return wf && ['active', 'changes_requested'].includes(wf.status);
+          case 'approved':  return wf && wf.status === 'approved';
+          case 'published': return wf && wf.status === 'published';
+          case 'composed':  return d.origin === 'composed';
+          default:          return true;
+        }
+      }
+
+      function applyFilter() {
+        const matched = all.filter(matches);
+        skip = Math.min(skip, Math.max(0, matched.length - 1));
+        items = matched.slice(skip, skip + LIMIT);
+        render();
+        $('#prev').disabled = skip === 0;
+        $('#next').disabled = skip + LIMIT >= matched.length;
+      }
+
+      /** Views, each with the count of documents that genuinely match it. */
+      function renderViews() {
+        const views = [
+          { id: '',          label: 'All documents',        icon: 'documents' },
+          { id: 'none',      label: 'Not in an approval',   icon: 'file' },
+          { id: 'active',    label: 'Approval in progress', icon: 'clock' },
+          { id: 'approved',  label: 'Approved',             icon: 'check' },
+          { id: 'published', label: 'Published',            icon: 'send' },
+          { id: 'composed',  label: 'Written here',         icon: 'compose' },
+        ];
+
+        $('#views').innerHTML = views.map(v => {
+          const n = all.filter(d => {
+            const saved = filter.view;
+            filter.view = v.id;
+            const ok = matchesViewOnly(d);
+            filter.view = saved;
+            return ok;
+          }).length;
+          return '<li><button class="list-item' + (filter.view === v.id ? ' is-active' : '') +
+            '" style="width:100%;text-align:left" data-view="' + v.id + '">' +
+            icon(v.icon) +
+            '<span class="list-item__body"><span class="list-item__title">' +
+              escapeHtml(v.label) + '</span></span>' +
+            '<span class="badge">' + n + '</span></button></li>';
+        }).join('');
+      }
+
+      function matchesViewOnly(d) {
+        const wf = flows[d.id];
+        switch (filter.view) {
+          case 'none':      return !wf;
+          case 'active':    return wf && ['active', 'changes_requested'].includes(wf.status);
+          case 'approved':  return wf && wf.status === 'approved';
+          case 'published': return wf && wf.status === 'published';
+          case 'composed':  return d.origin === 'composed';
+          default:          return true;
+        }
+      }
+
+      /** Suppliers that actually have documents, with real counts. */
+      function renderSuppliers() {
+        const byId = {};
+        all.forEach(d => {
+          if (!d.correspondent) return;
+          byId[d.correspondent.id] = byId[d.correspondent.id] ||
+            { name: d.correspondent.name, n: 0 };
+          byId[d.correspondent.id].n += 1;
+        });
+
+        const list = Object.entries(byId).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+        $('#by-corr').innerHTML = list.length
+          ? list.map(([id, c]) =>
+              '<li><button class="list-item' + (filter.corr === id ? ' is-active' : '') +
+                '" style="width:100%;text-align:left" data-corr="' + escapeHtml(id) + '">' +
+                icon('building') +
+                '<span class="list-item__body"><span class="list-item__title truncate">' +
+                  escapeHtml(c.name) + '</span></span>' +
+                '<span class="badge">' + c.n + '</span></button></li>').join('')
+          : '<li><div class="list-item"><span class="t-sm muted-2">' +
+            'No supplier recorded on any document yet.</span></div></li>';
+      }
+
+      function renderActiveFilters() {
+        const chips = [];
+        if (filter.view) {
+          chips.push(['view', { none: 'Not in an approval', active: 'Approval in progress',
+            approved: 'Approved', published: 'Published',
+            composed: 'Written here' }[filter.view]]);
+        }
+        if (filter.corr) {
+          const c = all.find(d => d.correspondent && d.correspondent.id === filter.corr);
+          if (c) chips.push(['corr', c.correspondent.name]);
+        }
+        if (filter.type) {
+          const t = all.find(d => d.doctype && d.doctype.id === filter.type);
+          if (t) chips.push(['type', t.doctype.name]);
+        }
+        if (filter.q) chips.push(['q', '“' + filter.q + '”']);
+
+        $('#active-filters').innerHTML = chips.map(([key, label]) =>
+          '<span class="chip is-active">' + escapeHtml(label) +
+          '<button class="chip__x" data-clear="' + key + '">' + icon('x') + '</button></span>').join('');
+      }
+
+      // Row interactions
+      rows.addEventListener('click', async e => {
+        const tr = e.target.closest('tr[data-id]');
+        if (!tr) return;
+        const id = tr.dataset.id;
+        const act = e.target.closest('[data-act]');
+        if (act && act.dataset.act === 'edit') {
+          e.stopPropagation();
+          window.location.href = '/studio?id=' + encodeURIComponent(id);
+          return;
+        }
+        if (act && act.dataset.act === 'download') {
+          e.stopPropagation();
+          window.location.href = '/api/documents/' + id + '/download';
+          return;
+        }
+        if (act && act.dataset.act === 'delete') {
+          e.stopPropagation();
+          const ok = await confirmDanger({
+            title: 'Delete this document?',
+            message: 'The file, its versions and its extracted text are removed. The deletion itself stays in the audit trail.',
+            confirmLabel: 'Delete document'
+          });
+          if (!ok) return;
+          try {
+            await api.del('/api/documents/' + id);
+            toast('Document deleted');
+            load();
+          } catch (err) {
+            toast('Could not delete', String(err.message || err).slice(0, 200), 'danger');
+          }
+          return;
+        }
+        window.location.href = '/documents/detail?id=' + encodeURIComponent(id);
+      });
+
+      grid.addEventListener('click', e => {
+        const card = e.target.closest('[data-id]');
+        if (card) window.location.href = '/documents/detail?id=' + encodeURIComponent(card.dataset.id);
+      });
+
+      // View mode
+      $('#view-mode').addEventListener('segment', e => {
+        const isGrid = e.detail === 'grid';
+        grid.classList.toggle('hidden', !isGrid);
+        document.querySelector('.table-wrap').classList.toggle('hidden', isGrid);
+      });
+
+      // Paging
+      $('#prev').onclick = () => { skip = Math.max(0, skip - LIMIT); applyFilter(); };
+      $('#next').onclick = () => { skip += LIMIT; applyFilter(); };
+
+      // Filters
+      $('#views').addEventListener('click', e => {
+        const btn = e.target.closest('[data-view]');
+        if (!btn) return;
+        filter.view = btn.dataset.view;
+        skip = 0;
+        applyFilter();
+        renderViews();
+      });
+
+      $('#by-corr').addEventListener('click', e => {
+        const btn = e.target.closest('[data-corr]');
+        if (!btn) return;
+        filter.corr = filter.corr === btn.dataset.corr ? '' : btn.dataset.corr;
+        $('#f-corr').value = filter.corr;
+        skip = 0;
+        applyFilter();
+        renderSuppliers();
+      });
+
+      $('#active-filters').addEventListener('click', e => {
+        const btn = e.target.closest('[data-clear]');
+        if (!btn) return;
+        filter[btn.dataset.clear] = '';
+        if (btn.dataset.clear === 'q') $('#q').value = '';
+        if (btn.dataset.clear === 'corr') $('#f-corr').value = '';
+        if (btn.dataset.clear === 'type') $('#f-type').value = '';
+        skip = 0;
+        applyFilter();
+        renderViews();
+        renderSuppliers();
+      });
+
+      let debounce = null;
+      $('#q').addEventListener('input', e => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          filter.q = e.target.value.trim().toLowerCase();
+          skip = 0;
+          applyFilter();
+        }, 220);
+      });
+
+      $('#f-type').addEventListener('change', e => {
+        filter.type = e.target.value; skip = 0; applyFilter();
+      });
+      $('#f-corr').addEventListener('change', e => {
+        filter.corr = e.target.value; skip = 0; applyFilter(); renderSuppliers();
+      });
+
+      // Filter options, from what exists
+      (async function () {
+        const [types, corrs] = await Promise.all([
+          api.safe('/api/doctypes/', []),
+          api.safe('/api/correspondents/', []),
+        ]);
+        const fill = (sel, list) => {
+          (Array.isArray(list) ? list : []).forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.id; opt.textContent = o.name;
+            sel.appendChild(opt);
+          });
+        };
+        fill($('#f-type'), types);
+        fill($('#f-corr'), corrs);
+      })();
+
+      load();
+    })();
+  </script>
+</body>
+
+</html>

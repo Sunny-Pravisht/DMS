@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Document Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj4KICA8IS0tIEJhY2tncm91bmQgZ3JhZGllbnQgLS0+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImJnR3JhZGllbnQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNjY3ZWVhO3N0b3Atb3BhY2l0eToxIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3NjRiYTI7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPCEtLSBTaGFkb3cgZmlsdGVyIC0tPgogICAgPGZpbHRlciBpZD0ic2hhZG93IiB4PSItNTAlIiB5PSItNTAlIiB3aWR0aD0iMjAwJSIgaGVpZ2h0PSIyMDAlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjEiIHN0ZERldmlhdGlvbj0iMSIgZmxvb2Qtb3BhY2l0eT0iMC4yIi8+CiAgICA8L2ZpbHRlcj4KICA8L2RlZnM+CiAgCiAgPCEtLSBCYWNrZ3JvdW5kIGNpcmNsZSAtLT4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNSIgZmlsbD0idXJsKCNiZ0dyYWRpZW50KSIvPgogIAogIDwhLS0gRG9jdW1lbnQgaWNvbiAtLT4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNiwgMTYpIj4KICAgIDwhLS0gTWFpbiBkb2N1bWVudCAtLT4KICAgIDxwYXRoIGQ9Ik0gLTYgLTkgTCAtNiA3IFEgLTYgOSAtNCA5IEwgNCA5IFEgNiA5IDYgNyBMIDYgLTMgTCAwIC05IFoiIAogICAgICAgICAgZmlsbD0id2hpdGUiIAogICAgICAgICAgZmlsdGVyPSJ1cmwoI3NoYWRvdykiLz4KICAgIAogICAgPCEtLSBGb2xkZXIgY29ybmVyIC0tPgogICAgPHBhdGggZD0iTSAwIC05IEwgMCAtMyBMIDYgLTMgWiIgCiAgICAgICAgICBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNykiLz4KICAgIAogICAgPCEtLSBEb2N1bWVudCBsaW5lcyAtLT4KICAgIDxyZWN0IHg9Ii0zIiB5PSItMSIgd2lkdGg9IjYiIGhlaWdodD0iMS41IiByeD0iMC41IiBmaWxsPSIjNjY3ZWVhIiBvcGFjaXR5PSIwLjUiLz4KICAgIDxyZWN0IHg9Ii0zIiB5PSIyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxLjUiIHJ4PSIwLjUiIGZpbGw9IiM2NjdlZWEiIG9wYWNpdHk9IjAuNSIvPgogICAgPHJlY3QgeD0iLTMiIHk9IjUiIHdpZHRoPSI1IiBoZWlnaHQ9IjEuNSIgcng9IjAuNSIgZmlsbD0iIzY2N2VlYSIgb3BhY2l0eT0iMC41Ii8+CiAgPC9nPgo8L3N2Zz4=">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .login-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .login-body {
+            padding: 2rem;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px;
+            font-weight: 500;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .alert {
+            border-radius: 8px;
+            border: none;
+        }
+
+        .setup-link {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .setup-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .setup-link a:hover {
+            color: #764ba2;
+        }
+
+        .text-white-50 {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .text-white-50:hover {
+            color: rgba(255, 255, 255, 0.9) !important;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-container mx-auto">
+            <div class="login-header">
+                <i class="fas fa-file-contract fa-2x mb-2"></i>
+                <h1>DocuManager</h1>
+                <p class="mb-0 small">Document Management System</p>
+            </div>
+            <div class="login-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username or Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            <input type="text" class="form-control" id="username" required autocomplete="username">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="password" required
+                                autocomplete="current-password">
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-login">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                    </div>
+                </form>
+
+                <div id="alertContainer"></div>
+
+                <div class="setup-link" id="setupLink" style="display: none;">
+                    <i class="fas fa-cog me-2"></i>
+                    <strong>First time here?</strong><br>
+                    <a href="javascript:void(0)" onclick="redirectToSetupWizard()" style="cursor: pointer;">Complete
+                        initial setup</a>
+                    <div class="small text-muted mt-1">
+                        Create an administrator account and configure AI services
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="text-center mt-5 text-white">
+            <p class="mb-1">
+                <small>
+                    Created with ❤️ by <a href="mailto:hi@visqo.com" class="text-white-50">Jannik Reinhard and Fabian Peschke</a>
+                </small>
+            </p>
+            <p class="mb-1">
+                <small class="text-white-50">
+                    Cloud • Endpoint Management • AI Application Consulting & Engineering
+                </small>
+            </p>
+            <p class="mt-3">
+                <a href="https://www.buymeacoffee.com/jannikreinf" target="_blank">
+                    <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"
+                        alt="Buy Me A Coffee"
+                        style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important">
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Initial Setup Modal -->
+    <div class="modal fade" id="initialSetupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-cog me-2"></i>Initial System Setup
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Welcome!</strong> It looks like this is your first time using the system.
+                        Please create an administrator account to get started.
+                    </div>
+
+                    <form id="setupForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="setup-username" class="form-label">Username <span
+                                            class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="setup-username" required
+                                        autocomplete="username">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="setup-email" class="form-label">Email <span
+                                            class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" id="setup-email" required
+                                        autocomplete="email">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="setup-fullname" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="setup-fullname" autocomplete="name">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="setup-password" class="form-label">Password <span
+                                            class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="setup-password" required
+                                        minlength="8" autocomplete="new-password">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="setup-confirm-password" class="form-label">Confirm Password <span
+                                            class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="setup-confirm-password" required
+                                        autocomplete="new-password">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="dismissSetupWizard()">
+                        Skip for now
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="createInitialUser()">
+                        <i class="fas fa-user-plus me-1"></i>Create Administrator
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Setup Wizard Modal -->
+    <div class="modal fade" id="setupWizardModal" tabindex="-1" aria-labelledby="setupWizardModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="setupWizardModalLabel">
+                        <i class="fas fa-magic me-2 text-primary"></i>Setup Wizard
+                    </h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Step Progress Indicator -->
+                    <div class="d-flex justify-content-between mb-4">
+                        <div class="progress flex-grow-1">
+                            <div id="setup-progress" class="progress-bar bg-primary" role="progressbar"
+                                style="width: 25%"></div>
+                        </div>
+                        <span class="ms-3 small text-muted" id="setup-step-indicator">Step 1 of 2</span>
+                    </div>
+
+                    <!-- Step 1: Welcome -->
+                    <div id="setup-step-1" class="setup-step">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-rocket fa-3x text-primary mb-3"></i>
+                            <h3>Welcome to DocuManager!</h3>
+                            <p class="lead">Let's get your document management system set up and ready to use.</p>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            This wizard will help you create an admin user and get started quickly.
+                        </div>
+                        <div class="mt-4 text-center">
+                            <small class="text-muted">
+                                Created with ❤️ by <a href="mailto:hi@visqo.com" class="text-decoration-none">Jannik Reinhard</a>
+                            </small>
+                            <div class="mt-2">
+                                <a href="https://www.buymeacoffee.com/jannikreinf" target="_blank">
+                                    <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"
+                                        alt="Buy Me A Coffee"
+                                        style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important">
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: User Management -->
+                    <div id="setup-step-2" class="setup-step d-none">
+                        <h4><i class="fas fa-user-shield me-2"></i>Admin User Setup</h4>
+                        <p class="mb-4">Create your administrator account to secure and manage the system.</p>
+
+                        <div class="alert alert-warning mb-4">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            <strong>Security Notice:</strong> This account will have full administrative access to your
+                            document management system.
+                        </div>
+
+                        <form id="wizard-admin-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="wizard-admin-username" class="form-label">Username <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="wizard-admin-username"
+                                            placeholder="admin" required>
+                                        <div class="form-text">Choose a unique username for the administrator</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="wizard-admin-email" class="form-label">Email Address <span
+                                                class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="wizard-admin-email"
+                                            placeholder="admin@company.com" required>
+                                        <div class="form-text">Email for notifications and password recovery</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="wizard-admin-fullname" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="wizard-admin-fullname"
+                                    placeholder="System Administrator">
+                                <div class="form-text">Optional: Display name for the administrator</div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="wizard-admin-password" class="form-label">Password <span
+                                                class="text-danger">*</span></label>
+                                        <input type="password" class="form-control" id="wizard-admin-password"
+                                            placeholder="Enter a secure password" required minlength="8"
+                                            autocomplete="new-password">
+                                        <div class="form-text">Minimum 8 characters, include numbers and special
+                                            characters</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="wizard-admin-confirm-password" class="form-label">Confirm Password
+                                            <span class="text-danger">*</span></label>
+                                        <input type="password" class="form-control" id="wizard-admin-confirm-password"
+                                            placeholder="Confirm your password" required autocomplete="new-password">
+                                        <div class="form-text">Re-enter the password to confirm</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> After creating the admin user, you can log in and configure AI
+                            settings and other advanced options.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="wizard-prev-btn" onclick="previousWizardStep()"
+                        style="display: none;">
+                        <i class="fas fa-arrow-left me-1"></i>Previous
+                    </button>
+                    <button type="button" class="btn btn-primary" id="wizard-next-btn" onclick="nextWizardStep()">
+                        Next <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-success" id="wizard-finish-btn" onclick="completeWizardSetup()"
+                        style="display: none;">
+                        <i class="fas fa-check me-1"></i>Create Administrator & Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Keep API requests on the same scheme, host and externally mapped port
+        // as the page. Hard-coding port 8000 breaks Docker mappings such as
+        // `-p 8042:8000` and HTTPS reverse proxies.
+        const API_BASE = `${window.location.origin}/api`;
+
+        // Check if initial setup is needed
+        async function checkSetupStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/setup/check`);
+                const data = await response.json();
+
+                if (!data.setup_complete) {
+                    // Show setup link
+                    document.getElementById('setupLink').style.display = 'block';
+
+                    // Always automatically show setup wizard when no users exist
+                    // Small delay to let the page load
+                    setTimeout(() => {
+                        showFullSetupWizard();
+                    }, 500);
+                }
+            } catch (error) {
+                console.error('Failed to check setup status:', error);
+                // Show setup link in case of network error (might be first run)
+                document.getElementById('setupLink').style.display = 'block';
+            }
+
+        }
+
+        // Show alert
+        function showAlert(message, type = 'danger') {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type} mt-3" role="alert">
+                    ${message}
+                </div>
+            `;
+
+            // Auto-hide success alerts
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertContainer.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Disable submit button to prevent double submission
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Check if password change is required
+                    if (data.must_change_password) {
+                        showAlert('Login successful! You must change your password.', 'warning');
+                        
+                        // Set flag to show password change modal after redirect
+                        localStorage.setItem('mustChangePassword', 'true');
+                        localStorage.setItem('firstLoginUsername', username);
+                        
+                        // Redirect to main app which will show password change
+                        setTimeout(() => {
+                            window.location.replace('/');
+                        }, 1000);
+                    } else {
+                        showAlert('Login successful! Redirecting...', 'success');
+                        
+                        // Force immediate redirect using window.location.replace
+                        // This prevents back button issues and ensures proper redirect
+                        window.location.replace('/');
+                    }
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error?.detail || error.detail || 'Login failed');
+
+                    // Re-enable submit button
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Network error. Please try again.');
+
+                // Re-enable submit button
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            }
+        });
+
+        // Show initial setup modal
+        function showInitialSetup() {
+            const modal = new bootstrap.Modal(document.getElementById('initialSetupModal'));
+            modal.show();
+        }
+
+        // Show setup wizard or redirect if needed
+        async function redirectToSetupWizard() {
+            console.log('redirectToSetupWizard called');
+            try {
+                // First check setup status to see if any users exist
+                const setupResponse = await fetch(`${API_BASE}/auth/setup/check`);
+                const setupData = await setupResponse.json();
+
+                if (!setupData.setup_complete) {
+                    // No users exist yet, show full setup wizard
+                    console.log('No users exist, showing full setup wizard');
+                    showFullSetupWizard();
+                    return;
+                }
+
+                // Users exist, check if current user is logged in
+                const sessionCheck = await fetch(`${API_BASE}/auth/check-session`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (sessionCheck.ok) {
+                    const data = await sessionCheck.json();
+                    if (data.valid === true) {
+                        // User is already logged in, set flag and redirect to dashboard with full setup wizard
+                        console.log('User already logged in, redirecting to dashboard with setup wizard');
+                        // Setup wizard retired: AI keys live in .env, models in config/models.json
+                        window.location.href = '/';
+                        return;
+                    }
+                }
+
+                // Users exist but not logged in, set flag for after login and redirect to main app
+                // Setup wizard retired: AI keys live in .env, models in config/models.json
+                window.location.href = '/';
+
+            } catch (error) {
+                console.error('Error in redirectToSetupWizard:', error);
+                // Fallback: redirect to main app with setup wizard flag
+                // Setup wizard retired: AI keys live in .env, models in config/models.json
+                window.location.href = '/';
+            }
+        }
+
+        // Dismiss setup wizard
+        function dismissSetupWizard() {
+            // Remember that user dismissed the wizard
+            localStorage.setItem('setupWizardDismissed', 'true');
+
+            // Hide the modal
+            bootstrap.Modal.getInstance(document.getElementById('initialSetupModal')).hide();
+        }
+
+        // Create initial user
+        async function createInitialUser() {
+            const username = document.getElementById('setup-username').value;
+            const email = document.getElementById('setup-email').value;
+            const fullName = document.getElementById('setup-fullname').value;
+            const password = document.getElementById('setup-password').value;
+            const confirmPassword = document.getElementById('setup-confirm-password').value;
+
+            // Validation
+            if (!username || !email || !password) {
+                showAlert('Please fill in all required fields');
+                return;
+            }
+
+            if (password.length < 8) {
+                showAlert('Password must be at least 8 characters long');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/setup/initial-user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email,
+                        full_name: fullName || null,
+                        password,
+                        is_admin: true
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert('Administrator account created successfully! You can now log in.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('initialSetupModal')).hide();
+
+                    // Hide setup link permanently
+                    document.getElementById('setupLink').style.display = 'none';
+
+                    // Clear localStorage flag since setup is complete
+                    localStorage.removeItem('setupWizardDismissed');
+
+                    // Set flag to show setup wizard on first dashboard login
+                    // Setup wizard retired: AI keys live in .env, models in config/models.json
+
+                    // Clear the form
+                    document.getElementById('setupForm').reset();
+
+                    // Pre-fill login form with the created username
+                    document.getElementById('username').value = username;
+                    document.getElementById('password').focus();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.detail || 'Failed to create administrator account');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                showAlert('Network error. Please try again.');
+            }
+        }
+
+        // Setup Wizard Variables and Functions
+        let currentWizardStep = 1;
+
+        // Show full setup wizard
+        async function showFullSetupWizard() {
+            // First check if users already exist
+            try {
+                const setupResponse = await fetch(`${API_BASE}/auth/setup/check`);
+                if (setupResponse.ok) {
+                    const setupData = await setupResponse.json();
+                    if (setupData.setup_complete) {
+                        // Users already exist, redirect to main app with setup wizard flag
+                        // Setup wizard retired: AI keys live in .env, models in config/models.json
+                        window.location.href = '/';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to check setup status:', error);
+            }
+
+            // No users exist, show the user creation wizard
+            currentWizardStep = 1;
+            updateWizardStep();
+            const modal = new bootstrap.Modal(document.getElementById('setupWizardModal'));
+            modal.show();
+        }
+
+        function nextWizardStep() {
+            if (validateWizardStep()) {
+                currentWizardStep++;
+                updateWizardStep();
+            }
+        }
+
+        function previousWizardStep() {
+            currentWizardStep--;
+            updateWizardStep();
+        }
+
+        function validateWizardStep() {
+            switch (currentWizardStep) {
+                case 2:
+                    // User management validation
+                    const username = document.getElementById('wizard-admin-username').value.trim();
+                    const email = document.getElementById('wizard-admin-email').value.trim();
+                    const password = document.getElementById('wizard-admin-password').value;
+                    const confirmPassword = document.getElementById('wizard-admin-confirm-password').value;
+
+                    if (!username) {
+                        showAlert('Please enter a username for the administrator', 'warning');
+                        return false;
+                    }
+
+                    if (username.length < 3) {
+                        showAlert('Username must be at least 3 characters long', 'warning');
+                        return false;
+                    }
+
+                    if (!email) {
+                        showAlert('Please enter an email address', 'warning');
+                        return false;
+                    }
+
+                    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailPattern.test(email)) {
+                        showAlert('Please enter a valid email address', 'warning');
+                        return false;
+                    }
+
+                    if (!password) {
+                        showAlert('Please enter a password', 'warning');
+                        return false;
+                    }
+
+                    if (password.length < 8) {
+                        showAlert('Password must be at least 8 characters long', 'warning');
+                        return false;
+                    }
+
+                    if (password !== confirmPassword) {
+                        showAlert('Passwords do not match', 'warning');
+                        return false;
+                    }
+
+                    break;
+            }
+            return true;
+        }
+
+        function updateWizardStep() {
+            // Hide all steps
+            document.querySelectorAll('.setup-step').forEach(step => {
+                if (step) {
+                    step.classList.add('d-none');
+                }
+            });
+
+            // Show current step
+            const currentStep = document.getElementById(`setup-step-${currentWizardStep}`);
+            if (currentStep) {
+                currentStep.classList.remove('d-none');
+            }
+
+            // Update progress bar
+            const progress = (currentWizardStep / 2) * 100; // Only 2 steps for login page
+            const progressBar = document.getElementById('setup-progress');
+            if (progressBar) {
+                progressBar.style.width = `${progress}%`;
+            }
+
+            const stepIndicator = document.getElementById('setup-step-indicator');
+            if (stepIndicator) {
+                stepIndicator.textContent = `Step ${currentWizardStep} of 2`;
+            }
+
+            // Update buttons
+            const prevBtn = document.getElementById('wizard-prev-btn');
+            const nextBtn = document.getElementById('wizard-next-btn');
+            const finishBtn = document.getElementById('wizard-finish-btn');
+
+            if (currentWizardStep === 1) {
+                if (prevBtn) prevBtn.style.display = 'none';
+                if (nextBtn) nextBtn.style.display = 'inline-block';
+                if (finishBtn) finishBtn.style.display = 'none';
+            } else if (currentWizardStep === 2) {
+                if (prevBtn) prevBtn.style.display = 'inline-block';
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (finishBtn) finishBtn.style.display = 'inline-block';
+            }
+        }
+
+        async function completeWizardSetup() {
+            // Create the admin user
+            const username = document.getElementById('wizard-admin-username').value.trim();
+            const email = document.getElementById('wizard-admin-email').value.trim();
+            const fullName = document.getElementById('wizard-admin-fullname').value.trim();
+            const password = document.getElementById('wizard-admin-password').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/setup/initial-user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email,
+                        full_name: fullName || null,
+                        password,
+                        is_admin: true
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert('Administrator account created successfully! Please log in to continue configuration.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('setupWizardModal')).hide();
+
+                    // Hide setup link permanently
+                    document.getElementById('setupLink').style.display = 'none';
+
+                    // Pre-fill login form with the created username
+                    document.getElementById('username').value = username;
+                    document.getElementById('password').focus();
+
+                    // Set flag to show full setup wizard on first login
+                    // Setup wizard retired: AI keys live in .env, models in config/models.json
+                } else {
+                    const error = await response.json();
+                    showAlert(error.detail || 'Failed to create administrator account');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                showAlert('Network error. Please try again.');
+            }
+        }
+
+        // Initialize
+        checkSetupStatus();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="settings" data-title="Settings">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page page--narrow">
+        <div class="page-head">
+          <h1 class="t-h1">Settings</h1>
+          <p>Platform configuration. Changes are recorded in the audit trail.</p>
+        </div>
+
+        <div class="tabs" data-tabs="set">
+          <button data-tab="profile" class="is-active">Profile</button>
+          <button data-tab="ai">AI &amp; automation</button>
+          <button data-tab="capture">Capture &amp; OCR</button>
+          <button data-tab="storage">Storage &amp; backup</button>
+          <button data-tab="security">Security</button>
+          <button data-tab="health">System health</button>
+        </div>
+
+        <!-- Profile -->
+        <div class="tab-panel is-active" data-panel="profile" data-scope="set" id="profile">
+          <div class="card card--pad">
+            <div class="row">
+              <span class="avatar avatar--lg" data-user-initials></span>
+              <div>
+                <div class="t-h2" data-user-name>Loading…</div>
+                <div class="t-sm muted" data-user-role></div>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="grid grid-2">
+              <label class="field" style="margin:0"><span class="field__label">Display name</span>
+                <input class="input" id="p-name"></label>
+              <label class="field" style="margin:0"><span class="field__label">Work email</span>
+                <input class="input" id="p-email" type="email"></label>
+            </div>
+            <div class="btn-row mt-3"><button class="btn btn--primary">Save profile</button></div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">Change password</h3>
+            <p class="t-sm muted mt-1">You will stay signed in on this device; other sessions end.</p>
+            <div class="grid grid-3 mt-3">
+              <label class="field" style="margin:0"><span class="field__label">Current password</span>
+                <input class="input" id="pw-old" type="password"></label>
+              <label class="field" style="margin:0"><span class="field__label">New password</span>
+                <input class="input" id="pw-new" type="password"></label>
+              <label class="field" style="margin:0"><span class="field__label">Confirm</span>
+                <input class="input" id="pw-confirm" type="password"></label>
+            </div>
+            <div class="btn-row mt-3"><button class="btn btn--primary" id="btn-password">Update password</button></div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">Notifications</h3>
+            <div class="stack-sm mt-3">
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">A task is assigned to me</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">An SLA on my task is about to breach</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Someone @mentions me on a document</span></label>
+              <label class="switch"><input type="checkbox">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Weekly retention and disposition digest</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI -->
+        <div class="tab-panel" data-panel="ai" data-scope="set">
+          <div class="card card--pad">
+            <div class="row">
+              <span class="tile-icon"><i data-icon="ai"></i></span>
+              <div><h3 class="t-h3">AI provider</h3>
+                <div class="t-sm muted" id="ai-status">Checking…</div></div>
+              <span class="spacer"></span>
+              <button class="btn btn--sm btn--outline" id="btn-test-ai">Test connection</button>
+            </div>
+            <div class="divider"></div>
+            <div class="grid grid-2">
+              <label class="field" style="margin:0"><span class="field__label">Provider</span>
+                <select class="select" id="ai-provider"><option value="groq">Groq</option>
+                  <option value="openai">OpenAI</option><option value="azure">Azure OpenAI</option></select></label>
+              <label class="field" style="margin:0"><span class="field__label">Embeddings</span>
+                <select class="select"><option>Local (ONNX, no key required)</option>
+                  <option>OpenAI</option><option>Azure OpenAI</option></select></label>
+            </div>
+            <div class="banner banner--grey mt-3">
+              <i data-icon="info"></i>
+              <div>Model names live in <span class="mono">config/models.json</span>, not here.
+                Precedence: code defaults → file → environment → database.</div>
+            </div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">Automation thresholds</h3>
+            <p class="t-sm muted mt-1">Anything below the threshold is held in the review queue instead
+              of being filed automatically.</p>
+            <div class="grid grid-2 mt-3">
+              <label class="field" style="margin:0"><span class="field__label">Auto-file above confidence</span>
+                <select class="select"><option>0.85 (recommended)</option><option>0.75</option><option>0.95</option></select></label>
+              <label class="field" style="margin:0"><span class="field__label">Near-duplicate similarity</span>
+                <select class="select"><option>0.92</option><option>0.85</option><option>0.97</option></select></label>
+            </div>
+            <div class="stack-sm mt-3">
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Auto-generate summaries on capture</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Extract typed fields (invoice number, dates, parties)</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Assign a sensitivity label</span></label>
+              <label class="switch"><input type="checkbox">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Let the assistant trigger workflows on request</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capture -->
+        <div class="tab-panel" data-panel="capture" data-scope="set">
+          <div class="card card--pad">
+            <h3 class="t-h3">OCR engine</h3>
+            <div class="grid grid-2 mt-3">
+              <label class="field" style="margin:0"><span class="field__label">Strategy</span>
+                <select class="select"><option>Auto: text layer, then vision, then Tesseract</option>
+                  <option>Vision model only</option><option>Tesseract only</option></select></label>
+              <label class="field" style="margin:0"><span class="field__label">Primary language</span>
+                <select class="select"><option>English</option><option>English + Hindi</option>
+                  <option>English + Tamil</option><option>Auto-detect</option></select></label>
+            </div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">File handling</h3>
+            <div class="grid grid-2 mt-3">
+              <label class="field" style="margin:0"><span class="field__label">Maximum file size</span>
+                <input class="input" value="100 MB"></label>
+              <label class="field" style="margin:0"><span class="field__label">Staging folder</span>
+                <input class="input mono" value="./data/staging"></label>
+            </div>
+            <label class="field"><span class="field__label">Allowed extensions</span>
+              <input class="input mono" value="pdf,png,jpg,jpeg,tiff,bmp,txt,md,docx,xlsx,pptx,eml,csv"></label>
+            <label class="switch mt-3"><input type="checkbox" checked>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="t-sm">Watch the staging folder and capture automatically</span></label>
+            <label class="switch mt-2"><input type="checkbox" checked>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="t-sm">Reject files that fail a content-type check</span></label>
+          </div>
+        </div>
+
+        <!-- Storage -->
+        <div class="tab-panel" data-panel="storage" data-scope="set">
+          <div class="card card--pad">
+            <h3 class="t-h3">Backups</h3>
+            <div class="row mt-3">
+              <span class="dot dot--accent"></span><span class="t-sm">Last backup completed 04:00 today</span>
+              <span class="spacer"></span>
+              <div class="btn-row">
+                <button class="btn btn--sm btn--outline"><i data-icon="download"></i>Download latest</button>
+                <button class="btn btn--sm btn--primary" id="btn-backup"><i data-icon="archive"></i>Back up now</button>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="grid grid-2">
+              <label class="field" style="margin:0"><span class="field__label">Schedule</span>
+                <select class="select"><option>Daily at 04:00</option><option>Every 6 hours</option><option>Weekly</option></select></label>
+              <label class="field" style="margin:0"><span class="field__label">Keep</span>
+                <select class="select"><option>30 backups</option><option>7 backups</option><option>90 backups</option></select></label>
+            </div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">Database maintenance</h3>
+            <p class="t-sm muted mt-1">Run periodically after large ingests.</p>
+            <div class="btn-row mt-3">
+              <button class="btn btn--outline"><i data-icon="zap"></i>Optimise</button>
+              <button class="btn btn--outline"><i data-icon="layers"></i>Rebuild indexes</button>
+              <button class="btn btn--outline"><i data-icon="refresh"></i>Rebuild embeddings</button>
+            </div>
+          </div>
+
+          <div class="card card--danger card--pad mt-3">
+            <div class="row-top">
+              <span class="tile-icon tile-icon--danger"><i data-icon="alert"></i></span>
+              <div style="flex:1">
+                <h3 class="t-h3 danger-text">Purge deleted documents</h3>
+                <p class="t-sm mt-1" style="color:var(--red-700)">Permanently removes files already
+                  soft-deleted and past their grace period. Records under retention or legal hold are never purged.</p>
+                <button class="btn btn--danger btn--sm mt-2" id="btn-purge"><i data-icon="trash"></i>Purge now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="tab-panel" data-panel="security" data-scope="set">
+          <div class="card card--pad">
+            <h3 class="t-h3">Sessions &amp; access</h3>
+            <div class="grid grid-2 mt-3">
+              <label class="field" style="margin:0"><span class="field__label">Session timeout</span>
+                <select class="select"><option>8 hours</option><option>4 hours</option><option>1 hour</option></select></label>
+              <label class="field" style="margin:0"><span class="field__label">Failed sign-in lockout</span>
+                <select class="select"><option>5 attempts / 5 minutes</option><option>3 attempts / 15 minutes</option></select></label>
+            </div>
+            <div class="stack-sm mt-3">
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Require multi-factor authentication for administrators</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Log every document read, not just downloads</span></label>
+              <label class="switch"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Block cross-department access without an explicit cross-link</span></label>
+              <label class="switch"><input type="checkbox">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Watermark downloads with the requesting user's identity</span></label>
+            </div>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">Active sessions</h3>
+            <div class="table-wrap mt-2">
+              <table class="table">
+                <thead><tr><th>Device</th><th>Location</th><th>Started</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-title">This device</td><td class="mono t-xs">10.42.7.19</td>
+                    <td class="muted">Today, 09:12</td><td class="actions"><span class="badge badge--accent">Current</span></td></tr>
+                  <tr><td class="cell-title">Chrome · Windows</td><td class="mono t-xs">10.42.7.44</td>
+                    <td class="muted">Yesterday, 14:31</td>
+                    <td class="actions"><button class="btn btn--sm btn--danger-soft">Revoke</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Health -->
+        <div class="tab-panel" data-panel="health" data-scope="set">
+          <div class="card">
+            <div class="card__head"><h3 class="t-h3">Service health</h3><span class="spacer"></span>
+              <button class="btn btn--sm btn--outline" id="btn-health"><i data-icon="refresh"></i>Refresh</button></div>
+            <ul class="list" id="health-list">
+              <li><div class="list-item"><div class="skeleton" style="height:20px;width:100%"></div></div></li>
+            </ul>
+          </div>
+
+          <div class="card card--pad mt-3">
+            <h3 class="t-h3">About</h3>
+            <dl class="dl mt-3">
+              <dt>Product</dt><dd>HARMAN Document Management System</dd>
+              <dt>Version</dt><dd class="mono" id="app-version">1.0.0</dd>
+              <dt>Built on</dt><dd>FastAPI · SQLAlchemy · ChromaDB</dd>
+              <dt>Licence</dt><dd>MIT, a derivative of the open-source DocumentManager project</dd>
+            </dl>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, toast, confirmDanger, icon, escapeHtml } = DMS;
+
+      // Deep link: /settings#profile etc.
+      const hash = location.hash.replace('#', '');
+      if (hash) {
+        const btn = document.querySelector('[data-tab="' + hash + '"]');
+        if (btn) btn.click();
+      }
+
+      // Profile
+      (async function () {
+        const me = await api.safe('/api/auth/me', null);
+        if (!me) return;
+        document.getElementById('p-name').value = me.full_name || me.username || '';
+        document.getElementById('p-email').value = me.email || '';
+      })();
+
+      document.getElementById('btn-password').onclick = async () => {
+        const oldPw = document.getElementById('pw-old').value;
+        const newPw = document.getElementById('pw-new').value;
+        const confirmPw = document.getElementById('pw-confirm').value;
+        if (newPw !== confirmPw) { toast('Passwords do not match', '', 'danger'); return; }
+        if (newPw.length < 12) { toast('Password too short', 'Use at least 12 characters', 'danger'); return; }
+        try {
+          await api.post('/api/auth/change-password', { current_password: oldPw, new_password: newPw });
+          toast('Password updated');
+          ['pw-old', 'pw-new', 'pw-confirm'].forEach(i => document.getElementById(i).value = '');
+        } catch (e) { toast('Could not update password', String(e.message || e), 'danger'); }
+      };
+
+      // AI status
+      (async function () {
+        const status = await api.safe('/api/settings/ai-provider/status', null);
+        const el = document.getElementById('ai-status');
+        if (!status) { el.textContent = 'Status unavailable'; return; }
+        const provider = status.provider || status.ai_provider || 'unknown';
+        const ok = status.configured ?? status.available ?? status.status === 'ok';
+        el.innerHTML = ok
+          ? '<span class="badge badge--accent">Connected</span> ' + escapeHtml(String(provider))
+          : '<span class="badge badge--danger">Not configured</span> ' + escapeHtml(String(provider));
+        const sel = document.getElementById('ai-provider');
+        if (sel && provider) sel.value = String(provider).toLowerCase();
+      })();
+
+      document.getElementById('btn-test-ai').onclick = async () => {
+        try { await api.post('/api/settings/test/ai', {}); toast('AI provider reachable'); }
+        catch (e) { toast('AI test failed', String(e.message || e), 'danger'); }
+      };
+
+      // Backup
+      document.getElementById('btn-backup').onclick = async () => {
+        try { await api.post('/api/backup/', {}); toast('Backup started'); }
+        catch (e) { toast('Could not start backup', String(e.message || e), 'danger'); }
+      };
+
+      document.getElementById('btn-purge').onclick = async () => {
+        const ok = await confirmDanger({
+          title: 'Purge deleted documents?',
+          message: 'Files already soft-deleted and past their grace period are removed from disk permanently. This cannot be undone.',
+          confirmLabel: 'Purge permanently'
+        });
+        if (!ok) return;
+        try { await api.post('/api/documents/cleanup/orphaned', {}); toast('Purge started'); }
+        catch (e) { toast('Purge failed', String(e.message || e), 'danger'); }
+      };
+
+      // Health
+      async function health() {
+        const list = document.getElementById('health-list');
+        const data = await api.safe('/api/health/', null);
+        if (!data) {
+          list.innerHTML = '<li><div class="list-item"><span class="dot dot--danger"></span>' +
+            '<span class="list-item__body"><span class="list-item__title">Health endpoint unreachable</span></span></div></li>';
+          return;
+        }
+        const checks = data.services || data.checks || data.components || { overall: data.status };
+        list.innerHTML = Object.keys(checks).map(k => {
+          const v = checks[k];
+          const state = typeof v === 'string' ? v : (v.status || v.state || 'unknown');
+          const note = (v && v.message) ? v.message : '';
+          const good = /ok|healthy|up|pass|connected/i.test(String(state));
+          const label = k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+          return '<li><div class="list-item">' +
+            '<span class="dot ' + (good ? 'dot--accent' : 'dot--danger') + '"></span>' +
+            '<span class="list-item__body"><span class="list-item__title">' + escapeHtml(label) + '</span>' +
+            (note ? '<span class="list-item__sub">' + escapeHtml(note) + '</span>' : '') + '</span>' +
+            '<span class="badge ' + (good ? 'badge--accent' : 'badge--danger') + '">' + escapeHtml(String(state)) + '</span>' +
+            '</div></li>';
+        }).join('');
+        if (data.version) document.getElementById('app-version').textContent = data.version;
+      }
+      document.getElementById('btn-health').onclick = health;
+      health();
+    })();
+  </script>
+</body>
+
+</html>

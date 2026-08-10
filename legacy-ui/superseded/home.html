@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="home" data-title="Home">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--outline btn--sm" href="/search"><i data-icon="search"></i>Find a document</a>
+        <a class="btn btn--outline btn--sm" href="/upload"><i data-icon="upload"></i>Upload a file</a>
+        <a class="btn btn--primary btn--sm" href="/studio"><i data-icon="compose"></i>Write a document</a>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <h1 class="t-display" id="greeting">Good morning</h1>
+          <p id="sub">Loading what needs you today…</p>
+        </div>
+
+        <!-- Needs you. Every number here is counted, never estimated. -->
+        <section class="grid grid-3 mb-3" id="attention">
+          <div class="card card--pad"><div class="skeleton" style="height:92px"></div></div>
+          <div class="card card--pad"><div class="skeleton" style="height:92px"></div></div>
+          <div class="card card--pad"><div class="skeleton" style="height:92px"></div></div>
+        </section>
+
+        <!-- The spine -->
+        <section class="card card--pad mb-3"
+                 style="background:linear-gradient(120deg,var(--blue-50),#fff 60%);border-color:var(--blue-100)">
+          <div class="row wrap" style="gap:20px">
+            <div style="flex:1;min-width:260px">
+              <div class="t-eyebrow">Five steps, start to finish</div>
+              <h2 class="t-h2 mt-1">Put a document through the whole process</h2>
+              <p class="t-sm muted mt-1" style="max-width:62ch">Bring it in or write it here, confirm what
+                the system read, choose who approves it, watch it get signed, then publish it, without a
+                single email.</p>
+            </div>
+            <div class="btn-row" style="gap:8px">
+              <a class="btn btn--outline btn--lg" href="/upload"><i data-icon="upload"></i>Upload a file</a>
+              <a class="btn btn--primary btn--lg" href="/studio"><i data-icon="compose"></i>Write a document</a>
+            </div>
+          </div>
+          <div class="flowline mt-3" id="flowline"></div>
+        </section>
+
+        <div class="grid grid-sidebar">
+          <div class="stack-lg">
+            <!-- In flight -->
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Approvals in flight</h3>
+                <span class="spacer"></span>
+                <a class="btn btn--ghost btn--sm" href="/track">Track all<i data-icon="chevronRight"></i></a>
+              </div>
+              <ul class="list" id="in-flight">
+                <li><div class="list-item"><div class="skeleton" style="height:34px;width:100%"></div></div></li>
+              </ul>
+            </div>
+
+            <!-- Recent documents -->
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Recent documents</h3>
+                <span class="spacer"></span>
+                <a class="btn btn--ghost btn--sm" href="/documents">See all<i data-icon="chevronRight"></i></a>
+              </div>
+              <ul class="list" id="recent">
+                <li><div class="list-item"><div class="skeleton" style="height:34px;width:100%"></div></div></li>
+              </ul>
+            </div>
+
+            <!-- Where work sits, counted from real workflows -->
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Where documents are right now</h3>
+                <span class="spacer"></span>
+                <span class="t-sm muted" id="load-total"></span>
+              </div>
+              <div class="card__body stack-sm" id="load"></div>
+            </div>
+          </div>
+
+          <div class="stack-lg">
+            <!-- Activity, from the real workflow trail -->
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Just happened</h3></div>
+              <div class="card__body">
+                <div class="timeline" id="activity">
+                  <div class="skeleton" style="height:48px"></div>
+                </div>
+              </div>
+              <div class="card__foot">
+                <a class="btn btn--ghost btn--sm" href="/audit">Full activity log<i data-icon="chevronRight"></i></a>
+              </div>
+            </div>
+
+            <div class="card card--pad" id="signing-card" hidden>
+              <h3 class="t-h3">Your signature</h3>
+              <p class="t-sm muted mt-1" id="signing-text"></p>
+              <div class="mt-3" id="signing-preview"></div>
+            </div>
+
+            <div class="card card--pad">
+              <h3 class="t-h3">Everything is on record</h3>
+              <p class="t-sm muted mt-1">Every view, download, signature and rejection is logged
+                against a name and a time. Audits take minutes, not weeks.</p>
+              <a class="btn btn--outline btn--sm btn--block mt-3" href="/audit">Open the activity log</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, icon, flow, workflow, JOURNEY } = DMS;
+      const $ = s => document.querySelector(s);
+
+      const hour = new Date().getHours();
+      const part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+      /* ------------------------------------------------------------- header */
+      (async function () {
+        const me = await api.safe('/api/auth/me', null);
+        const name = me && (me.full_name || me.username);
+        $('#greeting').textContent = name ? part + ', ' + name.split(' ')[0] : part;
+
+        // Someone who can sign should know it: it changes what they are for.
+        if (me && (me.can_sign || me.is_admin)) {
+          const sig = flow.signature();
+          $('#signing-card').hidden = false;
+          $('#signing-text').textContent = sig
+            ? 'You hold signature authority, and your signature is saved and ready to apply.'
+            : 'You hold signature authority. Draw your signature once and it is reused on every approval.';
+          $('#signing-preview').innerHTML = sig
+            ? '<img src="' + sig.dataUrl + '" alt="Your signature" ' +
+              'style="max-height:60px;mix-blend-mode:multiply">'
+            : '<a class="btn btn--outline btn--sm btn--block" href="/tasks">' +
+              icon('signature') + 'Set it up on your first approval</a>';
+        }
+      })();
+
+      /* -------------------------------------------------------------- steps */
+      $('#flowline').innerHTML = JOURNEY.map((s, i) =>
+        (i ? '<div class="flowline__arrow">' + icon('chevronRight') + '</div>' : '') +
+        '<a class="flowline__step" href="' + s.href + '">' +
+          '<span class="tile-icon">' + icon(s.icon) + '</span>' +
+          '<h4>' + s.n + ' · ' + escapeHtml(s.label.replace(/ .*/, '')) + '</h4>' +
+          '<p>' + escapeHtml(s.hint) + '</p></a>').join('');
+
+      /* --------------------------------------------------------- attention */
+
+      /**
+       * Three cards, and each one only appears if it is true.
+       *
+       * The previous version showed fixed numbers whether or not anything was
+       * waiting, which trained people to ignore them. A card that says nothing
+       * is needed is more useful than one that invents a number.
+       */
+      function attention(stats) {
+        const cards = [];
+
+        cards.push(card({
+          href: '/tasks',
+          icon: stats.my_tasks ? 'stamp' : 'check',
+          tone: stats.my_tasks ? 'solid' : '',
+          value: stats.my_tasks,
+          title: stats.my_tasks === 1 ? 'document needs your decision'
+                                      : 'documents need your decision',
+          sub: stats.my_tasks
+            ? (stats.my_tasks_overdue ? stats.my_tasks_overdue + ' already overdue'
+               : stats.my_tasks_due_today ? stats.my_tasks_due_today + ' due today'
+               : 'None overdue')
+            : 'Nothing is waiting on you',
+          cta: stats.my_tasks ? 'Review them' : 'Open My Tasks',
+        }));
+
+        cards.push(card({
+          href: '/track',
+          icon: 'workflow',
+          value: stats.in_progress,
+          title: stats.in_progress === 1 ? 'approval in progress' : 'approvals in progress',
+          sub: stats.awaiting_changes
+            ? stats.awaiting_changes + ' sent back for changes'
+            : 'Moving through their approvers',
+          cta: 'Track them',
+        }));
+
+        if (stats.overdue) {
+          cards.push(card({
+            href: '/track?filter=overdue', danger: true, icon: 'alert',
+            value: stats.overdue,
+            title: stats.overdue === 1 ? 'approval is running late' : 'approvals are running late',
+            sub: 'Past the agreed deadline',
+            cta: 'Deal with them',
+          }));
+        } else if (stats.ready_to_publish) {
+          cards.push(card({
+            href: '/publish', icon: 'send',
+            value: stats.ready_to_publish,
+            title: stats.ready_to_publish === 1 ? 'document is ready to publish'
+                                                : 'documents are ready to publish',
+            sub: 'Fully approved and signed',
+            cta: 'Publish them',
+          }));
+        } else {
+          cards.push(card({
+            href: '/documents', icon: 'documents',
+            value: stats.documents,
+            title: stats.documents === 1 ? 'document in the repository'
+                                         : 'documents in the repository',
+            sub: stats.not_in_a_process
+              ? stats.not_in_a_process + ' not yet in an approval process'
+              : 'All of them are in a process',
+            cta: 'Browse the repository',
+          }));
+        }
+
+        $('#attention').innerHTML = cards.join('');
+      }
+
+      function card(o) {
+        return '<a class="card card--pad card--hover' + (o.danger ? ' card--danger' : '') +
+          '" href="' + o.href + '" style="display:block">' +
+          '<div class="row-top">' +
+            '<span class="tile-icon' + (o.danger ? ' tile-icon--danger' :
+              o.tone === 'solid' ? ' tile-icon--solid' : '') + '">' + icon(o.icon) + '</span>' +
+            '<div>' +
+              '<div class="t-num' + (o.danger ? ' danger-text' : o.value ? ' accent-text' : '') + '">' +
+                fmt.num(o.value) + '</div>' +
+              '<div class="t-h3 mt-1">' + escapeHtml(o.title) + '</div>' +
+              '<div class="t-sm muted mt-1">' + escapeHtml(o.sub) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="row mt-3 ' + (o.danger ? 'danger-text' : 'accent-text') +
+            '" style="font-weight:600;font-size:13px">' +
+            escapeHtml(o.cta) + icon('chevronRight') + '</div>' +
+          '</a>';
+      }
+
+      /* ------------------------------------------------------------ in flight */
+      function renderInFlight(workflows) {
+        const host = $('#in-flight');
+        if (!workflows.length) {
+          host.innerHTML = '<li><div class="empty" style="padding:30px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('workflow') + '</span>' +
+            '<h3>No approvals running</h3>' +
+            '<p>Pick a document and set up who approves it.</p>' +
+            '<div class="btn-row"><a class="btn btn--outline btn--sm" href="/documents">' +
+            'Choose a document</a></div></div></li>';
+          return;
+        }
+
+        host.innerHTML = workflows.slice(0, 6).map(w => {
+          const step = w.current_step;
+          const doc = w.document || {};
+          return '<li><a class="list-item" href="/track?id=' + encodeURIComponent(w.document_id) + '">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+            '<span class="list-item__body">' +
+              '<span class="list-item__title truncate">' +
+                escapeHtml(doc.title || 'Untitled') + '</span>' +
+              '<span class="list-item__sub">' +
+                (step
+                  ? 'Step ' + step.order + ' of ' + w.progress.total + ' · with ' +
+                    escapeHtml(workflow.addressee(step))
+                  // No current step means it is waiting on its author, not on
+                  // an approver. Say that in words, not as a status key.
+                  : w.status === 'changes_requested'
+                    ? 'Sent back to the author for changes'
+                    : escapeHtml((workflow.STATUS[w.status] || {}).label || w.status)) +
+              '</span></span>' +
+            '<span class="list-item__end">' +
+              (step && step.overdue ? '<span class="badge badge--danger">' + icon('alert') + 'Overdue</span>'
+                                    : workflow.priorityBadge(w.priority)) +
+            '</span></a></li>';
+        }).join('');
+      }
+
+      /* ----------------------------------------------------------- workload */
+      function renderLoad(workflows) {
+        const byDept = {};
+        workflows.forEach(w => {
+          const step = w.current_step;
+          const key = (step && (step.department || step.role)) || w.department || 'Unassigned';
+          byDept[key] = (byDept[key] || 0) + 1;
+        });
+
+        const rows = Object.entries(byDept).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const total = workflows.length;
+        $('#load-total').textContent = total
+          ? total + (total === 1 ? ' approval' : ' approvals') : '';
+
+        $('#load').innerHTML = rows.length
+          ? rows.map(([name, n]) =>
+              '<div class="meter-row"><span class="meter-row__label">' + escapeHtml(name) + '</span>' +
+              '<span class="progress full"><span class="progress__bar" style="width:' +
+                Math.round(n / total * 100) + '%"></span></span>' +
+              '<span class="meter-row__value">' + n + '</span></div>').join('')
+          : '<p class="t-sm muted-2">Nothing is in an approval process yet.</p>';
+      }
+
+      /* ----------------------------------------------------------- activity */
+      function renderActivity(workflows) {
+        // The trail of every live workflow, newest first. Real events only:
+        // if nothing has happened, the panel says so.
+        const events = [];
+        workflows.forEach(w => (w.events || []).forEach(e => events.push({ e: e, w: w })));
+        events.sort((a, b) => new Date(b.e.at) - new Date(a.e.at));
+
+        const host = $('#activity');
+        if (!events.length) {
+          host.innerHTML = '<p class="t-sm muted-2">Nothing has happened yet. ' +
+            'Actions appear here as documents move through their approvals.</p>';
+          return;
+        }
+
+        const tone = { approved: 'is-accent', published: 'is-accent',
+                       rejected: 'is-danger', changes: 'is-warn' };
+
+        host.innerHTML = events.slice(0, 7).map(({ e, w }) =>
+          '<div class="timeline__item ' + (tone[e.kind] || '') + '">' +
+            '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
+            '<div class="timeline__meta">' +
+              escapeHtml((w.document && w.document.title) || 'Document') + ' · ' +
+              fmt.ago(e.at) +
+              (e.detail ? ' · “' + escapeHtml(e.detail.slice(0, 70)) + '”' : '') +
+            '</div></div>').join('');
+      }
+
+      /* ---------------------------------------------------------- documents */
+      function renderRecent(items) {
+        const host = $('#recent');
+        if (!items.length) {
+          host.innerHTML = '<li><div class="empty" style="padding:36px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('documents') + '</span>' +
+            '<h3>Nothing here yet</h3><p>Add your first document to get started.</p>' +
+            '<div class="btn-row">' +
+              '<a class="btn btn--outline btn--sm" href="/upload">Upload a file</a>' +
+              '<a class="btn btn--primary btn--sm" href="/studio">Write a document</a>' +
+            '</div></div></li>';
+          return;
+        }
+
+        host.innerHTML = items.slice(0, 6).map(d => {
+          const title = escapeHtml(d.title || d.original_filename || 'Untitled');
+          const status = d.is_approved
+            ? '<span class="badge badge--accent">' + icon('check') + 'Approved</span>'
+            : '<span class="badge">In the repository</span>';
+          return '<li><a class="list-item" href="/documents/detail?id=' + encodeURIComponent(d.id) + '">' +
+            '<span class="tile-icon tile-icon--grey">' +
+              icon(d.origin === 'composed' ? 'compose' : 'file') + '</span>' +
+            '<span class="list-item__body">' +
+              '<span class="list-item__title truncate">' + title + '</span>' +
+              '<span class="list-item__sub">' +
+                ((d.doctype && escapeHtml(d.doctype.name) + ' · ') || '') +
+                'v' + escapeHtml(d.version || '1.0') + ' · ' + fmt.ago(d.created_at) + '</span></span>' +
+            '<span class="list-item__end">' + status + '</span></a></li>';
+        }).join('');
+      }
+
+      /* ---------------------------------------------------------------- boot */
+      (async function () {
+        const [stats, live, docs] = await Promise.all([
+          api.safe('/api/workflow/stats', {
+            my_tasks: 0, my_tasks_overdue: 0, my_tasks_due_today: 0, in_progress: 0,
+            awaiting_changes: 0, approved: 0, published: 0, rejected: 0, overdue: 0,
+            documents: 0, not_in_a_process: 0, ready_to_publish: 0,
+          }),
+          api.safe('/api/workflow/?status=active,changes_requested&limit=40', { workflows: [] }),
+          api.safe('/api/documents/?limit=6', []),
+        ]);
+
+        const workflows = live.workflows || [];
+
+        attention(stats);
+        renderInFlight(workflows);
+        renderLoad(workflows);
+        renderRecent(Array.isArray(docs) ? docs : []);
+
+        // The trail is only on the detailed view, so fetch it for the few
+        // workflows shown rather than asking for every event in the system.
+        const detailed = await Promise.all(
+          workflows.slice(0, 6).map(w => api.safe('/api/workflow/' + w.id, null))
+        );
+        renderActivity(detailed.filter(Boolean));
+
+        $('#sub').textContent = stats.my_tasks
+          ? 'You have ' + stats.my_tasks + (stats.my_tasks === 1 ? ' decision' : ' decisions') +
+            ' waiting.'
+          : stats.in_progress
+            ? stats.in_progress + (stats.in_progress === 1 ? ' approval is' : ' approvals are') +
+              ' moving through the business. Nothing is waiting on you.'
+            : 'Nothing is waiting on you. Add a document to start something.';
+      })();
+    })();
+  </script>
+</body>
+
+</html>

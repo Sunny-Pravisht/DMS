@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2 · Review &amp; Confirm · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="review" data-step="2" data-title="Review &amp; Confirm">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm" id="btn-pick">
+          <i data-icon="documents"></i>Choose a different document</button>
+        <a class="btn btn--outline btn--sm" id="btn-edit-doc">
+          <i data-icon="compose"></i>Edit the document</a>
+      </div>
+
+      <main class="page">
+        <div data-journey></div>
+
+        <!-- Straight from the step marker to the document, as on step 1. The
+             heading and its paragraph restated what the stepper above already
+             says, and the notice about other documents was about work that is
+             not on this screen. -->
+        <div class="t-eyebrow mb-3">Step 2 of 5 · Review</div>
+
+        <div class="grid grid-sidebar">
+          <div class="stack">
+            <div class="card">
+              <div class="card__head">
+                <span class="tile-icon"><i data-icon="file"></i></span>
+                <div style="min-width:0">
+                  <h3 class="t-h3 truncate" id="d-name">Loading…</h3>
+                  <div class="t-xs muted" id="d-meta">Loading…</div>
+                </div>
+                <span class="spacer"></span>
+                <span class="badge" id="d-status">Reading…</span>
+                <a class="btn btn--sm btn--outline" id="btn-full" target="_blank" rel="noopener">
+                  <i data-icon="external"></i>Open in a new tab</a>
+              </div>
+              <div class="viewer" id="viewer"
+                   style="min-height:420px;border:0;border-radius:0 0 var(--r-md) var(--r-md);
+                          border-top:1px solid var(--border)"></div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <span class="tile-icon"><i data-icon="ai"></i></span>
+                <h3 class="t-h3">What the AI read</h3>
+                <span class="spacer"></span>
+                <button class="btn btn--sm btn--outline" id="btn-reread">
+                  <i data-icon="refresh"></i>Classify it again</button>
+              </div>
+              <div class="card__body" id="ai-panel">
+                <div class="skeleton" style="height:90px"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Related documents</h3>
+                <span class="spacer"></span>
+                <span class="t-xs muted-2">Found by matching content</span>
+              </div>
+              <ul class="list" id="related">
+                <li><div class="list-item"><div class="skeleton" style="height:26px;width:100%"></div></div></li>
+              </ul>
+            </div>
+          </div>
+
+          <aside class="stack">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Document details</h3>
+                <span class="spacer"></span>
+                <button class="btn btn--sm btn--ghost" id="btn-edit"><i data-icon="edit"></i>Edit</button>
+              </div>
+              <div class="card__body">
+                <div id="view-mode">
+                  <dl class="dl">
+                    <dt>Title</dt><dd id="v-title">Not set</dd>
+                    <dt>Document type</dt><dd id="v-type">Not set</dd>
+                    <dt>From / supplier</dt><dd id="v-corr">Not set</dd>
+                    <dt>Document date</dt><dd id="v-date">Not set</dd>
+                    <dt>Version</dt><dd id="v-version">v1.0</dd>
+                    <dt>File</dt><dd id="v-file" class="mono truncate">Not set</dd>
+                  </dl>
+                </div>
+
+                <form id="edit-mode" class="hidden">
+                  <label class="field"><span class="field__label">Title</span>
+                    <input class="input" id="f-title"></label>
+                  <label class="field"><span class="field__label">Document type</span>
+                    <select class="select" id="f-type"><option value="">Not set</option></select></label>
+                  <div class="field"><span class="field__label">From / supplier</span>
+                    <input class="input" id="f-corr"
+                           placeholder="Choose one, or type a new name">
+                    <span class="field__hint">Every supplier already on file is in the list.
+                      A name that is not there is created for you.</span></div>
+                  <label class="field"><span class="field__label">Document date</span>
+                    <input class="input" id="f-date" type="date" data-today></label>
+                  <label class="field"><span class="field__label">Notes</span>
+                    <textarea class="textarea" id="f-notes" rows="2"
+                      placeholder="Anything the next person should know"></textarea></label>
+                  <div class="btn-row mt-3">
+                    <button class="btn btn--outline" type="button" id="btn-cancel-edit">Cancel</button>
+                    <button class="btn btn--primary" type="submit" id="btn-save">Save changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Tags</h3>
+                <span class="spacer"></span>
+                <span class="t-xs muted-2">Click × to remove</span>
+              </div>
+              <div class="card__body">
+                <div class="row wrap" id="tags"><span class="muted-2 t-sm">No tags yet</span></div>
+                <div class="row mt-3">
+                  <input class="input" id="new-tag" placeholder="Add a tag and press Enter">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Processing</h3></div>
+              <div class="card__body">
+                <dl class="dl">
+                  <dt>Text read</dt><dd id="p-ocr">…</dd>
+                  <dt>Classified</dt><dd id="p-ai">…</dd>
+                  <dt>Searchable</dt><dd id="p-vec">…</dd>
+                </dl>
+                <button class="btn btn--sm btn--outline btn--block mt-3" id="btn-reocr">
+                  <i data-icon="refresh"></i>Re-read the text</button>
+              </div>
+            </div>
+
+            <div class="card card--danger card--pad">
+              <div class="row-top">
+                <span class="tile-icon tile-icon--danger"><i data-icon="alert"></i></span>
+                <div>
+                  <h3 class="t-h3 danger-text">Wrong document?</h3>
+                  <p class="t-sm mt-1" style="color:var(--red-700)">Remove it and start again.
+                    The deletion itself stays in the audit trail.</p>
+                  <div class="btn-row mt-2">
+                    <button class="btn btn--sm btn--danger" id="btn-discard">Discard</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="next-bar">
+          <div>
+            <div class="next-bar__text">Details look right?</div>
+            <div class="t-xs muted-2">Next: choose who needs to approve this document.</div>
+          </div>
+          <div class="btn-row">
+            <a class="btn btn--outline" id="btn-back" href="/studio">
+              <i data-icon="chevronLeft"></i>Back</a>
+            <a class="btn btn--primary btn--lg" id="btn-next" href="/process">
+              Confirm &amp; set up approval<i data-icon="arrowRight"></i></a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script src="/static/ui/js/viewer.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon, flow, confirmDanger, combobox, markdown } = DMS;
+      const $ = s => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+
+      let docId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+      let doc = null;
+      let correspondents = [];
+      let corrCombo = null;
+
+      /* ---------------------------------------------------------- edit mode */
+      $('#btn-edit').onclick = () => toggleEdit(true);
+      $('#btn-cancel-edit').onclick = () => toggleEdit(false);
+
+      function toggleEdit(on) {
+        $('#view-mode').classList.toggle('hidden', on);
+        $('#edit-mode').classList.toggle('hidden', !on);
+        $('#btn-edit').classList.toggle('hidden', on);
+      }
+
+      $('#edit-mode').addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!doc) return;
+
+        const btn = $('#btn-save');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        const body = {
+          title: $('#f-title').value.trim() || null,
+          doctype_id: $('#f-type').value || null,
+          document_date: $('#f-date').value ? $('#f-date').value + 'T00:00:00' : null,
+          notes: $('#f-notes').value.trim() || null,
+        };
+
+        // A supplier typed by name is created here rather than sending the user
+        // off to another screen to add it first.
+        const typed = $('#f-corr').value.trim();
+        if (typed) {
+          const known = correspondents.find(c => c.name.toLowerCase() === typed.toLowerCase());
+          if (known) {
+            body.correspondent_id = known.id;
+          } else {
+            try {
+              const created = await api.post('/api/correspondents/', { name: typed });
+              correspondents.push(created);
+              body.correspondent_id = created.id;
+              // The new supplier is on file now, so the list must know about it
+              // without a page reload.
+              if (corrCombo) {
+                corrCombo.setOptions(
+                  correspondents.map(c => c.name).sort((a, b) => a.localeCompare(b)));
+              }
+            } catch (err) {
+              toast('Could not add that supplier',
+                String(err.message || err).slice(0, 160), 'danger');
+            }
+          }
+        } else {
+          body.correspondent_id = null;
+        }
+
+        try {
+          doc = await api.put('/api/documents/' + docId, body);
+          paint();
+          toggleEdit(false);
+          toast('Details saved');
+        } catch (err) {
+          toast('Could not save', String(err.message || err).slice(0, 200), 'danger');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save changes';
+        }
+      });
+
+      /* -------------------------------------------------------------- paint */
+      function paint() {
+        const title = doc.title || doc.original_filename || 'Untitled';
+
+        $('#d-name').textContent = title;
+        $('#d-meta').textContent = [
+          fmt.bytes(doc.file_size), doc.mime_type,
+          doc.origin === 'composed' ? 'written in the Studio' : 'captured',
+          fmt.ago(doc.created_at),
+        ].filter(Boolean).join(' · ');
+
+        $('#v-title').textContent = title;
+        $('#v-type').textContent = (doc.doctype && doc.doctype.name) || 'Not set';
+        $('#v-corr').textContent = (doc.correspondent && doc.correspondent.name) || 'Not set';
+        $('#v-date').textContent = fmt.date(doc.document_date);
+        $('#v-version').textContent = 'v' + (doc.version || '1.0');
+        $('#v-file').textContent = doc.original_filename || doc.filename || 'Not set';
+
+        $('#f-title').value = doc.title || '';
+        $('#f-type').value = (doc.doctype && doc.doctype.id) || '';
+        $('#f-corr').value = (doc.correspondent && doc.correspondent.name) || '';
+        // A document with no date on file opens on today rather than blank:
+        // the commonest correction is "this is today's", and an empty box
+        // makes somebody type what the system already knows.
+        $('#f-date').value = doc.document_date
+          ? String(doc.document_date).slice(0, 10)
+          : fmt.today();
+        DMS.refreshDates();
+        $('#f-notes').value = doc.notes || '';
+
+        // The status is what the pipeline reports, not an invented confidence.
+        const failed = doc.ocr_status === 'failed' || doc.ai_status === 'failed';
+        const done = doc.ocr_status === 'completed' &&
+                     ['completed', 'skipped'].includes(doc.ai_status);
+        const badge = $('#d-status');
+        badge.textContent = failed ? 'Needs attention' : done ? 'Read and classified'
+                                                             : 'Still processing';
+        badge.className = 'badge ' + (failed ? 'badge--danger' : done ? 'badge--accent' : '');
+
+        $('#p-ocr').innerHTML = statusDot(doc.ocr_status);
+        $('#p-ai').innerHTML = statusDot(doc.ai_status);
+        $('#p-vec').innerHTML = statusDot(doc.vector_status);
+
+        renderTags();
+
+        $('#btn-next').href = '/process?id=' + encodeURIComponent(docId);
+        $('#btn-full').href = '/documents/view?id=' + encodeURIComponent(docId);
+        $('#btn-edit-doc').href = '/studio?id=' + encodeURIComponent(docId);
+        // Back means "back to this document in the Studio", not "back to a
+        // blank Studio". Without the id, step 2 → step 1 loses the document.
+        $('#btn-back').href = '/studio?id=' + encodeURIComponent(docId);
+
+        flow.patch({ doc: { id: docId, title: title }, confirmed: true });
+      }
+
+      function statusDot(status) {
+        const map = {
+          completed: ['badge--accent', 'check', 'Done'],
+          processing: ['', 'clock', 'Working'],
+          pending: ['', 'clock', 'Queued'],
+          failed: ['badge--danger', 'alert', 'Failed'],
+          skipped: ['', 'minus', 'Not needed'],
+        };
+        const cfg = map[status] || ['', 'info', status || 'Unknown'];
+        return '<span class="badge ' + cfg[0] + '">' + icon(cfg[1]) + escapeHtml(cfg[2]) + '</span>';
+      }
+
+      /* --------------------------------------------------------------- tags */
+      function renderTags() {
+        const tags = doc.tags || [];
+        $('#tags').innerHTML = tags.length
+          ? tags.map(t => '<span class="chip">' + escapeHtml(t.name) +
+              '<button class="chip__x" data-tag="' + escapeHtml(t.id) + '">' +
+              icon('x') + '</button></span>').join('')
+          : '<span class="muted-2 t-sm">No tags yet</span>';
+      }
+
+      $('#tags').addEventListener('click', async e => {
+        const btn = e.target.closest('[data-tag]');
+        if (!btn) return;
+        try {
+          await api.del('/api/documents/' + docId + '/tags/' + btn.dataset.tag);
+          doc.tags = (doc.tags || []).filter(t => t.id !== btn.dataset.tag);
+          renderTags();
+        } catch (err) {
+          toast('Could not remove that tag', String(err.message || err).slice(0, 160), 'danger');
+        }
+      });
+
+      // Enter adds a tag; so does a comma, because typing "a, b, c" is what
+      // people do when they mean three tags.
+      $('#new-tag').addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTags(); }
+      });
+      $('#new-tag').addEventListener('blur', addTags);
+
+      async function addTags() {
+        const field = $('#new-tag');
+        const names = field.value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!names.length) { field.value = ''; return; }
+        field.value = '';
+        try {
+          // The response carries the document's full tag list, so there is no
+          // second request just to find out what it now has.
+          const res = await api.post('/api/documents/' + docId + '/tags',
+            { tag_names: names });
+          doc.tags = res.tags || doc.tags;
+          renderTags();
+          if ((res.already_present || []).length) {
+            toast('Already tagged',
+              res.already_present.map(t => t.name).join(', ') + ' was already on this document');
+          }
+        } catch (err) {
+          field.value = names.join(', ');   // give the words back
+          toast('Could not add that tag', String(err.message || err).slice(0, 160), 'danger');
+        }
+      }
+
+      /* ----------------------------------------------------------------- AI */
+
+      /**
+       * What the model actually produced for this document, and an honest
+       * statement when it produced nothing.
+       *
+       * The panel this replaces printed the same amount, payment terms and due
+       * date on every document, which is worse than useless on a document that
+       * has none of them. Nothing here is shown unless it came from this file.
+       */
+      function renderAI() {
+        const host = $('#ai-panel');
+        const summary = (doc.summary || '').trim();
+        const text = (doc.full_text || '').trim();
+
+        if (!text) {
+          host.innerHTML = '<div class="banner banner--grey">' + icon('info') +
+            '<div>No text has been read from this file yet. ' +
+            (doc.ocr_status === 'failed'
+              ? 'Reading it failed — try “Re-read the text”.'
+              : 'It may still be processing.') + '</div></div>';
+          return;
+        }
+
+        host.innerHTML =
+          (summary
+            // Summaries come back as Markdown too - usually bullets and bold
+            // key facts - so they are rendered rather than printed raw.
+            ? '<div class="t-eyebrow">Summary</div>' +
+              '<div class="md mt-1">' + markdown(summary) + '</div>'
+            : '<p class="t-sm muted-2">No summary yet. Ask for one below.</p>') +
+          '<div class="divider"></div>' +
+          '<div class="row wrap" style="gap:6px">' +
+            '<button class="btn btn--sm btn--outline" data-ai="summarize">' +
+              icon('magic') + 'Summarise it</button>' +
+            '<button class="btn btn--sm btn--outline" data-ai="bullets">' +
+              icon('listBullet') + 'Key points</button>' +
+            '<button class="btn btn--sm btn--outline" data-ai="custom" ' +
+              'data-instruction="List every reference number, date, party and monetary amount that ' +
+              'appears in this document, as a bullet list. Leave out any category that does not appear. ' +
+              'Do not infer or invent a value.">' +
+              icon('search') + 'Pull out the key facts</button>' +
+          '</div>' +
+          '<div id="ai-out"></div>' +
+          '<div class="divider"></div>' +
+          '<details><summary class="t-sm accent-text" style="cursor:pointer;font-weight:600">' +
+            'Show the full text that was read (' + fmt.num(text.length) + ' characters)</summary>' +
+            '<pre class="viewer__text mt-2" style="max-height:280px;overflow:auto">' +
+            escapeHtml(text.slice(0, 12000)) + (text.length > 12000 ? '\n\n…' : '') +
+          '</pre></details>';
+      }
+
+      $('#ai-panel').addEventListener('click', async e => {
+        const btn = e.target.closest('[data-ai]');
+        if (!btn) return;
+
+        const out = $('#ai-out');
+        out.innerHTML = '<div class="banner mt-3">' + icon('magic') +
+          '<div>Reading the document…</div></div>';
+        btn.disabled = true;
+
+        try {
+          const result = await api.post('/api/studio/ai', {
+            action: btn.dataset.ai,
+            text: doc.full_text || '',
+            instruction: btn.dataset.instruction || null,
+            title: doc.title || '',
+          });
+
+          out.innerHTML = '<div class="ai-note mt-3">' +
+            '<div class="ai-note__head">' + icon('magic') + escapeHtml(result.label) +
+              '<span class="spacer"></span>' +
+              '<button class="btn btn--sm btn--ghost" data-use>' + icon('check') +
+                'Save as the summary</button>' +
+              '<button class="icon-btn" data-close-ai>' + icon('x') + '</button></div>' +
+            '<div class="ai-note__body"></div></div>';
+          // Sanitised server-side; assigning it is what keeps lists and headings.
+          out.querySelector('.ai-note__body').innerHTML = result.html;
+
+          out.querySelector('[data-close-ai]').onclick = () => { out.innerHTML = ''; };
+          out.querySelector('[data-use]').onclick = async () => {
+            try {
+              doc = await api.put('/api/documents/' + docId, { summary: result.text });
+              out.innerHTML = '';
+              renderAI();
+              toast('Saved as the summary');
+            } catch (err) {
+              toast('Could not save it', String(err.message || err).slice(0, 160), 'danger');
+            }
+          };
+        } catch (err) {
+          out.innerHTML = '<div class="banner banner--danger mt-3">' + icon('alert') +
+            '<div>' + escapeHtml(String(err.message || err).slice(0, 260)) + '</div></div>';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      $('#btn-reread').onclick = async () => {
+        try {
+          await api.post('/api/documents/' + docId + '/reprocess-ai', {});
+          toast('Classifying it again', 'The details refresh when it finishes.');
+          setTimeout(reload, 4500);
+        } catch (err) {
+          toast('Could not re-classify', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+
+      $('#btn-reocr').onclick = async () => {
+        try {
+          await api.post('/api/documents/' + docId + '/reprocess-ocr', {});
+          toast('Re-reading the text', 'This can take a moment for a scan.');
+          setTimeout(reload, 6000);
+        } catch (err) {
+          toast('Could not re-read the text', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+
+      /* ------------------------------------------------------------ related */
+      async function loadRelated() {
+        const host = $('#related');
+        const data = await api.safe('/api/documents/' + docId + '/similar?limit=4', null);
+        const raw = data && (data.similar_documents || data.documents || data);
+        const list = Array.isArray(raw) ? raw : [];
+
+        host.innerHTML = list.length
+          ? list.map(r => {
+              const id = r.id || r.document_id;
+              const score = r.similarity || r.score;
+              return '<li><a class="list-item" href="/documents/detail?id=' +
+                encodeURIComponent(id) + '">' + icon('link') +
+                '<span class="list-item__body">' +
+                  '<span class="list-item__title truncate">' +
+                    escapeHtml(r.title || r.original_filename || 'Untitled') + '</span>' +
+                  '<span class="list-item__sub">' +
+                    escapeHtml(r.doctype_name || r.doctype || 'Document') + '</span></span>' +
+                (score ? '<span class="badge">' + Math.round(score * 100) + '% similar</span>' : '') +
+                '</a></li>';
+            }).join('')
+          : '<li><div class="list-item"><span class="t-sm muted-2">Nothing similar found. ' +
+            'Related documents appear here once the repository has more to compare against.' +
+            '</span></div></li>';
+      }
+
+      /* ------------------------------------------------------------ discard */
+      $('#btn-discard').onclick = async () => {
+        const ok = await confirmDanger({
+          title: 'Discard this document?',
+          message: 'The file and everything read from it are removed. The deletion itself stays ' +
+                   'in the audit trail.',
+          confirmLabel: 'Discard it',
+        });
+        if (!ok) return;
+        try {
+          await api.del('/api/documents/' + docId);
+          flow.clear();
+          toast('Document discarded');
+          location.href = '/studio#add';
+        } catch (err) {
+          toast('Could not discard it', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+
+      /* --------------------------------------------------------- pick a doc */
+      $('#btn-pick').onclick = async () => {
+        const docs = await api.safe('/api/documents/?limit=40', []);
+        const items = Array.isArray(docs) ? docs : [];
+
+        const el = document.createElement('div');
+        el.className = 'modal modal--wide';
+        el.innerHTML =
+          '<div class="modal__head"><h3 class="t-h2">Which document?</h3></div>' +
+          '<div class="modal__body">' +
+            (items.length
+              ? '<ul class="list">' + items.map(d =>
+                  '<li><button class="list-item" style="width:100%;text-align:left" ' +
+                    'data-pick="' + escapeHtml(d.id) + '">' +
+                    '<span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+                    '<span class="list-item__body">' +
+                      '<span class="list-item__title truncate">' +
+                        escapeHtml(d.title || d.original_filename || 'Untitled') + '</span>' +
+                      '<span class="list-item__sub">' +
+                        ((d.doctype && escapeHtml(d.doctype.name) + ' · ') || '') +
+                        fmt.ago(d.created_at) + '</span></span></button></li>').join('') + '</ul>'
+              : '<div class="empty"><h3>No documents yet</h3></div>') +
+          '</div><div class="modal__foot"><div class="btn-row">' +
+            '<button class="btn btn--outline" data-cancel>Cancel</button></div></div>';
+
+        document.body.appendChild(el);
+        DMS.openOverlay(el);
+        const close = () => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); };
+        el.querySelector('[data-cancel]').onclick = close;
+        el.querySelectorAll('[data-pick]').forEach(b => {
+          b.onclick = () => {
+            close();
+            docId = b.dataset.pick;
+            history.replaceState({}, '', '/review?id=' + encodeURIComponent(docId));
+            reload();
+          };
+        });
+      };
+
+      /* --------------------------------------------------------------- boot */
+      async function reload() {
+        doc = await api.safe('/api/documents/' + docId, null);
+        if (!doc) {
+          $('#d-name').textContent = 'Document unavailable';
+          $('#d-meta').textContent = 'It may have been deleted.';
+          return;
+        }
+        paint();
+        renderAI();
+        if (window.DMSViewer) DMSViewer.mount($('#viewer'), docId);
+        loadRelated();
+      }
+
+      (async function () {
+        const [types, corrs] = await Promise.all([
+          api.safe('/api/doctypes/', []),
+          api.safe('/api/correspondents/', []),
+        ]);
+
+        (Array.isArray(types) ? types : []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id; o.textContent = t.name;
+          $('#f-type').appendChild(o);
+        });
+
+        correspondents = Array.isArray(corrs) ? corrs : [];
+        // A real dropdown rather than a datalist: the list is worth nothing if
+        // you cannot see that it is there.
+        corrCombo = combobox($('#f-corr'), {
+          options: correspondents.map(c => c.name).sort((a, b) => a.localeCompare(b)),
+          allowNew: true,
+        });
+
+        if (!docId) {
+          const docs = await api.safe('/api/documents/?limit=1', []);
+          if (Array.isArray(docs) && docs.length) docId = docs[0].id;
+        }
+
+        if (!docId) {
+          $('#d-name').textContent = 'Nothing to review yet';
+          $('#d-meta').textContent = 'Add a document first.';
+          $('#viewer').innerHTML = '<div class="viewer__stage"><div class="viewer__fallback">' +
+            '<h3 class="t-h3">No document selected</h3>' +
+            '<p class="t-sm muted mt-2">Start at step 1 and add a file, or write one.</p>' +
+            '<div class="btn-row mt-3" style="justify-content:center">' +
+            '<a class="btn btn--outline btn--sm" href="/studio#add">Add a file</a>' +
+            '<a class="btn btn--primary btn--sm" href="/studio">Write one</a>' +
+            '</div></div></div>';
+          $('#ai-panel').innerHTML = '<p class="t-sm muted-2">Nothing to read yet.</p>';
+          $('#related').innerHTML = '';
+          return;
+        }
+
+        await reload();
+      })();
+    })();
+  </script>
+</body>
+
+</html>

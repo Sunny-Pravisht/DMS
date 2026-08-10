@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Tasks · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="tasks" data-title="My Tasks">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <span class="badge" id="authority"></span>
+        <button class="btn btn--outline btn--sm" id="btn-refresh">
+          <i data-icon="refresh"></i>Refresh</button>
+      </div>
+
+      <main class="page">
+        <!-- The top bar already says "My Tasks". What is worth stating here is
+             how much is waiting, which is the notice below. -->
+        <div class="banner banner--accent mb-3" id="lead-banner">
+          <i data-icon="approvals"></i><div id="lead"></div>
+        </div>
+
+        <!-- Only shown when something really is late -->
+        <div class="banner banner--danger mb-3 hidden" id="late-banner">
+          <i data-icon="alert"></i><div id="late-text"></div>
+        </div>
+
+        <!-- Only shown when this account cannot approve at all -->
+        <div class="banner mb-3 hidden" id="no-authority">
+          <i data-icon="info"></i>
+          <div><strong>Your account cannot approve documents.</strong> Ask an administrator to
+            grant approval permission under People &amp; Departments. You can still read and
+            search everything you have access to.</div>
+        </div>
+
+        <div class="grid grid-sidebar">
+          <div class="stack" id="task-list">
+            <div class="card card--pad"><div class="skeleton" style="height:130px"></div></div>
+          </div>
+
+          <aside class="stack">
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Your approval authority</h3></div>
+              <div class="card__body" id="authority-card">
+                <div class="skeleton" style="height:80px"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Your signature</h3></div>
+              <div class="card__body" id="sig-card">
+                <div class="skeleton" style="height:70px"></div>
+              </div>
+            </div>
+
+            <div class="card card--pad">
+              <h3 class="t-h3">How a decision works</h3>
+              <ul class="bullets mt-2">
+                <li><strong>Approve</strong> passes it to the next step, or finishes the process
+                  if you are the last.</li>
+                <li><strong>Request changes</strong> sends it back to the author. When they
+                  resubmit, the chain starts again from step 1.</li>
+                <li><strong>Reject</strong> ends the process. A reason is required.</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon, workflow, flow, signaturePad } = DMS;
+      const $ = s => document.querySelector(s);
+
+      let tasks = [];
+      let me = null;
+      let authority = { can_approve: false, can_sign: false };
+
+      /* --------------------------------------------------------------- load */
+      async function load() {
+        const data = await api.safe('/api/workflow/tasks/mine',
+          { tasks: [], count: 0, can_approve: false, can_sign: false });
+        tasks = data.tasks || [];
+        authority = { can_approve: data.can_approve, can_sign: data.can_sign };
+
+        renderAuthority();
+        renderTasks();
+      }
+
+      /* ---------------------------------------------------------- authority */
+
+      /**
+       * Approving and signing are separate permissions, so the screen states
+       * both plainly. Somebody who may approve but not sign should learn that
+       * here, not when a step refuses them.
+       */
+      function renderAuthority() {
+        const badge = $('#authority');
+        badge.textContent = authority.can_sign ? 'Can approve and sign'
+          : authority.can_approve ? 'Can approve' : 'Read only';
+        badge.className = 'badge ' + (authority.can_sign ? 'badge--accent' : '');
+
+        $('#no-authority').classList.toggle('hidden', authority.can_approve);
+
+        $('#authority-card').innerHTML =
+          row('check', 'Approve documents', authority.can_approve,
+              'Act on any step addressed to you.') +
+          row('stamp', 'Apply a signature', authority.can_sign,
+              authority.can_sign
+                ? 'You can be assigned steps that require a signature.'
+                : 'Steps marked “signature required” are not assigned to you.') +
+          '<div class="divider"></div>' +
+          '<dl class="dl">' +
+            // An administrator belongs to the system rather than to a line of
+            // business, so "Not set" against them describes the wrong thing.
+            '<dt>Department</dt><dd>' +
+              escapeHtml((me && me.department) ||
+                (me && me.is_admin ? 'System administration' : 'Not set')) + '</dd>' +
+            '<dt>Role</dt><dd>' +
+              escapeHtml((me && me.job_title) ||
+                (me && me.is_admin ? 'System administrator' : 'Not set')) + '</dd>' +
+          '</dl>';
+      }
+
+      function row(ico, label, on, hint) {
+        return '<div class="row-top mb-2">' +
+          '<span class="tile-icon' + (on ? '' : ' tile-icon--grey') + '">' + icon(ico) + '</span>' +
+          '<div><div class="t-sm" style="font-weight:600">' + escapeHtml(label) +
+            (on ? '' : ' <span class="muted-2">— not granted</span>') + '</div>' +
+          '<div class="t-xs muted mt-1">' + escapeHtml(hint) + '</div></div></div>';
+      }
+
+      function renderSignature() {
+        const sig = flow.signature();
+        const host = $('#sig-card');
+
+        if (!authority.can_sign) {
+          host.innerHTML = '<p class="t-sm muted-2">You do not hold signature authority, ' +
+            'so no signature is needed. Your approvals are recorded against your name.</p>';
+          return;
+        }
+
+        host.innerHTML = (sig
+          ? '<div style="text-align:center">' +
+              '<img src="' + sig.dataUrl + '" alt="Your signature" ' +
+                'style="max-height:70px;margin:0 auto;mix-blend-mode:multiply">' +
+              '<div class="t-xs muted-2 mt-2">' + escapeHtml(sig.name || '') + '</div>' +
+            '</div>'
+          : '<p class="t-sm muted-2">No signature saved yet. You will be asked to draw one the ' +
+            'first time you approve a step that requires it.</p>') +
+          '<button class="btn btn--outline btn--sm btn--block mt-3" id="btn-sig">' +
+            icon('signature') + (sig ? 'Replace it' : 'Set it up now') + '</button>';
+
+        $('#btn-sig').onclick = async () => {
+          const next = await signaturePad(me && (me.full_name || me.username));
+          if (next) { flow.saveSignature(next); renderSignature(); toast('Signature saved'); }
+        };
+      }
+
+      /* ------------------------------------------------------------- tasks */
+      function renderTasks() {
+        const late = tasks.filter(t => t.step.overdue).length;
+        $('#late-banner').classList.toggle('hidden', !late);
+        if (late) {
+          $('#late-text').innerHTML = '<strong>' + late +
+            (late === 1 ? ' task is' : ' tasks are') + ' past the deadline.</strong> ' +
+            'They stay on your list until you act.';
+        }
+
+        $('#lead').innerHTML = tasks.length
+          ? '<strong>' + tasks.length +
+            (tasks.length === 1 ? ' document is' : ' documents are') +
+            ' waiting on you.</strong> Soonest deadline first.'
+          : '<strong>Nothing is waiting on you right now.</strong> ' +
+            'Anything assigned to you appears here straight away.';
+        // The notice is the heading of this screen, so it is always shown -
+        // "nothing waiting" is as much an answer as a number is.
+        $('#lead-banner').classList.toggle('banner--grey', !tasks.length);
+
+        const host = $('#task-list');
+        if (!tasks.length) {
+          host.innerHTML = '<div class="card card--pad"><div class="empty" style="padding:48px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('check') + '</span>' +
+            '<h3>You are all caught up</h3>' +
+            '<p>' + (authority.can_approve
+              ? 'Nothing is assigned to you. Anything new appears here straight away.'
+              : 'Your account cannot approve documents yet.') + '</p>' +
+            '<div class="btn-row"><a class="btn btn--outline" href="/documents">' +
+            'Browse documents</a></div></div></div>';
+          return;
+        }
+
+        host.innerHTML = tasks.map((t, i) => {
+          const w = t.workflow, s = t.step, doc = w.document || {};
+          return '<div class="card' + (s.overdue ? ' card--danger' : '') +
+            '" data-task="' + i + '">' +
+            '<div class="card__head">' +
+              '<span class="tile-icon' + (s.overdue ? ' tile-icon--danger' : ' tile-icon--solid') +
+                '">' + icon(s.requires_signature ? 'stamp' : 'approvals') + '</span>' +
+              '<div style="min-width:0">' +
+                '<h3 class="t-h3 truncate">' + escapeHtml(doc.title || 'Untitled') + '</h3>' +
+                '<div class="t-xs muted">' +
+                  'Step ' + s.order + ' of ' + w.progress.total + ' · ' + escapeHtml(s.name) +
+                  (doc.doctype ? ' · ' + escapeHtml(doc.doctype) : '') +
+                  (doc.correspondent ? ' · ' + escapeHtml(doc.correspondent) : '') +
+                '</div>' +
+              '</div>' +
+              '<span class="spacer"></span>' +
+              workflow.priorityBadge(w.priority) +
+              workflow.dueBadge(s) +
+            '</div>' +
+
+            '<div class="card__body">' +
+              '<div class="row wrap mb-3" style="gap:6px">' +
+                (s.requires_signature
+                  ? '<span class="badge badge--accent">' + icon('stamp') +
+                    'Your signature is required</span>'
+                  : '<span class="badge">' + icon('check') +
+                    'Approval only, no signature needed</span>') +
+                '<span class="badge">v' + escapeHtml(doc.version || '1.0') + '</span>' +
+                (w.created_by ? '<span class="badge">From ' +
+                  escapeHtml(w.created_by.name) + '</span>' : '') +
+              '</div>' +
+
+              // What the previous approver said, if anything. Context matters
+              // more than a fresh reading of the whole document.
+              previousNote(w, s) +
+
+              '<div class="decision">' +
+                '<div><div class="decision__prompt">Do you approve this document?</div>' +
+                '<div class="decision__sub">' +
+                  (s.requires_signature
+                    ? 'Your signature is applied to the document and locks this version.'
+                    : 'Your approval is recorded against your name in the status trail.') +
+                '</div></div>' +
+                '<div class="decision__actions">' +
+                  '<button class="btn btn--danger" data-act="reject">' + icon('x') + 'Reject</button>' +
+                  '<button class="btn btn--warn" data-act="changes">' + icon('refresh') +
+                    'Request changes</button>' +
+                  '<button class="btn btn--primary" data-act="approve">' +
+                    icon(s.requires_signature ? 'stamp' : 'check') +
+                    (s.requires_signature ? 'Approve &amp; sign' : 'Approve') + '</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="card__foot row">' +
+              '<a class="btn btn--sm btn--outline" target="_blank" rel="noopener" ' +
+                'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
+                icon('eye') + 'Read the document</a>' +
+              '<a class="btn btn--sm btn--ghost" href="/track?id=' +
+                encodeURIComponent(w.document_id) + '">' + icon('approvals') +
+                'The whole trail</a>' +
+              '<span class="spacer"></span>' +
+              '<span class="t-xs muted-2">' +
+                (s.due_date ? 'Due ' + fmt.dateTime(s.due_date) : 'No deadline set') + '</span>' +
+            '</div></div>';
+        }).join('');
+      }
+
+      function previousNote(w, step) {
+        const prior = (w.steps || [])
+          .filter(s => s.order < step.order && s.status === 'approved' && s.comment)
+          .slice(-1)[0];
+        if (!prior) return '';
+        return '<div class="trail__note mb-3">' +
+          '<strong>' + escapeHtml((prior.decided_by && prior.decided_by.name) || 'Previous approver') +
+          ' noted:</strong> ' + escapeHtml(prior.comment) + '</div>';
+      }
+
+      /* --------------------------------------------------- the one in hand
+         Several decisions can be waiting at once and they look alike: same
+         shape, same buttons, same wording. Pressing one marks it, so a glance
+         away and back does not leave you wondering which document the Approve
+         button under your cursor belongs to. */
+      $('#task-list').addEventListener('click', e => {
+        const card = e.target.closest('[data-task]');
+        if (!card) return;
+        document.querySelectorAll('#task-list .card--current')
+          .forEach(c => c.classList.remove('card--current'));
+        card.classList.add('card--current');
+      });
+
+      /* ----------------------------------------------------------- decisions */
+      $('#task-list').addEventListener('click', async e => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const card = btn.closest('[data-task]');
+        if (!card) return;
+
+        const t = tasks[Number(card.dataset.task)];
+        if (!t) return;
+
+        let updated;
+        try {
+          updated = await workflow.decide(t.workflow, t.step, btn.dataset.act, {
+            subject: (t.workflow.document && t.workflow.document.title) || 'this document',
+          });
+        } catch (err) {
+          if (err.stale) {
+            toast('Already dealt with', err.message, 'danger');
+            await load();
+            return;
+          }
+          toast('Could not record that', String(err.message || err).slice(0, 220), 'danger');
+          return;
+        }
+        if (!updated) return;
+
+        const verb = { approve: 'Approved', reject: 'Rejected',
+                       changes: 'Sent back for changes' }[btn.dataset.act];
+        toast(verb, updated.current_step
+          ? 'Now with ' + workflow.addressee(updated.current_step)
+          : updated.status === 'approved'
+            ? 'Fully approved and ready to publish'
+            : ((workflow.STATUS[updated.status] || {}).label || ''));
+
+        await load();
+        renderSignature();
+      });
+
+      $('#btn-refresh').onclick = load;
+
+      /* --------------------------------------------------------------- boot */
+      (async function () {
+        me = await api.safe('/api/auth/me', null);
+        await load();
+        renderSignature();
+      })();
+    })();
+  </script>
+</body>
+
+</html>

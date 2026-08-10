@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Search · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="search" data-title="Search">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page page--narrow">
+        <div class="page-head">
+          <div class="t-eyebrow">Findability</div>
+          <h1 class="t-display mt-1">Find anything, in seconds</h1>
+          <p>Search by keyword, metadata, department or meaning. Semantic search finds
+            “payment terms” inside contracts that never use those words.</p>
+        </div>
+
+        <form id="search-form">
+          <label class="input-icon">
+            <i data-icon="search"></i>
+            <input class="input search-input" id="q" type="search" autofocus
+              placeholder="Ask in plain language, or search by keyword…"
+              style="height:52px;font-size:16px;border-radius:14px">
+          </label>
+        </form>
+
+        <div class="row wrap mt-3">
+          <label class="switch"><input type="checkbox" id="semantic" checked>
+            <span class="switch__track"><span class="switch__thumb"></span></span>
+            <span class="t-sm">Semantic search</span></label>
+          <span class="divider--v"></span>
+          <button class="chip" data-suggest="contracts expiring this year">Contracts expiring this year</button>
+          <button class="chip" data-suggest="unpaid invoices Northwind">Unpaid invoices for Northwind</button>
+          <button class="chip" data-suggest="payment terms">Payment terms</button>
+          <button class="chip" data-suggest="documents due for disposition">Due for disposition</button>
+        </div>
+
+        <!-- The department and date menus that used to sit here were drawn but
+             never read, so choosing one changed nothing. Only the filter that
+             works is offered. -->
+        <div class="filter-bar mt-3">
+          <!-- Not a native select: there are twenty-odd document types and the
+               popup a browser draws for one is sized by the operating system,
+               so it ran off the bottom of the window and no CSS could reach it.
+               This list scrolls inside itself and stays on the page. -->
+          <input class="input" id="f-type" style="width:230px"
+                 placeholder="All document types">
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="meta"></span>
+        </div>
+
+        <section id="results" class="stack">
+          <div class="empty">
+            <span class="tile-icon tile-icon--grey"><i data-icon="search"></i></span>
+            <h3>Start typing to search the repository</h3>
+            <p>Results respect your permissions, so you never see a document your department
+              and role do not allow.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, icon } = DMS;
+      const form = document.getElementById('search-form');
+      const q = document.getElementById('q');
+      const out = document.getElementById('results');
+      const meta = document.getElementById('meta');
+
+      document.querySelectorAll('[data-suggest]').forEach(b => {
+        b.onclick = () => { q.value = b.dataset.suggest; run(); };
+      });
+
+      form.onsubmit = e => { e.preventDefault(); run(); };
+
+      function skeleton() {
+        out.innerHTML = Array.from({ length: 4 }, () =>
+          '<div class="card card--pad"><div class="skeleton" style="height:16px;width:42%"></div>' +
+          '<div class="skeleton mt-2" style="height:12px;width:88%"></div>' +
+          '<div class="skeleton mt-1" style="height:12px;width:64%"></div></div>').join('');
+      }
+
+      async function run() {
+        const query = q.value.trim();
+        if (!query) return;
+        skeleton();
+        meta.textContent = 'Searching…';
+        const t0 = performance.now();
+
+        let data;
+        try {
+          data = await api.post('/api/search/', {
+            query: query,
+            limit: 20,
+            offset: 0,
+            use_semantic_search: document.getElementById('semantic').checked,
+          });
+        } catch (e) {
+          out.innerHTML = '<div class="banner banner--danger">' + icon('alert') +
+            '<div><strong>Search is unavailable.</strong> ' + escapeHtml(String(e.message || e)) + '</div></div>';
+          meta.textContent = '';
+          return;
+        }
+
+        let docs = (data && data.documents) || [];
+        const ms = Math.round(performance.now() - t0);
+
+        // The type filter used to be drawn and then ignored - a control that
+        // moves and changes nothing. It narrows the results now.
+        const wantType = (document.getElementById('f-type').dataset.value || '').trim();
+        const found = docs.length;
+        if (wantType) {
+          docs = docs.filter(d => d.doctype && (d.doctype.id === wantType ||
+                                                d.doctype === wantType));
+        }
+
+        meta.textContent = docs.length + ' result' + (docs.length === 1 ? '' : 's') +
+          (wantType && docs.length !== found ? ' of ' + found : '') + ' · ' + ms + ' ms';
+
+        if (!docs.length) {
+          out.innerHTML = '<div class="empty">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('search') + '</span>' +
+            '<h3>No matches for “' + escapeHtml(query) + '”</h3>' +
+            '<p>Try fewer words, or turn on semantic search to match by meaning instead of exact terms.</p>' +
+            '<div class="btn-row"><a class="btn btn--outline" href="/assistant">Ask the AI assistant instead</a></div>' +
+            '</div>';
+          return;
+        }
+
+        out.innerHTML = docs.map(d => {
+          const title = escapeHtml(d.title || d.original_filename || 'Untitled');
+          const snippet = escapeHtml((d.summary || d.full_text || '').slice(0, 240));
+          return '<a class="card card--pad card--hover" style="display:block" href="/documents/detail?id=' +
+            encodeURIComponent(d.id) + '">' +
+            '<div class="row"><span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+              '<div style="min-width:0"><div class="t-h3 truncate">' + title + '</div>' +
+              '<div class="t-xs muted-2 mt-1">' +
+                (d.doctype ? escapeHtml(d.doctype.name) + ' · ' : '') +
+                (d.correspondent ? escapeHtml(d.correspondent.name) + ' · ' : '') +
+                fmt.date(d.document_date || d.created_at) + '</div></div>' +
+            '</div>' +
+            (snippet ? '<p class="t-sm muted mt-2">' + snippet + '…</p>' : '') +
+            (d.tags && d.tags.length
+              ? '<div class="row wrap mt-2" style="gap:5px">' +
+                d.tags.slice(0, 5).map(t => '<span class="badge">' + escapeHtml(t.name) + '</span>').join('') +
+                '</div>'
+              : '') +
+            '</a>';
+        }).join('');
+      }
+
+      (async function () {
+        const types = await api.safe('/api/doctypes/', []);
+        DMS.combobox(document.getElementById('f-type'), {
+          allowNew: false,
+          options: [{ value: '', label: 'All document types' }].concat(
+            (Array.isArray(types) ? types : [])
+              .map(t => ({ value: t.id, label: t.name }))
+              .sort((a, b) => a.label.localeCompare(b.label))),
+        });
+      })();
+    })();
+  </script>
+</body>
+
+</html>

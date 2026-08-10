@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capture &amp; Sources · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="capture" data-title="Capture &amp; Sources">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm" data-open="modal-source"><i data-icon="plus"></i>Connect a source</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="page-head__row">
+            <div>
+              <div class="t-eyebrow">Universal ingestion</div>
+              <h1 class="t-h1 mt-1">Structured &amp; unstructured data from every source</h1>
+              <p>A single ingestion pipeline normalises both data types into one governed repository —
+                same metadata contract, same permissions, same retention clock.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" data-tabs="cap">
+          <button data-tab="upload" class="is-active">Upload</button>
+          <button data-tab="sources">Connected sources<span class="tabs__count">7</span></button>
+          <button data-tab="queue">Processing queue<span class="tabs__count">3</span></button>
+          <button data-tab="review">Review queue<span class="tabs__count">31</span></button>
+        </div>
+
+        <!-- Upload -->
+        <div class="tab-panel is-active" data-panel="upload" data-scope="cap">
+          <div class="grid grid-sidebar">
+            <div class="stack">
+              <div class="dropzone" id="dropzone">
+                <span class="tile-icon tile-icon--lg"><i data-icon="capture"></i></span>
+                <h3 class="t-h2">Drop files to capture</h3>
+                <p class="t-sm muted mt-1">PDF, images, Office documents, email exports —
+                  or <span class="accent-text">browse your computer</span></p>
+                <input type="file" id="file-input" multiple hidden>
+                <div class="row wrap mt-3" style="justify-content:center;gap:6px">
+                  <span class="badge">PDF</span><span class="badge">DOCX</span><span class="badge">XLSX</span>
+                  <span class="badge">PNG / JPG / TIFF</span><span class="badge">EML / MSG</span><span class="badge">CSV</span>
+                </div>
+              </div>
+
+              <div class="card hidden" id="queue-card">
+                <div class="card__head">
+                  <h3 class="t-h3">This upload</h3>
+                  <span class="spacer"></span>
+                  <span class="t-sm muted" id="queue-summary"></span>
+                </div>
+                <div class="card__body" id="upload-list"></div>
+              </div>
+
+              <div class="card">
+                <div class="card__head"><h3 class="t-h3">What happens next</h3></div>
+                <div class="card__body">
+                  <div class="flowline">
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="capture"></i></span>
+                      <h4>Capture</h4><p>Scan, upload or system feed</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="tag"></i></span>
+                      <h4>Metadata tagging</h4><p>Department, type, date, owner</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="sliders"></i></span>
+                      <h4>Classification</h4><p>Rules first, then AI</p>
+                    </div>
+                    <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+                    <div class="flowline__step">
+                      <span class="tile-icon"><i data-icon="search"></i></span>
+                      <h4>Full-text index</h4><p>Content + metadata searchable</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="stack">
+              <div class="card card--pad">
+                <h3 class="t-h3">Capture options</h3>
+                <div class="mt-3">
+                  <label class="field">
+                    <span class="field__label">Destination department</span>
+                    <select class="select">
+                      <option>Auto-detect from content</option>
+                      <option>Finance</option><option>Legal</option><option>Operations</option>
+                      <option>Human Resources</option><option>Procurement</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Document type</span>
+                    <select class="select" id="up-doctype"><option value="">Let AI classify</option></select>
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Sensitivity</span>
+                    <select class="select">
+                      <option>Inherit from department</option><option>Internal</option>
+                      <option>Confidential</option><option>Restricted</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="divider"></div>
+                <label class="switch"><input type="checkbox" checked><span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="t-sm">Run OCR &amp; AI extraction</span></label>
+                <label class="switch mt-2"><input type="checkbox" checked><span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="t-sm">Detect near-duplicates</span></label>
+                <label class="switch mt-2"><input type="checkbox"><span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="t-sm">Start approval workflow</span></label>
+              </div>
+
+              <div class="card card--pad">
+                <h3 class="t-h3">Watched folder</h3>
+                <p class="t-sm muted mt-1">Anything dropped into the staging folder is captured
+                  automatically.</p>
+                <div class="row mt-3">
+                  <span class="dot dot--accent dot--pulse"></span>
+                  <span class="t-sm">Watcher active</span>
+                  <span class="spacer"></span>
+                  <button class="btn btn--sm btn--outline" id="btn-process"><i data-icon="play"></i>Process now</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- Sources -->
+        <div class="tab-panel" data-panel="sources" data-scope="cap">
+          <div class="grid grid-2">
+            <div class="card">
+              <div class="card__head">
+                <span class="tile-icon"><i data-icon="database"></i></span>
+                <h3 class="t-h3">Structured data</h3>
+              </div>
+              <ul class="list">
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">SAP ERP — finance postings</span>
+                    <span class="list-item__sub">Every 15 min · 142 records today · → Finance</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">Salesforce CRM — contracts</span>
+                    <span class="list-item__sub">Hourly · 18 records today · → Legal</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--danger"></span>
+                  <span class="list-item__body"><span class="list-item__title">HRMS — employee files</span>
+                    <span class="list-item__sub">Last run failed · credential expired · → Human Resources</span></span>
+                  <span class="badge badge--danger">Failing</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--muted"></span>
+                  <span class="list-item__body"><span class="list-item__title">Data warehouse — vendor master</span>
+                    <span class="list-item__sub">Nightly · paused by administrator</span></span>
+                  <span class="badge">Paused</span></div></li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <span class="tile-icon"><i data-icon="file"></i></span>
+                <h3 class="t-h3">Unstructured data</h3>
+              </div>
+              <ul class="list">
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">Shared mailbox — invoices@</span>
+                    <span class="list-item__sub">Real time · 61 mails + attachments today</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">Network scanner — reception MFP</span>
+                    <span class="list-item__sub">On scan · 24 pages today · OCR queued</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">SharePoint — Operations library</span>
+                    <span class="list-item__sub">Every 6 h · 9 documents today</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+                <li><div class="list-item">
+                  <span class="dot dot--accent"></span>
+                  <span class="list-item__body"><span class="list-item__title">Staging folder watcher</span>
+                    <span class="list-item__sub">Real time · local file system</span></span>
+                  <span class="badge badge--accent">Healthy</span></div></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="banner mt-3">
+            <i data-icon="info"></i>
+            <div>Each connector is credential-scoped and department-mapped. A connector can never
+              write into a department its service identity has no permission on.</div>
+          </div>
+        </div>
+
+        <!-- Processing queue -->
+        <div class="tab-panel" data-panel="queue" data-scope="cap">
+          <div class="card">
+            <div class="card__head">
+              <h3 class="t-h3">In flight</h3>
+              <span class="spacer"></span>
+              <button class="btn btn--sm btn--outline"><i data-icon="refresh"></i>Refresh</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>File</th><th>Source</th><th>Stage</th><th>Progress</th><th></th></tr></thead>
+                <tbody id="staging-rows">
+                  <tr><td class="cell-title">INV-88213.pdf</td><td>invoices@ mailbox</td>
+                    <td><span class="badge">OCR</span></td>
+                    <td style="width:180px"><span class="progress"><span class="progress__bar" style="width:64%"></span></span></td>
+                    <td class="actions"><button class="icon-btn is-danger"><i data-icon="x"></i></button></td></tr>
+                  <tr><td class="cell-title">MSA-Northwind-v3.docx</td><td>SharePoint</td>
+                    <td><span class="badge">AI extraction</span></td>
+                    <td><span class="progress"><span class="progress__bar" style="width:32%"></span></span></td>
+                    <td class="actions"><button class="icon-btn is-danger"><i data-icon="x"></i></button></td></tr>
+                  <tr><td class="cell-title">scan_20260731_0042.tiff</td><td>Reception MFP</td>
+                    <td><span class="badge">Indexing</span></td>
+                    <td><span class="progress"><span class="progress__bar" style="width:88%"></span></span></td>
+                    <td class="actions"><button class="icon-btn is-danger"><i data-icon="x"></i></button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review queue -->
+        <div class="tab-panel" data-panel="review" data-scope="cap">
+          <div class="banner banner--danger mb-3">
+            <i data-icon="alert"></i>
+            <div><strong>31 documents below the confidence threshold.</strong> They are held out of
+              auto-filing until a person confirms the classification.</div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Document</th><th>Suggested type</th><th>Suggested department</th><th>Confidence</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-title">Untitled scan — 3 pages</td><td>Delivery note</td><td>Operations</td>
+                    <td><span class="badge badge--danger">44%</span></td>
+                    <td class="actions"><div class="btn-row" style="justify-content:flex-end">
+                      <button class="btn btn--sm btn--outline">Reclassify</button>
+                      <button class="btn btn--sm btn--primary">Confirm</button></div></td></tr>
+                  <tr><td class="cell-title">Purchase_order_final(2).pdf</td><td>Purchase order</td><td>Procurement</td>
+                    <td><span class="badge badge--danger">57%</span></td>
+                    <td class="actions"><div class="btn-row" style="justify-content:flex-end">
+                      <button class="btn btn--sm btn--outline">Reclassify</button>
+                      <button class="btn btn--sm btn--primary">Confirm</button></div></td></tr>
+                  <tr><td class="cell-title">letter_head_blank.jpg</td><td>Unknown</td><td>—</td>
+                    <td><span class="badge badge--danger">12%</span></td>
+                    <td class="actions"><div class="btn-row" style="justify-content:flex-end">
+                      <button class="btn btn--sm btn--danger-soft">Discard</button>
+                      <button class="btn btn--sm btn--outline">Reclassify</button></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Connect source modal -->
+  <div class="modal" id="modal-source">
+    <div class="modal__head">
+      <h3 class="t-h2">Connect a source</h3>
+      <p class="t-sm muted mt-1">Content lands in the same governed repository regardless of origin.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Source type</span>
+        <select class="select">
+          <optgroup label="Structured">
+            <option>ERP / finance system</option><option>CRM</option>
+            <option>Database or data warehouse</option><option>HR &amp; payroll</option>
+            <option>Line-of-business REST API</option>
+          </optgroup>
+          <optgroup label="Unstructured">
+            <option>Mailbox (IMAP / Microsoft Graph)</option><option>Network scanner / MFP</option>
+            <option>SharePoint or Drive library</option><option>Watched file system folder</option>
+          </optgroup>
+        </select>
+      </label>
+      <label class="field"><span class="field__label">Display name</span>
+        <input class="input" placeholder="e.g. SAP ERP — finance postings"></label>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Target department</span>
+          <select class="select"><option>Finance</option><option>Legal</option><option>Operations</option>
+            <option>Human Resources</option><option>Procurement</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Schedule</span>
+          <select class="select"><option>Real time</option><option>Every 15 minutes</option>
+            <option>Hourly</option><option>Nightly</option></select></label>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" data-close>Continue to credentials</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon } = DMS;
+      const zone = document.getElementById('dropzone');
+      const input = document.getElementById('file-input');
+      const card = document.getElementById('queue-card');
+      const list = document.getElementById('upload-list');
+      const summary = document.getElementById('queue-summary');
+      let done = 0, total = 0;
+
+      zone.onclick = () => input.click();
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('is-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('is-over');
+        queue(e.dataTransfer.files);
+      });
+      input.onchange = () => queue(input.files);
+
+      function queue(files) {
+        if (!files || !files.length) return;
+        card.classList.remove('hidden');
+        total += files.length;
+        Array.from(files).forEach(upload);
+      }
+
+      function sync() {
+        summary.textContent = done + ' of ' + total + ' complete';
+      }
+
+      async function upload(file) {
+        const row = document.createElement('div');
+        row.className = 'upload-row';
+        row.innerHTML =
+          '<span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+          '<div class="upload-row__body">' +
+            '<div class="row"><span class="t-sm truncate" style="font-weight:550">' + escapeHtml(file.name) + '</span>' +
+            '<span class="spacer"></span><span class="t-xs muted-2">' + fmt.bytes(file.size) + '</span></div>' +
+            '<div class="progress mt-1"><div class="progress__bar" style="width:8%"></div></div>' +
+          '</div><span class="badge" data-state>Uploading</span>';
+        list.appendChild(row);
+        sync();
+
+        const bar = row.querySelector('.progress__bar');
+        const state = row.querySelector('[data-state]');
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+          await api.request('/api/documents/upload', { method: 'POST', body: fd });
+          bar.style.width = '100%';
+          state.className = 'badge badge--accent';
+          state.textContent = 'Captured';
+        } catch (e) {
+          bar.style.width = '100%';
+          bar.classList.add('is-danger');
+          state.className = 'badge badge--danger';
+          state.textContent = 'Failed';
+          toast('Upload failed', file.name, 'danger');
+        }
+        done++;
+        sync();
+      }
+
+      document.getElementById('btn-process').onclick = async () => {
+        try { await api.post('/api/documents/process-staging', {}); toast('Staging folder queued'); }
+        catch (e) { toast('Could not start processing', String(e.message || e), 'danger'); }
+      };
+
+      (async function () {
+        const types = await api.safe('/api/doctypes/', []);
+        const sel = document.getElementById('up-doctype');
+        (Array.isArray(types) ? types : []).forEach(t => {
+          const o = document.createElement('option');
+          o.value = t.id; o.textContent = t.name;
+          sel.appendChild(o);
+        });
+      })();
+    })();
+  </script>
+</body>
+
+</html>

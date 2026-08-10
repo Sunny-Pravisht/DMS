@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activity Log · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="audit" data-title="Activity Log">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm" id="btn-refresh">
+          <i data-icon="refresh"></i>Refresh</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <h1 class="t-h1">Activity log</h1>
+          <p>Every recorded action, newest first: who did it, to what, and when. Entries are
+            written as things happen and are never edited afterwards.</p>
+        </div>
+
+        <div class="filter-bar mb-3">
+          <label class="input-icon" style="flex:1;min-width:230px">
+            <i data-icon="search"></i>
+            <input class="input" id="q" type="search"
+                   placeholder="Search by person, action or document">
+          </label>
+          <select class="select" id="f-action" style="width:auto">
+            <option value="">All actions</option>
+          </select>
+          <select class="select" id="f-days" style="width:auto">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="result-count"></span>
+        </div>
+
+        <div class="grid grid-sidebar">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <colgroup><col class="w-tight"><col><col><col><col class="w-tight"></colgroup>
+                <thead>
+                  <tr><th>When</th><th>What happened</th><th>Who</th><th>What</th><th>From</th></tr>
+                </thead>
+                <tbody id="rows">
+                  <tr><td colspan="5" style="padding:0">
+                    <div class="skeleton" style="height:48px;border-radius:0"></div>
+                    <div class="skeleton" style="height:48px;border-radius:0;margin-top:1px"></div>
+                    <div class="skeleton" style="height:48px;border-radius:0;margin-top:1px"></div>
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="stack">
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">In this period</h3></div>
+              <div class="card__body" id="summary">
+                <div class="skeleton" style="height:80px"></div>
+              </div>
+            </div>
+
+            <div class="card card--pad">
+              <h3 class="t-h3">What is recorded</h3>
+              <ul class="bullets mt-2">
+                <li>Documents uploaded, written, revised, downloaded and published</li>
+                <li>Every approval decision, and who made it</li>
+                <li>Versions restored</li>
+                <li>People added, changed and removed</li>
+              </ul>
+              <p class="t-xs muted-2 mt-2">An entry survives the thing it refers to: deleting a
+                document does not remove the record that it existed and who deleted it.</p>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, icon } = DMS;
+      const $ = s => document.querySelector(s);
+      let filledActions = false;
+
+      async function load() {
+        const query = new URLSearchParams();
+        if ($('#q').value.trim()) query.set('q', $('#q').value.trim());
+        if ($('#f-action').value) query.set('action', $('#f-action').value);
+        query.set('days', $('#f-days').value);
+
+        const [data, sum] = await Promise.all([
+          api.safe('/api/audit/?' + query.toString(), { events: [] }),
+          api.safe('/api/audit/summary?days=' + $('#f-days').value, null),
+        ]);
+
+        renderRows(data.events || []);
+        renderSummary(sum);
+        if (sum && !filledActions) fillActions(sum.actions || []);
+      }
+
+      function renderRows(events) {
+        $('#result-count').textContent = events.length
+          ? events.length + (events.length === 1 ? ' entry' : ' entries')
+          : 'Nothing recorded';
+
+        const host = $('#rows');
+        if (!events.length) {
+          host.innerHTML = '<tr><td colspan="5"><div class="empty" style="padding:44px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('audit') + '</span>' +
+            '<h3>Nothing recorded in this period</h3>' +
+            '<p>Actions appear here as they happen: uploads, edits, approvals, publications ' +
+            'and changes to people. Try a longer period.</p></div></td></tr>';
+          return;
+        }
+
+        const tone = { accent: 'badge--accent', danger: 'badge--danger', warn: 'badge--warn' };
+        host.innerHTML = events.map(e => {
+          // An entry about a document links to it. Reading "approved" and not
+          // being able to reach the thing that was approved is the whole
+          // frustration of an audit log that is only a list.
+          const to = (e.resource_type === 'document' && e.resource_id)
+            ? '/documents/detail?id=' + encodeURIComponent(e.resource_id) : null;
+          const what = e.summary
+            ? escapeHtml(e.summary)
+            : '<span class="muted-2">' + escapeHtml(e.resource_type || '—') + '</span>';
+
+          return '<tr>' +
+            '<td class="mono t-xs" style="white-space:nowrap">' +
+              escapeHtml(fmt.dateTime(e.at)) + '</td>' +
+            '<td><span class="badge ' + (tone[e.tone] || '') + '">' +
+              icon(e.icon) + escapeHtml(e.label) + '</span></td>' +
+            '<td class="truncate" style="max-width:20ch">' + escapeHtml(e.user) + '</td>' +
+            '<td class="truncate" style="max-width:32ch">' +
+              (to ? '<a class="link-row" href="' + to + '">' + what +
+                    icon('chevronRight', 'link-row__go') + '</a>' : what) +
+            '</td>' +
+            '<td class="mono t-xs muted-2">' + escapeHtml(e.ip_address || '—') + '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      function renderSummary(sum) {
+        const host = $('#summary');
+        if (!sum || !sum.total) {
+          host.innerHTML = '<p class="t-sm muted-2">Nothing recorded in this period.</p>';
+          return;
+        }
+
+        const top = (sum.actions || []).slice(0, 6);
+        const max = top.length ? top[0].count : 1;
+
+        host.innerHTML =
+          '<div class="row" style="gap:22px">' +
+            '<div><div class="t-num accent-text">' + fmt.num(sum.total) + '</div>' +
+              '<div class="t-xs muted">recorded actions</div></div>' +
+            '<div><div class="t-num">' + fmt.num(sum.people) + '</div>' +
+              '<div class="t-xs muted">' + (sum.people === 1 ? 'account' : 'accounts') +
+              '</div></div>' +
+          '</div>' +
+          '<p class="t-xs muted-2 mt-2">Accounts that acted, including any since removed.</p>' +
+          '<div class="divider"></div>' +
+          '<div class="stack-sm">' + top.map(a =>
+            '<div class="meter-row"><span class="meter-row__label truncate">' +
+              escapeHtml(a.label) + '</span>' +
+            '<span class="progress full"><span class="progress__bar" style="width:' +
+              Math.round(a.count / max * 100) + '%"></span></span>' +
+            '<span class="meter-row__value">' + a.count + '</span></div>').join('') +
+          '</div>';
+      }
+
+      function fillActions(actions) {
+        if (!actions.length) return;
+        filledActions = true;
+        const sel = $('#f-action');
+        actions.forEach(a => {
+          const o = document.createElement('option');
+          o.value = a.action;
+          o.textContent = a.label + ' (' + a.count + ')';
+          sel.appendChild(o);
+        });
+      }
+
+      let debounce = null;
+      $('#q').addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(load, 250);
+      });
+      $('#f-action').addEventListener('change', load);
+      $('#f-days').addEventListener('change', load);
+      $('#btn-refresh').onclick = load;
+
+      load();
+    })();
+  </script>
+</body>
+
+</html>

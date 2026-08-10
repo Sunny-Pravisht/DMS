@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>People · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="organization" data-title="People">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--primary btn--sm" data-open="modal-user"><i data-icon="plus"></i>Add a person</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <h1 class="t-h1">People</h1>
+          <p>Who can approve documents, who can sign them, and which department each person
+            belongs to. An approval step can only be given to somebody who appears here.</p>
+        </div>
+
+        <!-- Org chart -->
+        <section class="card card--pad mb-3">
+          <!-- Counts are the people actually on record in each department, so
+               this reflects who approvals can be routed to. It is filled in
+               from the user list, never hard-coded. -->
+          <div class="org-chart">
+            <div class="org-chart__root">HARMAN Manufacturing</div>
+            <div class="org-chart__connector"></div>
+            <div class="org-chart__row" id="org-chart-row"></div>
+          </div>
+        </section>
+
+        <div>
+          <div class="filter-bar">
+            <label class="input-icon" style="width:320px"><i data-icon="search"></i>
+              <input class="input" id="user-search"
+                     placeholder="Search by name, email, department or role"></label>
+            <span class="spacer"></span>
+            <span class="t-sm muted"><span id="user-count">0</span> people ·
+              signature authority is granted, never inherited</span>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Person</th><th>Department &amp; role</th><th>What they may do</th>
+                  <th>Last active</th><th>Status</th><th></th></tr></thead>
+                <tbody id="user-rows">
+                  <tr><td colspan="6" style="padding:0">
+                    <div class="skeleton" style="height:52px;border-radius:0"></div>
+                    <div class="skeleton" style="height:52px;border-radius:0;margin-top:1px"></div>
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Add or edit a person -->
+  <div class="modal modal--wide" id="modal-user">
+    <div class="modal__head">
+      <h3 class="t-h2" id="user-modal-title">Add a person</h3>
+      <p class="t-sm muted mt-1">Where they sit decides which approval steps reach them.
+        What they may do is set by the two permissions below.</p>
+    </div>
+    <div class="modal__body">
+      <div class="grid grid-2">
+        <label class="field" style="margin:0"><span class="field__label">Full name</span>
+          <input class="input" id="new-name" placeholder="e.g. Sudha Iyer"></label>
+        <label class="field" style="margin:0"><span class="field__label">Username</span>
+          <input class="input" id="new-username" placeholder="s.iyer"></label>
+      </div>
+      <label class="field"><span class="field__label">Work email</span>
+        <input class="input" id="new-email" type="email" placeholder="name@harman.com"></label>
+
+      <div class="grid grid-2">
+        <label class="field" style="margin:0"><span class="field__label">Department</span>
+          <select class="select" id="new-dept">
+            <option value="">Not set</option>
+          </select>
+          <span class="field__hint">Approval steps addressed to a department reach everyone
+            in it.</span></label>
+        <label class="field" style="margin:0"><span class="field__label">Role / job title</span>
+          <input class="input" id="new-title" list="title-list" placeholder="e.g. Head of Finance">
+          <datalist id="title-list"></datalist></label>
+      </div>
+
+      <label class="field"><span class="field__label" id="pw-label">Temporary password</span>
+        <input class="input" id="new-password" type="password" placeholder="At least 8 characters">
+        <span class="field__hint" id="pw-hint">They should change it after signing in.</span></label>
+
+      <div class="divider"></div>
+
+      <!-- The two permissions that drive the whole approval model. -->
+      <div class="t-eyebrow mb-2">What they may do</div>
+      <label class="check mb-2"><input type="checkbox" id="new-approve" checked>
+        <span class="check__box"><i data-icon="check"></i></span>
+        <span class="check__text"><strong>Approve documents.</strong> They can act on any
+          approval step addressed to them.</span></label>
+      <label class="check mb-2"><input type="checkbox" id="new-sign">
+        <span class="check__box"><i data-icon="check"></i></span>
+        <span class="check__text"><strong>Apply a signature.</strong> Only people with this can be
+          put on a step marked “signature required”. Grant it to those who may bind the
+          company, not to everyone who reviews.</span></label>
+      <label class="check"><input type="checkbox" id="new-admin">
+        <span class="check__box"><i data-icon="check"></i></span>
+        <span class="check__text"><strong>Administrator.</strong> Full access, including user
+          management. Administrators can always sign.</span></label>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" id="btn-create-user">Create person</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, confirmDanger, icon, initials,
+              DEPARTMENTS, dir } = DMS;
+      const $ = s => document.querySelector(s);
+      const rows = $('#user-rows');
+
+      let users = [];
+      let editing = null;    // the user being edited, or null when creating
+
+      /* ------------------------------------------------------- the fields */
+      DEPARTMENTS.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d; o.textContent = d;
+        $('#new-dept').appendChild(o);
+      });
+
+      // Job titles suggested from the roles each department actually uses, so
+      // a title typed here matches the roles an approval step offers.
+      const titles = new Set();
+      DEPARTMENTS.forEach(d => dir.roles(d).forEach(r => titles.add(r)));
+      [...titles].sort().forEach(t => {
+        const o = document.createElement('option');
+        o.value = t;
+        $('#title-list').appendChild(o);
+      });
+
+      // An administrator can always sign, so the checkbox follows and locks.
+      $('#new-admin').addEventListener('change', e => {
+        if (e.target.checked) {
+          $('#new-sign').checked = true;
+          $('#new-approve').checked = true;
+        }
+        $('#new-sign').disabled = e.target.checked;
+        $('#new-approve').disabled = e.target.checked;
+      });
+
+      /* ------------------------------------------------------------- table */
+      async function loadUsers() {
+        const data = await api.safe('/api/auth/users', []);
+        users = Array.isArray(data) ? data : (data.users || []);
+        const badge = $('#user-count');
+        if (badge) badge.textContent = users.length;
+        renderUsers();
+        renderChart();
+      }
+
+      /**
+       * The org chart, counted from the people actually on record.
+       *
+       * It used to show fixed document counts in the tens of thousands, which
+       * were not true of any installation. What matters here anyway is who an
+       * approval can be routed to, so that is what it counts.
+       */
+      function renderChart() {
+        const byDept = {};
+        users.forEach(u => {
+          const d = u.department || 'No department';
+          byDept[d] = byDept[d] || { total: 0, signers: 0 };
+          byDept[d].total += 1;
+          if (u.can_sign || u.is_admin) byDept[d].signers += 1;
+        });
+
+        const rows = Object.entries(byDept).sort((a, b) => b[1].total - a[1].total);
+        $('#org-chart-row').innerHTML = rows.length
+          ? rows.map(([name, n]) =>
+              '<div class="org-chart__node">' + escapeHtml(name) +
+              '<small>' + n.total + (n.total === 1 ? ' person' : ' people') +
+              (n.signers ? ' · ' + n.signers + ' can sign' : ' · none can sign') +
+              '</small></div>').join('')
+          : '<div class="org-chart__node">No people yet<small>Add someone to begin</small></div>';
+      }
+
+      function renderUsers() {
+        const needle = ($('#user-search').value || '').trim().toLowerCase();
+        const list = needle
+          ? users.filter(u => [u.full_name, u.username, u.email, u.department, u.job_title]
+              .some(v => (v || '').toLowerCase().includes(needle)))
+          : users;
+
+        if (!list.length) {
+          rows.innerHTML = '<tr><td colspan="6"><div class="empty">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('users') + '</span>' +
+            '<h3>' + (needle ? 'Nobody matches' : 'No people yet') + '</h3>' +
+            '<p>' + (needle ? 'Try a different search.'
+              : 'Add the people who review and approve documents. Until somebody exists, ' +
+                'an approval step has nobody to go to.') + '</p></div></td></tr>';
+          return;
+        }
+
+        rows.innerHTML = list.map(u => {
+          const name = u.full_name || u.username;
+          return '<tr data-id="' + escapeHtml(u.id) + '">' +
+            '<td><div class="row"><span class="avatar">' + escapeHtml(initials(name)) + '</span>' +
+              '<div><div class="cell-title">' + escapeHtml(name) + '</div>' +
+              '<div class="cell-sub">' + escapeHtml(u.email || '') + '</div></div></div></td>' +
+            '<td>' + escapeHtml(u.department || 'Not set') +
+              (u.job_title ? '<div class="cell-sub">' + escapeHtml(u.job_title) + '</div>' : '') +
+            '</td>' +
+            // What they may do, which is the column that actually matters here.
+            '<td><div class="row wrap" style="gap:4px">' +
+              (u.is_admin ? '<span class="badge badge--accent">Administrator</span>' : '') +
+              (u.can_approve || u.is_admin
+                ? '<span class="badge">' + icon('check') + 'Approve</span>'
+                : '<span class="badge">Read only</span>') +
+              (u.can_sign || u.is_admin
+                ? '<span class="badge badge--accent">' + icon('stamp') + 'Sign</span>' : '') +
+            '</div></td>' +
+            '<td class="muted">' + fmt.ago(u.last_login) + '</td>' +
+            '<td>' + (u.is_active === false
+              ? '<span class="badge badge--danger">Disabled</span>'
+              : '<span class="badge badge--accent">Active</span>') + '</td>' +
+            '<td class="actions"><span class="row-actions">' +
+              '<button class="icon-btn tip" data-tip="Edit" data-act="edit">' + icon('edit') + '</button>' +
+              '<button class="icon-btn is-danger tip" data-tip="Remove" data-act="delete">' +
+                icon('trash') + '</button>' +
+            '</span></td></tr>';
+        }).join('');
+      }
+
+      $('#user-search').addEventListener('input', renderUsers);
+
+      /* ------------------------------------------------------------ actions */
+      rows.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        const user = users.find(u => u.id === tr.dataset.id);
+        if (!user) return;
+
+        if (btn.dataset.act === 'edit') { openEditor(user); return; }
+
+        const ok = await confirmDanger({
+          title: 'Remove ' + escapeHtml(user.full_name || user.username) + '?',
+          message: 'Their sessions end immediately. Documents they own stay in the repository, ' +
+                   'and everything they already approved keeps their name on it.',
+          confirmLabel: 'Remove them',
+        });
+        if (!ok) return;
+        try {
+          await api.del('/api/auth/users/' + user.id);
+          toast('Removed', user.full_name || user.username);
+          loadUsers();
+        } catch (err) {
+          toast('Could not remove them', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
+      /* ------------------------------------------------------------ editor */
+      function openEditor(user) {
+        editing = user || null;
+
+        $('#user-modal-title').textContent = user
+          ? 'Edit ' + (user.full_name || user.username) : 'Add a person';
+        $('#btn-create-user').textContent = user ? 'Save changes' : 'Create person';
+
+        $('#new-name').value = (user && user.full_name) || '';
+        $('#new-username').value = (user && user.username) || '';
+        $('#new-username').disabled = !!user;
+        $('#new-email').value = (user && user.email) || '';
+        $('#new-dept').value = (user && user.department) || '';
+        $('#new-title').value = (user && user.job_title) || '';
+        $('#new-password').value = '';
+
+        $('#pw-label').textContent = user ? 'New password (leave blank to keep it)'
+                                          : 'Temporary password';
+        $('#pw-hint').textContent = user ? 'Only fill this in if you are resetting it.'
+                                         : 'They should change it after signing in.';
+
+        $('#new-approve').checked = user ? (user.can_approve !== false) : true;
+        $('#new-sign').checked = user ? !!user.can_sign : false;
+        $('#new-admin').checked = user ? !!user.is_admin : false;
+        $('#new-sign').disabled = $('#new-admin').checked;
+        $('#new-approve').disabled = $('#new-admin').checked;
+
+        DMS.openOverlay($('#modal-user'));
+      }
+
+      // The topbar button opens the same editor in "create" mode. Wiring it
+      // here rather than relying on data-open keeps the form state clean.
+      document.querySelectorAll('[data-open="modal-user"]').forEach(b => {
+        b.addEventListener('click', () => openEditor(null), true);
+      });
+
+      $('#btn-create-user').onclick = async () => {
+        const isAdmin = $('#new-admin').checked;
+        const payload = {
+          username: $('#new-username').value.trim(),
+          email: $('#new-email').value.trim(),
+          full_name: $('#new-name').value.trim(),
+          department: $('#new-dept').value || null,
+          job_title: $('#new-title').value.trim() || null,
+          is_admin: isAdmin,
+          can_approve: isAdmin ? true : $('#new-approve').checked,
+          can_sign: isAdmin ? true : $('#new-sign').checked,
+        };
+
+        const password = $('#new-password').value;
+
+        if (!payload.username || !payload.email) {
+          toast('Missing details', 'A username and an email address are required.', 'danger');
+          return;
+        }
+        if (!editing && password.length < 8) {
+          toast('Password too short', 'Use at least 8 characters.', 'danger');
+          return;
+        }
+
+        const btn = $('#btn-create-user');
+        btn.disabled = true;
+
+        try {
+          if (editing) {
+            if (password) payload.password = password;
+            delete payload.username;   // identity is not editable
+            await api.put('/api/auth/users/' + editing.id, payload);
+            toast('Saved', payload.full_name || editing.username);
+          } else {
+            payload.password = password;
+            await api.post('/api/auth/users', payload);
+            toast('Person added', payload.full_name || payload.username);
+          }
+          DMS.closeOverlays();
+          loadUsers();
+        } catch (err) {
+          toast(editing ? 'Could not save' : 'Could not add them',
+            String(err.message || err).slice(0, 220), 'danger');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      loadUsers();
+    })();
+  </script>
+</body>
+
+</html>

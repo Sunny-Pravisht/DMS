@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Records &amp; Warehouse · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="records" data-title="Records &amp; Warehouse">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm"><i data-icon="download"></i>Compliance report</button>
+        <button class="btn btn--primary btn--sm" data-open="modal-request"><i data-icon="box"></i>Request a file</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="t-eyebrow">Long-term stewardship</div>
+          <h1 class="t-h1 mt-1">Records management &amp; warehousing</h1>
+          <p>Physical boxes and their digital counterparts, tracked as one record with an immutable
+            chain of custody.</p>
+        </div>
+
+        <div class="banner banner--grey mb-3">
+          <i data-icon="info"></i>
+          <div><strong>Module preview.</strong> Records &amp; warehousing ships in Phase&nbsp;4. This screen
+            shows the designed experience against representative data.</div>
+        </div>
+
+        <section class="grid grid-3">
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon"><i data-icon="records"></i></span>
+              <div><h3 class="t-h3">Physical &amp; digital warehousing</h3>
+                <p class="t-sm muted mt-1">Track box and file locations alongside their digital counterparts.</p></div></div>
+          </div>
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon"><i data-icon="layers"></i></span>
+              <div><h3 class="t-h3">Records classification</h3>
+                <p class="t-sm muted mt-1">Formal record schedules aligned to regulatory categories.</p></div></div>
+          </div>
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon"><i data-icon="shield"></i></span>
+              <div><h3 class="t-h3">Chain of custody</h3>
+                <p class="t-sm muted mt-1">Append-only trail for every movement, issue, return and access.</p></div></div>
+          </div>
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon tile-icon--danger"><i data-icon="scale"></i></span>
+              <div><h3 class="t-h3">Legal hold management</h3>
+                <p class="t-sm muted mt-1">Suspend disposition instantly for litigation or investigation.</p></div></div>
+          </div>
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon"><i data-icon="archive"></i></span>
+              <div><h3 class="t-h3">Cold storage tiering</h3>
+                <p class="t-sm muted mt-1">Automatic migration to low-cost archival storage over time.</p></div></div>
+          </div>
+          <div class="card card--pad">
+            <div class="row-top"><span class="tile-icon"><i data-icon="approvals"></i></span>
+              <div><h3 class="t-h3">Compliance reporting</h3>
+                <p class="t-sm muted mt-1">Ready-made reports for audits and regulatory review.</p></div></div>
+          </div>
+        </section>
+
+        <div class="tabs mt-4" data-tabs="rec">
+          <button data-tab="inventory" class="is-active">Physical inventory</button>
+          <button data-tab="series">Record series<span class="tabs__count">14</span></button>
+          <button data-tab="custody">Chain of custody</button>
+          <button data-tab="tiers">Storage tiers</button>
+        </div>
+
+        <!-- Inventory -->
+        <div class="tab-panel is-active" data-panel="inventory" data-scope="rec">
+          <div class="grid grid-4 mb-3">
+            <div class="card stat"><div class="stat__label">Boxes in warehouse</div>
+              <div class="stat__value">4,182</div><div class="stat__foot">3 facilities · 96 racks</div></div>
+            <div class="card stat"><div class="stat__label">Files issued out</div>
+              <div class="stat__value">37</div><div class="stat__foot">To 11 custodians</div></div>
+            <div class="card stat stat--danger"><div class="stat__label">Overdue returns</div>
+              <div class="stat__value">4</div><div class="stat__foot">Past 30 days</div></div>
+            <div class="card stat"><div class="stat__label">Digitised</div>
+              <div class="stat__value">88%</div><div class="stat__foot">Digital twin linked</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card__head">
+              <label class="input-icon" style="width:280px"><i data-icon="search"></i>
+                <input class="input" placeholder="Search by box, barcode or file reference"></label>
+              <span class="spacer"></span>
+              <select class="select" style="width:auto"><option>All facilities</option>
+                <option>Chennai main warehouse</option><option>Bengaluru annexe</option>
+                <option>Off-site vault</option></select>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Box</th><th>Contents</th><th>Location</th><th>Series</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><div class="cell-title mono">FIN-A-118</div><div class="cell-sub">Barcode 8829 4471 0118</div></td>
+                    <td>Vendor invoices FY 2019-20 · 412 files</td>
+                    <td>Chennai · Rack 4 · Shelf B</td><td>Financial records</td>
+                    <td><span class="badge badge--accent">In place</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline">Request</button></td></tr>
+                  <tr><td><div class="cell-title mono">LEG-C-042</div><div class="cell-sub">Barcode 8829 4471 0042</div></td>
+                    <td>Executed contracts 2018 · 96 files</td>
+                    <td>Off-site vault · Cage 2</td><td>Commercial contracts</td>
+                    <td><span class="badge badge--danger"><i data-icon="lock"></i>Legal hold</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline is-disabled">Request</button></td></tr>
+                  <tr><td><div class="cell-title mono">HR-B-207</div><div class="cell-sub">Barcode 8829 4471 0207</div></td>
+                    <td>Personnel files for 2021 leavers · 188 files</td>
+                    <td>Issued to R. Menon</td><td>Employee records</td>
+                    <td><span class="badge badge--danger">Overdue 12 d</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--danger-soft">Chase return</button></td></tr>
+                  <tr><td><div class="cell-title mono">OPS-D-330</div><div class="cell-sub">Barcode 8829 4471 0330</div></td>
+                    <td>Plant maintenance logs 2022 · 240 files</td>
+                    <td>Bengaluru · Rack 11 · Shelf A</td><td>Operational logs</td>
+                    <td><span class="badge">Eligible for disposition</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline">Review</button></td></tr>
+                  <tr><td><div class="cell-title mono">PRO-A-005</div><div class="cell-sub">Barcode 8829 4471 0005</div></td>
+                    <td>Tender bundles Q2 2019 · 61 files</td>
+                    <td>Chennai · Rack 1 · Shelf C</td><td>Procurement &amp; tenders</td>
+                    <td><span class="badge badge--accent">In place</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline">Request</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Record series -->
+        <div class="tab-panel" data-panel="series" data-scope="rec">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Series</th><th>Regulatory category</th><th>Retention</th><th>Records</th><th>Physical</th><th>Digital</th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-title">Financial records</td><td>Companies Act s.128 / IT Act</td>
+                    <td class="mono">8 years</td><td class="num">18,402</td><td class="num">1,912</td><td class="num">18,402</td></tr>
+                  <tr><td class="cell-title">Commercial contracts</td><td>Limitation Act</td>
+                    <td class="mono">7 years</td><td class="num">9,118</td><td class="num">640</td><td class="num">9,118</td></tr>
+                  <tr><td class="cell-title">Employee records</td><td>Labour codes / PF rules</td>
+                    <td class="mono">7 years</td><td class="num">6,480</td><td class="num">988</td><td class="num">6,102</td></tr>
+                  <tr><td class="cell-title">Statutory &amp; incorporation</td><td>Companies Act</td>
+                    <td class="mono">Permanent</td><td class="num">312</td><td class="num">312</td><td class="num">312</td></tr>
+                  <tr><td class="cell-title">Procurement &amp; tenders</td><td>Internal audit standard</td>
+                    <td class="mono">6 years</td><td class="num">4,027</td><td class="num">220</td><td class="num">4,027</td></tr>
+                  <tr><td class="cell-title">Operational logs</td><td>Internal</td>
+                    <td class="mono">3 years</td><td class="num">10,511</td><td class="num">110</td><td class="num">10,511</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chain of custody -->
+        <div class="tab-panel" data-panel="custody" data-scope="rec">
+          <div class="grid grid-sidebar">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Movement history for box FIN-A-118</h3>
+                <span class="spacer"></span>
+                <span class="badge badge--accent"><i data-icon="shield"></i>Append-only</span>
+              </div>
+              <div class="card__body">
+                <div class="timeline">
+                  <div class="timeline__item is-accent">
+                    <div class="timeline__title">Returned to Rack 4, Shelf B</div>
+                    <div class="timeline__meta">Warehouse operator · 30 Jul 2026, 16:12 · verified against barcode</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Issued to S. Iyer (Finance)</div>
+                    <div class="timeline__meta">Warehouse operator · 24 Jul 2026, 09:30 · reason: statutory audit</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Retrieval request approved</div>
+                    <div class="timeline__meta">Head of Finance · 23 Jul 2026, 14:02</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Migrated to cold storage tier</div>
+                    <div class="timeline__meta">System · 01 Apr 2024, 02:00 · digital twin unchanged</div>
+                  </div>
+                  <div class="timeline__item">
+                    <div class="timeline__title">Boxed and shelved</div>
+                    <div class="timeline__meta">Warehouse operator · 12 Apr 2021, 11:45 · 412 files verified</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <aside class="stack">
+              <div class="card card--pad">
+                <h3 class="t-h3">Overdue returns</h3>
+                <ul class="list mt-2">
+                  <li><div class="list-item" style="padding-left:0;padding-right:0">
+                    <span class="dot dot--danger"></span>
+                    <span class="list-item__body"><span class="list-item__title">HR-B-207</span>
+                      <span class="list-item__sub">R. Menon · 12 days over</span></span></div></li>
+                  <li><div class="list-item" style="padding-left:0;padding-right:0">
+                    <span class="dot dot--danger"></span>
+                    <span class="list-item__body"><span class="list-item__title">LEG-C-018</span>
+                      <span class="list-item__sub">A. Kapoor · 6 days over</span></span></div></li>
+                  <li><div class="list-item" style="padding-left:0;padding-right:0">
+                    <span class="dot dot--danger"></span>
+                    <span class="list-item__body"><span class="list-item__title">FIN-A-092</span>
+                      <span class="list-item__sub">External auditor · 3 days over</span></span></div></li>
+                </ul>
+                <button class="btn btn--danger-soft btn--sm btn--block mt-3">Send chase notices</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- Tiers -->
+        <div class="tab-panel" data-panel="tiers" data-scope="rec">
+          <div class="grid grid-sidebar">
+            <div class="card">
+              <div class="card__head"><h3 class="t-h3">Storage tiering</h3></div>
+              <div class="card__body stack-sm">
+                <div class="meter-row">
+                  <span class="meter-row__label">Hot, in active use</span>
+                  <span class="progress full"><span class="progress__bar" style="width:34%"></span></span>
+                  <span class="meter-row__value">18,135</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Warm, recently used</span>
+                  <span class="progress full"><span class="progress__bar" style="width:28%"></span></span>
+                  <span class="meter-row__value">14,930</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Cold, archived</span>
+                  <span class="progress full"><span class="progress__bar is-muted" style="width:36%"></span></span>
+                  <span class="meter-row__value">18,940</span>
+                </div>
+                <div class="meter-row">
+                  <span class="meter-row__label">Physical only</span>
+                  <span class="progress full"><span class="progress__bar is-muted" style="width:2%"></span></span>
+                  <span class="meter-row__value">1,070</span>
+                </div>
+                <div class="divider"></div>
+                <p class="t-sm muted">Documents move to a colder tier automatically once they leave the
+                  active period. Retrieval from cold storage takes up to 12 hours and is logged as an access event.</p>
+              </div>
+            </div>
+            <aside class="card card--pad">
+              <h3 class="t-h3">Tiering rules</h3>
+              <label class="field mt-2"><span class="field__label">Move to warm after</span>
+                <select class="select"><option>12 months of no access</option><option>6 months of no access</option></select></label>
+              <label class="field"><span class="field__label">Move to cold after</span>
+                <select class="select"><option>36 months of no access</option><option>24 months of no access</option></select></label>
+              <label class="switch mt-3"><input type="checkbox" checked>
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="t-sm">Never tier records under legal hold</span></label>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-request">
+    <div class="modal__head">
+      <h3 class="t-h2">Request a physical file</h3>
+      <p class="t-sm muted mt-1">Retrieval is approved by the record owner and logged to the chain of custody.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Box or file reference</span>
+        <input class="input" placeholder="e.g. FIN-A-118 or barcode"></label>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Needed by</span>
+          <input class="input" type="date"></label>
+        <label class="field" style="margin:0"><span class="field__label">Return by</span>
+          <input class="input" type="date"></label>
+      </div>
+      <label class="field"><span class="field__label">Reason</span>
+        <textarea class="textarea" placeholder="Statutory audit, litigation, internal review…"></textarea></label>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" data-close>Submit request</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+</body>
+
+</html>

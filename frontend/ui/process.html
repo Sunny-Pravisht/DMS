@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3 · Set Up Approval · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="process" data-step="3" data-title="Set Up Approval">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--ghost btn--sm" href="/templates">Manage approval routes</a>
+      </div>
+
+      <main class="page">
+        <div data-journey></div>
+
+        <!-- The stepper above already names this step; the heading and its
+             paragraph said it twice. -->
+        <div class="t-eyebrow mb-3">Step 3 of 5 · Approval</div>
+
+        <!-- The document this is for -->
+        <div class="card card--pad mb-3">
+          <div class="row">
+            <span class="tile-icon"><i data-icon="file"></i></span>
+            <div style="min-width:0">
+              <div class="t-h3 truncate" id="d-name">Loading…</div>
+              <div class="t-xs muted" id="d-meta">Loading…</div>
+            </div>
+            <span class="spacer"></span>
+            <!-- Editing a document's details only means something once there is
+                 a document. Hidden until one is loaded, rather than offered and
+                 then leading nowhere. -->
+            <a class="btn btn--sm btn--outline" id="btn-back-review" href="/review" hidden>
+              <i data-icon="compose"></i>Change details</a>
+            <button class="btn btn--sm btn--outline" id="btn-pick-doc">Choose a different document</button>
+          </div>
+        </div>
+
+        <!-- An approval already running for this document -->
+        <div class="banner banner--warn mb-3 hidden" id="existing">
+          <i data-icon="alert"></i>
+          <div id="existing-text"></div>
+        </div>
+
+        <!-- ------------------------------------------------- 1 · how ------ -->
+        <section class="section" style="margin-top:0">
+          <div class="section__head">
+            <span class="step-card__num">1</span>
+            <h2 class="t-h2">How do you want to build it?</h2>
+          </div>
+
+          <div class="mode-choice">
+            <label class="mode-card">
+              <input type="radio" name="build-mode" value="manual" checked>
+              <span class="mode-card__dot"></span>
+              <span>
+                <span class="mode-card__title">Build it myself</span>
+                <span class="mode-card__desc" style="display:block">Choose every step: who acts,
+                  which people, by when, and whether they must sign.</span>
+              </span>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="build-mode" value="template">
+              <span class="mode-card__dot"></span>
+              <span>
+                <span class="mode-card__title">Use a saved route</span>
+                <span class="mode-card__desc" style="display:block">Pick a route your team already
+                  agreed and the whole chain is filled in.</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="card mt-3 hidden" id="tpl-panel">
+            <div class="card__head">
+              <span class="tile-icon"><i data-icon="layers"></i></span>
+              <h3 class="t-h3">Saved approval routes</h3>
+              <span class="spacer"></span>
+              <span class="badge badge--accent hidden" id="tpl-suggest"></span>
+            </div>
+            <div class="card__body">
+              <label class="field" style="margin:0">
+                <span class="field__label">Route</span>
+                <select class="select" id="tpl-menu"></select>
+                <span class="field__hint" id="tpl-hint"></span>
+              </label>
+              <div class="card card--flat card--pad mt-3 hidden" id="tpl-preview">
+                <div class="t-h3" id="tpl-name">Route</div>
+                <p class="t-sm muted mt-1" id="tpl-desc"></p>
+                <div class="row wrap mt-2" style="gap:6px" id="tpl-meta"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-3" id="manual-panel">
+            <div class="card__head">
+              <span class="tile-icon"><i data-icon="sliders"></i></span>
+              <h3 class="t-h3">Starting point</h3>
+            </div>
+            <div class="card__body">
+              <label class="field" style="margin:0;max-width:420px">
+                <span class="field__label">Which department owns this document?</span>
+                <select class="select" id="m-dept"><option value="">Choose a department…</option></select>
+                <span class="field__hint">Suggests a starting chain and the retention rule.
+                  Change anything below.</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- --------------------------------------------- 2 · the chain ---- -->
+        <section class="section">
+          <div class="section__head">
+            <span class="step-card__num">2</span>
+            <h2 class="t-h2">The approval chain</h2>
+            <span class="spacer"></span>
+            <span class="t-sm muted" id="step-count"></span>
+            <button class="btn btn--sm btn--outline" id="btn-add-step"><i data-icon="plus"></i>Add a step</button>
+          </div>
+          <p class="t-sm muted mb-3" style="max-width:74ch">Steps run in order, top to bottom. Each one
+            waits for the one above it. A step marked <strong>signature required</strong> can only be
+            given to somebody who holds signature authority.</p>
+          <div id="steps"></div>
+        </section>
+
+        <!-- --------------------------------- 3 · priority and timing ------ -->
+        <section class="section">
+          <div class="section__head">
+            <span class="step-card__num">3</span>
+            <h2 class="t-h2">Priority and timing</h2>
+          </div>
+          <div class="grid grid-2">
+            <div class="card card--pad">
+              <div class="field" style="margin:0">
+                <span class="field__label">How urgent is this document?</span>
+                <div class="prio-choice mt-1" id="prio"></div>
+              </div>
+              <label class="field mt-3" style="margin-bottom:0">
+                <span class="field__label">Needed by</span>
+                <input class="input" type="date" id="f-due" data-not-past>
+                <span class="field__hint">Leave blank and the deadline is the sum of the step
+                  deadlines below.</span>
+              </label>
+            </div>
+            <div class="card card--pad">
+              <label class="field"><span class="field__label">When everyone has approved</span>
+                <select class="select" id="f-after">
+                  <option>File it and start the retention clock</option>
+                  <option>File it and notify the requester</option>
+                  <option>File it and send to the finance system</option>
+                </select></label>
+              <label class="field" style="margin-bottom:0">
+                <span class="field__label">Keep the document for</span>
+                <select class="select" id="f-retention"></select></label>
+              <div class="banner banner--grey mt-3">
+                <i data-icon="info"></i>
+                <div>Publishing happens at step 5, once every approver has acted.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- --------------------------------------------- 4 · confirm ------ -->
+        <section class="section">
+          <div class="section__head">
+            <span class="step-card__num">4</span>
+            <h2 class="t-h2">Review and confirm the approval route</h2>
+          </div>
+          <div class="card card--accent card--pad">
+            <div class="row-top">
+              <span class="tile-icon tile-icon--solid"><i data-icon="approvals"></i></span>
+              <div style="flex:1;min-width:0">
+                <h3 class="t-h3">What will happen to this document</h3>
+                <div class="route-summary mt-2" id="summary-text">
+                  <p class="t-sm muted">Add a step to see the summary.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="problems mt-3 hidden" id="problems">
+            <div class="problems__title">Fix this before starting</div>
+            <ul id="problems-list"></ul>
+          </div>
+        </section>
+
+        <div class="next-bar">
+          <div>
+            <div class="next-bar__text">Ready to send it on its way?</div>
+            <div class="t-xs muted-2">The first approver sees it in My Tasks straight away.</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--outline" id="btn-save-tpl">Save as a route</button>
+            <button class="btn btn--primary btn--lg" id="btn-start">
+              <i data-icon="play"></i>Start approval</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, icon, flow, templates, dir,
+              DEPARTMENTS, SLA_OPTIONS, workflow, confirmDanger } = DMS;
+      const $ = s => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+
+      let docId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+      let doc = null;
+      let steps = [];
+      let mode = 'manual';
+      let chosenTemplate = null;
+      let priority = 'normal';
+      let people = [];        // every real user who can approve
+      let openPicker = null;
+
+      /* ------------------------------------------------------------- setup */
+      DEPARTMENTS.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d; o.textContent = d;
+        $('#m-dept').appendChild(o);
+      });
+
+      const RETENTIONS = [...new Set(DEPARTMENTS.map(d => dir.retention(d)))]
+        .concat(['Default, 5 years']);
+      RETENTIONS.forEach(r => {
+        const o = document.createElement('option');
+        o.value = r; o.textContent = r;
+        $('#f-retention').appendChild(o);
+      });
+
+      $('#prio').innerHTML = workflow.PRIORITIES.map(p =>
+        '<button type="button" class="prio' + (p.id === 'normal' ? ' is-active' : '') +
+          '" data-prio="' + p.id + '">' +
+          '<span class="prio__label">' + escapeHtml(p.label) + '</span>' +
+          '<span class="prio__hint">' + escapeHtml(p.hint) + '</span>' +
+        '</button>').join('');
+
+      $('#prio').addEventListener('click', e => {
+        const btn = e.target.closest('[data-prio]');
+        if (!btn) return;
+        priority = btn.dataset.prio;
+        $('#prio').querySelectorAll('.prio').forEach(b =>
+          b.classList.toggle('is-active', b === btn));
+        renderSummary();
+      });
+
+      /* -------------------------------------------------------------- mode */
+      document.querySelectorAll('[name="build-mode"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          if (!radio.checked) return;
+          mode = radio.value;
+          $('#tpl-panel').classList.toggle('hidden', mode !== 'template');
+          $('#manual-panel').classList.toggle('hidden', mode !== 'manual');
+          if (mode === 'template') applyTemplate($('#tpl-menu').value);
+          else { chosenTemplate = null; applyDepartment($('#m-dept').value); }
+        });
+      });
+
+      /* --------------------------------------------------------- templates */
+      function fillTemplateMenu() {
+        const all = templates.all();
+        const byDept = {};
+        all.forEach(t => { (byDept[t.department] = byDept[t.department] || []).push(t); });
+
+        $('#tpl-menu').innerHTML = '<option value="">Choose a route…</option>' +
+          Object.keys(byDept).sort().map(d =>
+            '<optgroup label="' + escapeHtml(d) + '">' +
+            byDept[d].map(t => '<option value="' + escapeHtml(t.id) + '">' +
+              escapeHtml(t.name) + (t.custom ? ' (yours)' : '') + '</option>').join('') +
+            '</optgroup>').join('');
+
+        const mine = templates.custom().length;
+        $('#tpl-hint').textContent = all.length + ' routes available' +
+          (mine ? ', ' + mine + ' created by your team.' : '.');
+      }
+
+      $('#tpl-menu').addEventListener('change', e => applyTemplate(e.target.value));
+
+      function applyTemplate(id) {
+        chosenTemplate = id ? templates.get(id) : null;
+        const preview = $('#tpl-preview');
+        if (!chosenTemplate) {
+          preview.classList.add('hidden');
+          steps = [];
+          renderSteps();
+          return;
+        }
+        preview.classList.remove('hidden');
+        $('#tpl-name').textContent = chosenTemplate.name;
+        $('#tpl-desc').textContent = chosenTemplate.description || '';
+        $('#tpl-meta').innerHTML =
+          '<span class="badge">' + escapeHtml(chosenTemplate.department) + '</span>' +
+          '<span class="badge">' + chosenTemplate.steps.length + ' steps</span>' +
+          (chosenTemplate.retention
+            ? '<span class="badge">' + escapeHtml(chosenTemplate.retention) + '</span>' : '');
+
+        if (chosenTemplate.retention) $('#f-retention').value = chosenTemplate.retention;
+
+        steps = chosenTemplate.steps.map(s => ({
+          name: s.name,
+          department: s.dept && s.dept !== 'Any' ? s.dept : chosenTemplate.department,
+          role: s.who,
+          assignee_ids: [],
+          requires_signature: !!s.sign,
+          sla: s.sla || '2 days',
+        }));
+        renderSteps();
+      }
+
+      /* ------------------------------------------------------- department */
+      $('#m-dept').addEventListener('change', e => applyDepartment(e.target.value));
+
+      function applyDepartment(dept) {
+        if (!dept) { steps = []; renderSteps(); return; }
+        $('#f-retention').value = dir.retention(dept);
+        steps = dir.defaultSteps(dept).map(s => ({
+          name: s.name,
+          department: dept,
+          role: s.who,
+          assignee_ids: [],
+          requires_signature: !!s.sign,
+          sla: s.sla || '2 days',
+        }));
+        renderSteps();
+      }
+
+      /* ------------------------------------------------------------- steps */
+
+      /**
+       * One card per step, read top to bottom in the order the questions
+       * actually arise: what the step is called, who it goes to, by when, and
+       * whether it must be signed. The number on the left is the position in
+       * the chain and is recomputed on every render, so moving a step renumbers
+       * everything rather than leaving stale labels behind.
+       */
+      function renderSteps() {
+        const host = $('#steps');
+        $('#step-count').textContent = steps.length
+          ? steps.length + (steps.length === 1 ? ' step' : ' steps') : '';
+
+        if (!steps.length) {
+          host.innerHTML = '<div class="card card--pad"><div class="empty" style="padding:34px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('workflow') + '</span>' +
+            '<h3>No steps yet</h3>' +
+            '<p>Choose a department above for a sensible starting chain, or add a step yourself.</p>' +
+            '<div class="btn-row"><button class="btn btn--primary btn--sm" data-add>' +
+            icon('plus') + 'Add the first step</button></div></div></div>';
+          renderSummary();
+          return;
+        }
+
+        host.innerHTML = steps.map((s, i) => {
+          const eligible = candidates(s);
+          const chosen = (s.assignee_ids || [])
+            .map(id => people.find(p => p.id === id)).filter(Boolean);
+
+          return (i ? '<div class="step-connector">' + icon('arrowDown') + '</div>' : '') +
+            '<div class="step-card" data-step="' + i + '">' +
+              '<div class="step-card__head">' +
+                // "Step 2" in brand blue, not a second navy square: these sit
+                // inside section 2 and must not look like sections themselves.
+                '<span class="step-card__sub">Step <b>' + (i + 1) + '</b></span>' +
+                '<input class="input" data-name value="' + escapeHtml(s.name || '') + '" ' +
+                  'placeholder="Name this step, e.g. Legal review" ' +
+                  'style="max-width:300px;font-weight:560">' +
+                (s.requires_signature
+                  ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature required</span>'
+                  : '<span class="badge">Approval only</span>') +
+                '<span class="spacer"></span>' +
+                (i > 0 ? '<button class="icon-btn tip" data-tip="Move up" data-up>' +
+                  icon('arrowUp') + '</button>' : '') +
+                (i < steps.length - 1 ? '<button class="icon-btn tip" data-tip="Move down" data-down>' +
+                  icon('arrowDown') + '</button>' : '') +
+                '<button class="icon-btn is-danger tip" data-tip="Remove this step" data-remove>' +
+                  icon('trash') + '</button>' +
+              '</div>' +
+
+              '<div class="step-card__body">' +
+                // 1 · where
+                '<label class="field" style="margin:0"><span class="field__label">1 · Department</span>' +
+                  '<select class="select" data-dept>' +
+                    '<option value="">Any department</option>' +
+                    DEPARTMENTS.map(d => '<option' + (d === s.department ? ' selected' : '') + '>' +
+                      escapeHtml(d) + '</option>').join('') +
+                  '</select></label>' +
+                // 2 · which role
+                '<label class="field" style="margin:0"><span class="field__label">2 · Goes to (role)</span>' +
+                  '<input class="input" data-role list="roles-' + i + '" ' +
+                    'value="' + escapeHtml(s.role || '') + '" placeholder="e.g. Head of Finance">' +
+                  '<datalist id="roles-' + i + '">' +
+                    dir.roles(s.department).map(r => '<option value="' + escapeHtml(r) + '">').join('') +
+                  '</datalist></label>' +
+                // 3 · by when
+                '<label class="field" style="margin:0"><span class="field__label">3 · Deadline</span>' +
+                  '<select class="select" data-sla>' +
+                    SLA_OPTIONS.map(o => '<option' + (o === s.sla ? ' selected' : '') + '>' +
+                      escapeHtml(o) + '</option>').join('') +
+                  '</select></label>' +
+              '</div>' +
+
+              // 4 · exactly who
+              '<div class="mt-3">' +
+                '<span class="field__label">4 · Which people?</span>' +
+                '<div class="assignees" data-assignees>' +
+                  (chosen.length
+                    ? chosen.map(p => '<span class="chip is-active">' + escapeHtml(p.name) +
+                        (p.can_sign ? ' ' + icon('stamp') : '') +
+                        '<button type="button" class="chip__x" data-drop="' + escapeHtml(p.id) + '">' +
+                        icon('x') + '</button></span>').join('')
+                    : '<span class="t-sm muted-2">Anyone who holds this role' +
+                      (s.department ? ' in ' + escapeHtml(s.department) : '') + '</span>') +
+                  '<button type="button" class="btn btn--sm btn--ghost" data-choose>' +
+                    icon('plus') + 'Choose people</button>' +
+                '</div>' +
+                (eligible.length === 0 && s.requires_signature
+                  ? '<div class="banner banner--danger mt-2">' + icon('alert') +
+                    '<div>Nobody' + (s.department ? ' in ' + escapeHtml(s.department) : '') +
+                    ' is permitted to sign. Grant signature authority under ' +
+                    '<a href="/organization" class="accent-text" style="font-weight:600">' +
+                    'People &amp; Departments</a>, or turn off the signature requirement.</div></div>'
+                  : '') +
+              '</div>' +
+
+              // 5 · how many of them
+              // Only meaningful with two or more named people: one person is
+              // always "all of them", and a step addressed to a role has no
+              // roll to call.
+              (chosen.length > 1
+                ? '<div class="mt-3">' +
+                    '<span class="field__label">5 · How many of them must approve?</span>' +
+                    '<div class="mode-choice mode-choice--tight mt-1">' +
+                      '<label class="mode-card">' +
+                        '<input type="radio" name="mode-' + i + '" data-mode value="all"' +
+                          (s.approval_mode !== 'any' ? ' checked' : '') + '>' +
+                        '<span class="mode-card__dot"></span>' +
+                        '<span><span class="mode-card__title">Everyone must approve</span>' +
+                        '<span class="mode-card__desc" style="display:block">All ' +
+                          chosen.length + ' must ' +
+                          (s.requires_signature ? 'sign' : 'approve') +
+                          '. Until they have, the document stays here and cannot be ' +
+                          'published.</span></span></label>' +
+                      '<label class="mode-card">' +
+                        '<input type="radio" name="mode-' + i + '" data-mode value="any"' +
+                          (s.approval_mode === 'any' ? ' checked' : '') + '>' +
+                        '<span class="mode-card__dot"></span>' +
+                        '<span><span class="mode-card__title">Any one of them</span>' +
+                        '<span class="mode-card__desc" style="display:block">Whoever gets ' +
+                          'to it first decides for the step.</span></span></label>' +
+                    '</div>' +
+                  '</div>'
+                : '') +
+
+              // 6 · signature
+              '<div class="mt-3">' +
+                '<label class="check"><input type="checkbox" data-sign' +
+                  (s.requires_signature ? ' checked' : '') + '>' +
+                  '<span class="check__box">' + icon('check') + '</span>' +
+                  '<span class="check__text"><strong>' + (chosen.length > 1 ? '6' : '5') +
+                  ' · Signature required.</strong> ' +
+                  'Everyone on this step must apply their signature, not just click ' +
+                  'approve.</span></label>' +
+              '</div>' +
+            '</div>';
+        }).join('');
+
+        renderSummary();
+      }
+
+      /** Who may be put on this step, given what the step demands. */
+      function candidates(step) {
+        return people.filter(p => {
+          if (step.requires_signature && !(p.can_sign || p.is_admin)) return false;
+          if (step.department && p.department && p.department !== step.department && !p.is_admin) {
+            return false;
+          }
+          return true;
+        });
+      }
+
+      /* ------------------------------------------------------ people picker */
+
+      /**
+       * Named approvers, chosen from the real user directory rather than a
+       * hard-coded list. Only people the step could legally be given to are
+       * offered, so an unworkable chain cannot be built by accident.
+       */
+      function choosePeople(index) {
+        const step = steps[index];
+        const eligible = candidates(step);
+        const selected = new Set(step.assignee_ids || []);
+
+        const el = document.createElement('div');
+        el.className = 'modal';
+        el.innerHTML =
+          '<div class="modal__head">' +
+            '<h3 class="t-h2">Who acts on “' + escapeHtml(step.name || 'this step') + '”?</h3>' +
+            '<p class="t-sm muted mt-1">' +
+              (step.requires_signature
+                ? 'This step requires a signature, so only people with signature authority are listed.'
+                : 'Anyone who can approve is listed. Leave the list empty to address the role rather ' +
+                  'than a person.') +
+            '</p>' +
+          '</div>' +
+          '<div class="modal__body">' +
+            (eligible.length
+              ? '<div class="picker__list">' + eligible.map(p =>
+                  '<label class="picker__opt"><input type="checkbox" data-pid="' + escapeHtml(p.id) + '"' +
+                    (selected.has(p.id) ? ' checked' : '') + '>' +
+                    '<span class="check__box">' + icon('check') + '</span>' +
+                    '<span class="avatar">' + escapeHtml(DMS.initials(p.name)) + '</span>' +
+                    '<span class="picker__who"><strong>' + escapeHtml(p.name) + '</strong>' +
+                    '<small>' + escapeHtml(DMS.designation(p)) + '</small></span>' +
+                    (p.can_sign ? '<span class="badge badge--accent" style="margin-left:auto">' +
+                      icon('stamp') + 'Can sign</span>' : '') +
+                  '</label>').join('') + '</div>'
+              : '<div class="empty" style="padding:24px">' +
+                '<h3>Nobody is eligible</h3>' +
+                '<p>' + (step.requires_signature
+                  ? 'No active user has signature authority for this department.'
+                  : 'No active user can approve for this department.') +
+                ' Add or update people under People &amp; Departments.</p>' +
+                '<div class="btn-row"><a class="btn btn--outline btn--sm" href="/organization">' +
+                'Open People &amp; Departments</a></div></div>') +
+          '</div>' +
+          '<div class="modal__foot"><div class="btn-row">' +
+            '<button class="btn btn--outline" data-cancel>Cancel</button>' +
+            '<button class="btn btn--primary" data-ok>Use these people</button>' +
+          '</div></div>';
+
+        document.body.appendChild(el);
+        DMS.openOverlay(el);
+        const close = () => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); };
+
+        el.querySelector('[data-cancel]').onclick = close;
+        el.querySelector('[data-ok]').onclick = () => {
+          const before = (step.assignee_ids || []).length;
+          step.assignee_ids = Array.from(el.querySelectorAll('[data-pid]:checked'))
+            .map(c => c.dataset.pid);
+
+          // Naming several people almost always means all of them are wanted,
+          // so that is the default the first time a second person is added.
+          // It stays a choice, and a choice already made is left alone.
+          if (before < 2 && step.assignee_ids.length > 1 && !step.mode_touched) {
+            step.approval_mode = 'all';
+          }
+          if (step.assignee_ids.length < 2) step.approval_mode = 'any';
+
+          close();
+          renderSteps();
+        };
+      }
+
+      /* ------------------------------------------------------ step wiring */
+      $('#steps').addEventListener('input', e => {
+        const card = e.target.closest('[data-step]');
+        if (!card) return;
+        const i = Number(card.dataset.step);
+        if (e.target.matches('[data-name]')) { steps[i].name = e.target.value; renderSummary(); }
+        if (e.target.matches('[data-role]')) { steps[i].role = e.target.value; renderSummary(); }
+      });
+
+      $('#steps').addEventListener('change', e => {
+        const card = e.target.closest('[data-step]');
+        if (!card) return;
+        const i = Number(card.dataset.step);
+
+        if (e.target.matches('[data-dept]')) {
+          steps[i].department = e.target.value;
+          const roles = dir.roles(steps[i].department);
+          if (roles.length && !roles.includes(steps[i].role)) steps[i].role = roles[0];
+          // People from the old department are no longer eligible.
+          steps[i].assignee_ids = [];
+          renderSteps();
+          return;
+        }
+        if (e.target.matches('[data-sla]')) { steps[i].sla = e.target.value; renderSummary(); }
+        if (e.target.matches('[data-mode]')) {
+          steps[i].approval_mode = e.target.value;
+          // Remember that this was decided by hand, so adding another person
+          // later does not quietly reset it.
+          steps[i].mode_touched = true;
+          renderSummary();
+        }
+        if (e.target.matches('[data-sign]')) {
+          steps[i].requires_signature = e.target.checked;
+          // Turning the requirement on can invalidate people already chosen.
+          if (e.target.checked) {
+            const keep = candidates(steps[i]).map(p => p.id);
+            const dropped = (steps[i].assignee_ids || []).filter(id => !keep.includes(id));
+            steps[i].assignee_ids = (steps[i].assignee_ids || []).filter(id => keep.includes(id));
+            if (dropped.length) {
+              toast('Removed from this step',
+                dropped.length + (dropped.length === 1 ? ' person is' : ' people are') +
+                ' not permitted to sign.', 'danger');
+            }
+          }
+          renderSteps();
+        }
+      });
+
+      $('#steps').addEventListener('click', e => {
+        if (e.target.closest('[data-add]')) { addStep(); return; }
+
+        const card = e.target.closest('[data-step]');
+        if (!card) return;
+        const i = Number(card.dataset.step);
+
+        if (e.target.closest('[data-choose]')) { choosePeople(i); return; }
+
+        const drop = e.target.closest('[data-drop]');
+        if (drop) {
+          steps[i].assignee_ids = (steps[i].assignee_ids || [])
+            .filter(id => id !== drop.dataset.drop);
+          renderSteps();
+          return;
+        }
+        if (e.target.closest('[data-remove]')) { steps.splice(i, 1); renderSteps(); }
+        else if (e.target.closest('[data-up]')) { steps.splice(i - 1, 0, steps.splice(i, 1)[0]); renderSteps(); }
+        else if (e.target.closest('[data-down]')) { steps.splice(i + 1, 0, steps.splice(i, 1)[0]); renderSteps(); }
+      });
+
+      $('#btn-add-step').onclick = addStep;
+
+      function addStep() {
+        const dept = (steps.length && steps[steps.length - 1].department) || $('#m-dept').value || '';
+        const roles = dir.roles(dept);
+        steps.push({
+          name: steps.length ? 'Approve and sign' : 'Review',
+          department: dept,
+          role: roles[roles.length - 1] || '',
+          assignee_ids: [],
+          // The last step in a chain is normally the binding one, so default a
+          // second-or-later step to requiring a signature.
+          requires_signature: steps.length > 0,
+          sla: steps.length ? '2 days' : '1 day',
+        });
+        renderSteps();
+      }
+
+      /* ----------------------------------------------------------- summary
+         What the route will actually do, one step per line.
+
+         This used to be a single paragraph with every step run together, which
+         is unreadable past two steps and hid the thing that matters most:
+         whether one person decides or all of them do. Each step is now its own
+         bullet, and the names are joined with "and" or "or" to say which. */
+      function nameList(names, joiner) {
+        if (names.length <= 1) return names[0] || '';
+        return names.slice(0, -1).join(', ') + ' ' + joiner + ' ' + names[names.length - 1];
+      }
+
+      function renderSummary() {
+        if (!steps.length) {
+          $('#summary-text').innerHTML =
+            '<p class="t-sm muted">Add a step to see the summary.</p>';
+          $('#problems').classList.add('hidden');
+          return;
+        }
+
+        const label = (workflow.PRIORITIES.find(p => p.id === priority) || {}).label || 'Normal';
+
+        const rows = steps.map((s, i) => {
+          const names = (s.assignee_ids || [])
+            .map(id => (people.find(p => p.id === id) || {}).name).filter(Boolean);
+          const everyone = names.length > 1 && s.approval_mode !== 'any';
+
+          const who = names.length
+            ? '<strong>' + escapeHtml(nameList(names, everyone ? 'and' : 'or')) + '</strong>'
+            : '<strong>' + escapeHtml(s.role || 'Anyone who can approve') + '</strong>' +
+              (s.department ? ' in ' + escapeHtml(s.department) : '');
+
+          const verb = s.requires_signature ? 'sign' : 'approve';
+          const rule = names.length > 1
+            ? (everyone
+                ? ' — <em>all ' + names.length + ' must ' + verb + '</em>'
+                : ' — <em>any one of them ' + (verb === 'sign' ? 'signs' : 'approves') + '</em>')
+            : '';
+
+          return '<li>' +
+            '<span class="route-summary__step">Step ' + (i + 1) + '</span>' +
+            '<span>' + escapeHtml(s.name || 'Step ' + (i + 1)) + ': ' + who + rule +
+              '<span class="route-summary__meta">Within ' + escapeHtml(s.sla || '2 days') +
+              ' · ' + (s.requires_signature ? 'Signature required' : 'Approval only') +
+              '</span></span></li>';
+        });
+
+        // Spell out what "not yet approved" means for the document, because
+        // that is the question people actually have.
+        const anyAll = steps.some(s => (s.assignee_ids || []).length > 1 &&
+                                       s.approval_mode !== 'any');
+        $('#summary-text').innerHTML =
+          '<div class="route-summary__prio">Priority: <strong>' + escapeHtml(label) +
+            '</strong></div>' +
+          '<ol class="route-summary__list">' + rows.join('') + '</ol>' +
+          '<ul class="route-summary__rules">' +
+            '<li>' + icon('clock') + 'While anyone still has to act, the document stays in ' +
+              '<strong>Status &amp; Tracking</strong> and cannot be published.</li>' +
+            (anyAll
+              ? '<li>' + icon('stamp') + 'A step marked <em>all must approve</em> only moves on ' +
+                'once <strong>every</strong> named person has acted. One approval is not enough.</li>'
+              : '') +
+            '<li>' + icon('check') + 'When the last step is approved, the document becomes ' +
+              '<strong>ready to publish</strong> at step 5.</li>' +
+          '</ul>';
+
+        showProblems(validate());
+      }
+
+      function validate() {
+        const problems = [];
+        if (!docId) problems.push('Choose a document for this approval.');
+        if (!steps.length) problems.push('Add at least one step.');
+
+        steps.forEach((s, i) => {
+          const at = 'Step ' + (i + 1);
+          if (!s.name || !s.name.trim()) problems.push(at + ' needs a name.');
+          if (!s.role && !(s.assignee_ids || []).length) {
+            problems.push(at + ' needs a role or named people.');
+          }
+          if (!s.sla) problems.push(at + ' needs a deadline.');
+
+          if (s.requires_signature) {
+            const named = (s.assignee_ids || []).map(id => people.find(p => p.id === id)).filter(Boolean);
+            const bad = named.filter(p => !(p.can_sign || p.is_admin));
+            if (bad.length) {
+              problems.push(at + ': ' + bad.map(p => p.name).join(', ') +
+                ' cannot sign, but this step requires a signature.');
+            }
+            if (!named.length && !candidates(s).length) {
+              problems.push(at + ' requires a signature, but nobody eligible can sign.');
+            }
+          }
+        });
+
+        if (steps.length && !steps.some(s => s.requires_signature)) {
+          problems.push('No step captures a signature. That is allowed, but check it is intended.');
+        }
+        return problems;
+      }
+
+      function showProblems(list) {
+        const box = $('#problems');
+        if (!list.length) { box.classList.add('hidden'); return; }
+        box.classList.remove('hidden');
+        $('#problems-list').innerHTML = list.map(p => '<li>' + escapeHtml(p) + '</li>').join('');
+      }
+
+      /* ------------------------------------------------------------- start */
+      $('#btn-start').onclick = async () => {
+        const problems = validate().filter(p => !p.startsWith('No step captures'));
+        if (problems.length) {
+          showProblems(validate());
+          toast('Not ready yet', problems[0], 'danger');
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+          return;
+        }
+
+        const btn = $('#btn-start');
+        btn.disabled = true;
+        btn.innerHTML = icon('clock') + 'Starting…';
+
+        try {
+          const created = await api.post('/api/workflow/', {
+            document_id: docId,
+            name: (chosenTemplate && chosenTemplate.name) ||
+                  ($('#m-dept').value ? $('#m-dept').value + ' approval' : 'Approval'),
+            template_id: chosenTemplate ? chosenTemplate.id : null,
+            priority: priority,
+            department: $('#m-dept').value || (chosenTemplate && chosenTemplate.department) || null,
+            due_date: $('#f-due').value || null,
+            retention_policy: $('#f-retention').value || null,
+            after_approval: $('#f-after').value || null,
+            steps: steps.map(s => ({
+              name: s.name,
+              department: s.department || null,
+              role: s.role || null,
+              assignee_ids: s.assignee_ids || [],
+              requires_signature: !!s.requires_signature,
+              approval_mode: s.approval_mode || 'any',
+              sla: s.sla,
+            })),
+            start: true,
+          });
+
+          flow.patch({ doc: { id: docId, title: (doc && doc.title) || '' }, workflowId: created.id });
+          flow.advance(4);
+          toast('Approval started',
+            created.current_step
+              ? 'Now with ' + workflow.addressee(created.current_step)
+              : 'Running');
+          location.href = '/track?id=' + encodeURIComponent(docId);
+        } catch (err) {
+          btn.disabled = false;
+          btn.innerHTML = icon('play') + 'Start approval';
+          toast('Could not start the approval', String(err.message || err).slice(0, 220), 'danger');
+        }
+      };
+
+      /* -------------------------------------------------- save as a route */
+      $('#btn-save-tpl').onclick = () => {
+        if (!steps.length) { toast('Nothing to save yet', 'Add a step first.', 'danger'); return; }
+        const name = prompt('Name this approval route', $('#m-dept').value
+          ? $('#m-dept').value + ' approval' : 'My approval route');
+        if (!name) return;
+        templates.save({
+          name: name,
+          department: $('#m-dept').value || (chosenTemplate && chosenTemplate.department) || 'Any',
+          description: 'Saved from an approval set up on ' + fmt.date(new Date().toISOString()),
+          retention: $('#f-retention').value,
+          appliesTo: [(doc && doc.doctype && doc.doctype.name) || 'Any document'],
+          steps: steps.map(s => ({
+            name: s.name, who: s.role, type: 'role', dept: s.department,
+            sla: s.sla, sign: !!s.requires_signature,
+          })),
+        });
+        fillTemplateMenu();
+        toast('Route saved', 'It is now offered on this screen and on Approval Routes.');
+      };
+
+      /* ------------------------------------------------------ pick a doc */
+      $('#btn-pick-doc').onclick = async () => {
+        const docs = await api.safe('/api/documents/?limit=40', []);
+        const items = Array.isArray(docs) ? docs : [];
+
+        const el = document.createElement('div');
+        el.className = 'modal modal--wide';
+        el.innerHTML =
+          '<div class="modal__head"><h3 class="t-h2">Which document?</h3>' +
+          '<p class="t-sm muted mt-1">Pick the document this approval is for.</p></div>' +
+          '<div class="modal__body">' +
+            (items.length
+              ? '<ul class="list">' + items.map(d =>
+                  '<li><button class="list-item" style="width:100%;text-align:left" ' +
+                    'data-pick="' + escapeHtml(d.id) + '">' +
+                    '<span class="tile-icon tile-icon--grey">' + icon('file') + '</span>' +
+                    '<span class="list-item__body">' +
+                      '<span class="list-item__title truncate">' +
+                        escapeHtml(d.title || d.original_filename || 'Untitled') + '</span>' +
+                      '<span class="list-item__sub">' +
+                        ((d.doctype && escapeHtml(d.doctype.name) + ' · ') || '') +
+                        fmt.ago(d.created_at) + '</span></span>' +
+                    (d.is_approved ? '<span class="badge badge--accent">Approved</span>' : '') +
+                  '</button></li>').join('') + '</ul>'
+              : '<div class="empty"><h3>No documents yet</h3>' +
+                '<p>Add one first.</p></div>') +
+          '</div>' +
+          '<div class="modal__foot"><div class="btn-row">' +
+            '<button class="btn btn--outline" data-cancel>Cancel</button></div></div>';
+
+        document.body.appendChild(el);
+        DMS.openOverlay(el);
+        const close = () => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); };
+        el.querySelector('[data-cancel]').onclick = close;
+        el.querySelectorAll('[data-pick]').forEach(b => {
+          b.onclick = () => {
+            close();
+            docId = b.dataset.pick;
+            history.replaceState({}, '', '/process?id=' + encodeURIComponent(docId));
+            loadDocument();
+          };
+        });
+      };
+
+      /* -------------------------------------------------------------- boot */
+      async function loadDocument() {
+        if (!docId) {
+          $('#d-name').textContent = 'No document chosen';
+          $('#d-meta').textContent = 'Pick one to build an approval for it.';
+          renderSummary();
+          return;
+        }
+
+        doc = await api.safe('/api/documents/' + docId, null);
+        if (!doc) {
+          $('#d-name').textContent = 'Document unavailable';
+          $('#d-meta').textContent = 'It may have been deleted.';
+          return;
+        }
+
+        $('#d-name').textContent = doc.title || doc.original_filename || 'Untitled';
+        $('#d-meta').textContent = [
+          doc.doctype && doc.doctype.name,
+          doc.correspondent && doc.correspondent.name,
+          'v' + (doc.version || '1.0'),
+          fmt.bytes(doc.file_size),
+        ].filter(Boolean).join(' · ');
+
+        // There is a document now, so editing its details leads somewhere.
+        $('#btn-back-review').href = '/review?id=' + encodeURIComponent(docId);
+        $('#btn-back-review').hidden = false;
+
+        // Warn plainly if this document is already in an approval: starting a
+        // new one cancels the old, and that should never be a surprise.
+        const existing = await workflow.forDocument(docId);
+        if (existing && ['active', 'changes_requested'].includes(existing.status)) {
+          $('#existing').classList.remove('hidden');
+
+          // A workflow sent back for changes has no current step, so there is
+          // no number to print. It used to say "step ? of 2", which reads as
+          // a fault rather than as the ordinary state it is.
+          const total = (existing.progress && existing.progress.total) || 0;
+          const where = existing.current_step
+            ? 'It is at step ' + existing.current_step.order +
+              (total ? ' of ' + total : '') + '.'
+            : existing.status === 'changes_requested'
+              ? 'It has been sent back to its author for changes.'
+              : 'It has not reached its first approver yet.';
+
+          $('#existing-text').innerHTML =
+            '<strong>This document is already in an approval process.</strong> ' +
+            where + ' Starting a new one cancels it. ' +
+            '<a href="/track?id=' + encodeURIComponent(docId) +
+            '" class="accent-text" style="font-weight:600">See where it is</a>.';
+        }
+
+        // Suggest the route that matches this document type.
+        const typeName = (doc.doctype && doc.doctype.name || '').toLowerCase();
+        if (typeName) {
+          const match = templates.all().find(t =>
+            (t.appliesTo || []).some(a => a.toLowerCase() === typeName));
+          if (match) {
+            $('#tpl-suggest').classList.remove('hidden');
+            $('#tpl-suggest').textContent = 'Suggested: ' + match.name;
+            $('#tpl-menu').value = match.id;
+          }
+        }
+        renderSummary();
+      }
+
+      (async function () {
+        fillTemplateMenu();
+
+        const data = await api.safe('/api/workflow/people/approvers', { people: [] });
+        people = data.people || [];
+
+        if (!people.length) {
+          toast('No approvers yet',
+            'Add people under People & Departments so steps can be assigned.', 'danger');
+        }
+
+        await loadDocument();
+        if (!steps.length && $('#m-dept').value) applyDepartment($('#m-dept').value);
+        renderSteps();
+      })();
+    })();
+  </script>
+</body>
+
+</html>

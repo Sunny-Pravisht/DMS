@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Studio · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+  <link rel="stylesheet" href="/static/ui/css/studio.css">
+</head>
+
+<body data-page="studio" data-step="1" data-title="Document Studio">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <span class="badge" id="doc-state">New document</span>
+        <button class="icon-btn tip studio-rail-toggle" data-tip="Show the side panel" id="btn-rail">
+          <i data-icon="sliders"></i></button>
+        <button class="btn btn--ghost btn--sm" id="btn-preview"><i data-icon="eye"></i>Preview PDF</button>
+        <button class="btn btn--outline btn--sm" id="btn-draft"><i data-icon="download"></i>Save draft</button>
+        <button class="btn btn--primary btn--sm" id="btn-publish"><i data-icon="check"></i>Save to repository</button>
+      </div>
+
+      <div class="studio">
+        <!-- ------------------------------------------------ editing surface -->
+        <div class="studio__main" style="position:relative">
+          <div class="ribbon">
+            <div class="ribbon__group">
+              <button class="rb tip" data-tip="Undo (Ctrl+Z)" data-cmd="undo"><i data-icon="undo"></i></button>
+              <button class="rb tip" data-tip="Redo (Ctrl+Y)" data-cmd="redo"><i data-icon="redo"></i></button>
+            </div>
+            <span class="ribbon__sep"></span>
+
+            <div class="ribbon__group">
+              <select class="rb-select" id="rb-style" style="width:132px" title="Text style">
+                <option value="p">Body text</option>
+                <option value="h1">Title</option>
+                <option value="h2">Heading</option>
+                <option value="h3">Subheading</option>
+                <option value="blockquote">Quote</option>
+              </select>
+            </div>
+            <span class="ribbon__sep"></span>
+
+            <div class="ribbon__group">
+              <button class="rb rb--glyph tip" data-tip="Bold (Ctrl+B)" data-cmd="bold">B</button>
+              <button class="rb rb--glyph is-i tip" data-tip="Italic (Ctrl+I)" data-cmd="italic">I</button>
+              <button class="rb rb--glyph is-u tip" data-tip="Underline (Ctrl+U)" data-cmd="underline">U</button>
+              <button class="rb rb--glyph is-s tip" data-tip="Strikethrough" data-cmd="strikeThrough">S</button>
+              <label class="rb-swatch tip" data-tip="Text colour" style="color:#006499">
+                <span style="font-weight:700;font-size:13px;line-height:1">A</span>
+                <span class="rb-swatch__bar"></span>
+                <input type="color" id="rb-color" value="#006499"
+                       style="position:absolute;inset:0;opacity:0;cursor:pointer">
+              </label>
+            </div>
+            <span class="ribbon__sep"></span>
+
+            <div class="ribbon__group">
+              <button class="rb tip" data-tip="Align left" data-cmd="justifyLeft"><i data-icon="alignLeft"></i></button>
+              <button class="rb tip" data-tip="Align centre" data-cmd="justifyCenter"><i data-icon="alignCenter"></i></button>
+              <button class="rb tip" data-tip="Align right" data-cmd="justifyRight"><i data-icon="alignRight"></i></button>
+              <button class="rb tip" data-tip="Bulleted list" data-cmd="insertUnorderedList"><i data-icon="listBullet"></i></button>
+              <button class="rb tip" data-tip="Numbered list" data-cmd="insertOrderedList"><i data-icon="listNumber"></i></button>
+            </div>
+            <span class="ribbon__sep"></span>
+
+            <div class="ribbon__group">
+              <button class="rb tip" data-tip="Insert an image" data-insert="image"><i data-icon="image"></i>Image</button>
+              <button class="rb tip" data-tip="Insert your signature" data-insert="signature"><i data-icon="signature"></i>Signature</button>
+              <button class="rb tip" data-tip="Insert a table" data-insert="table"><i data-icon="table"></i></button>
+              <button class="rb tip" data-tip="Insert today's date" data-insert="date"><i data-icon="calendar"></i></button>
+              <button class="rb tip" data-tip="Horizontal rule" data-insert="rule"><i data-icon="minus"></i></button>
+            </div>
+            <span class="ribbon__sep"></span>
+
+            <div class="ribbon__group">
+              <button class="rb rb--accent tip" data-tip="Rewrite, summarise or correct with AI" data-rail="ai">
+                <i data-icon="magic"></i>Edit with AI</button>
+              <button class="rb tip" data-tip="Change the letterhead" data-rail="template">
+                <i data-icon="template"></i>Template</button>
+            </div>
+
+            <span class="spacer" style="min-width:12px"></span>
+            <div class="ribbon__group">
+              <button class="rb tip" data-tip="Zoom out" data-zoom="-1"><i data-icon="minus"></i></button>
+              <span class="viewer__zoom" id="zoom-label">100%</span>
+              <button class="rb tip" data-tip="Zoom in" data-zoom="1"><i data-icon="plus"></i></button>
+            </div>
+          </div>
+
+          <div class="canvas" id="canvas">
+            <div id="paper-wrap">
+              <div class="paper" id="paper">
+                <div class="paper__guides"></div>
+                <div id="chrome"></div>
+                <div class="paper__body" id="body" contenteditable="true" spellcheck="true"
+                     data-placeholder="Start typing, or press “Edit with AI” to draft this for you…"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="studio-status">
+            <span class="studio-status__dot" id="save-dot"></span>
+            <span id="save-label">Not saved yet</span>
+            <span class="studio-status__sep"></span>
+            <span id="stat-words">0 words</span>
+            <span class="studio-status__sep"></span>
+            <span id="stat-pages">1 page</span>
+          </div>
+        </div>
+
+        <!-- --------------------------------------------------- side panel -->
+        <aside class="studio__rail" id="rail">
+          <div class="rail__tabs">
+            <button class="rail__tab is-active" data-tabid="details">Details</button>
+            <button class="rail__tab" data-tabid="template">Template</button>
+            <button class="rail__tab" data-tabid="images">Images</button>
+            <button class="rail__tab" data-tabid="signature">Signature</button>
+            <button class="rail__tab" data-tabid="ai"><i data-icon="magic"></i>AI</button>
+          </div>
+
+          <!-- Details -->
+          <section class="rail__panel is-active" data-panelid="details">
+            <div class="rail__title">Document details</div>
+            <p class="rail__hint">These file the document in the repository. Anything you leave
+              blank is filled in by the system after you save.</p>
+
+            <label class="field"><span class="field__label">Title</span>
+              <input class="input" id="f-title" placeholder="Untitled document"></label>
+
+            <label class="field"><span class="field__label">Document type</span>
+              <select class="select" id="f-doctype"><option value="">Detect automatically</option></select></label>
+
+            <div class="field"><span class="field__label">Correspondent or vendor</span>
+              <input class="input" id="f-corr" placeholder="Choose one, or type a new name">
+              <span class="field__hint">Sets the folder this document is filed under.</span></div>
+
+            <label class="field"><span class="field__label">Department</span>
+              <select class="select" id="f-dept"><option value="">Not set</option></select></label>
+
+            <label class="field"><span class="field__label">Document date</span>
+              <input class="input" id="f-date" type="date" data-today></label>
+
+            <label class="field"><span class="field__label">Sensitivity</span>
+              <select class="select" id="f-sens">
+                <option>Internal</option><option>Confidential</option>
+                <option>Restricted</option><option>Public</option>
+              </select></label>
+
+            <label class="field"><span class="field__label">Tags</span>
+              <input class="input" id="f-tags" placeholder="Comma separated">
+              <span class="field__hint">The system adds its own tags too.</span></label>
+
+            <div class="divider"></div>
+            <div id="lineage"></div>
+          </section>
+
+          <!-- Template -->
+          <section class="rail__panel" data-panelid="template">
+            <div class="rail__title">Letterhead</div>
+            <p class="rail__hint">Switching a template re-skins the page. Your words are never
+              touched, only the paper they sit on.</p>
+            <div class="tpl-grid" id="tpl-grid"></div>
+          </section>
+
+          <!-- Images -->
+          <section class="rail__panel" data-panelid="images">
+            <div class="rail__title">Images</div>
+            <p class="rail__hint">Click one to place it where the cursor is. Company and vendor
+              marks are shipped with the system; anything you upload is yours alone.</p>
+
+            <div class="btn-row mb-3">
+              <button class="btn btn--outline btn--sm btn--block" id="btn-upload-image">
+                <i data-icon="upload"></i>Browse my computer</button>
+              <input type="file" id="image-input" accept="image/*" hidden>
+            </div>
+
+            <div class="segmented mb-3" id="img-size" style="width:100%">
+              <button data-value="small">Small</button>
+              <button data-value="medium" class="is-active">Medium</button>
+              <button data-value="large">Large</button>
+            </div>
+
+            <div class="asset-grid" id="asset-grid">
+              <div class="skeleton" style="height:96px"></div>
+              <div class="skeleton" style="height:96px"></div>
+            </div>
+          </section>
+
+          <!-- Signature -->
+          <section class="rail__panel" data-panelid="signature">
+            <div class="rail__title">Sign this document</div>
+            <p class="rail__hint">Your signature is placed in the document itself. Approval
+              signatures collected later in the process are recorded separately, on the
+              status trail.</p>
+
+            <div id="sig-preview"></div>
+
+            <div class="btn-row mt-3" style="flex-direction:column;align-items:stretch;gap:8px">
+              <button class="btn btn--primary btn--block" id="btn-sign">
+                <i data-icon="signature"></i>Add my signature</button>
+              <button class="btn btn--outline btn--block" id="btn-sign-block">
+                <i data-icon="plus"></i>Insert a blank signature line</button>
+            </div>
+
+            <div class="divider"></div>
+            <label class="field"><span class="field__label">Name as it should appear</span>
+              <input class="input" id="sig-name" placeholder="Your name"></label>
+            <label class="field"><span class="field__label">Role and department</span>
+              <input class="input" id="sig-role" placeholder="e.g. Quality Engineer, Manufacturing"></label>
+            <label class="check"><input type="checkbox" id="sig-onbehalf" checked>
+              <span class="check__box"><i data-icon="check"></i></span>
+              <span class="check__text">Add “For and on behalf of…” above the line</span></label>
+          </section>
+
+          <!-- AI -->
+          <section class="rail__panel" data-panelid="ai">
+            <div class="rail__title">Edit with AI</div>
+            <p class="rail__hint">Select text to work on part of the document, or select nothing
+              to work on all of it. Nothing is applied until you accept it.</p>
+
+            <div class="ai-scope" id="ai-scope">
+              <i data-icon="info"></i><span>Working on the whole document</span>
+            </div>
+
+            <div class="ai-actions" id="ai-actions">
+              <div class="skeleton" style="height:36px"></div>
+              <div class="skeleton" style="height:36px"></div>
+              <div class="skeleton" style="height:36px"></div>
+            </div>
+
+            <div class="divider"></div>
+            <label class="field"><span class="field__label">Or tell it what to do</span>
+              <textarea class="textarea" id="ai-prompt" rows="3"
+                placeholder="e.g. Draft a delivery-delay notice to Maruti for order MSIL/PO/2026/0142, apologising and giving a revised date of 22 August"></textarea></label>
+            <div class="btn-row">
+              <button class="btn btn--outline btn--sm" id="ai-draft"><i data-icon="compose"></i>Draft this</button>
+              <button class="btn btn--primary btn--sm" id="ai-run"><i data-icon="magic"></i>Apply instruction</button>
+            </div>
+
+            <div id="ai-out"></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------- step 1 · the start screen
+       Where the product opens. A document begins exactly two ways, and both
+       finish here: writing starts on a blank page one click away, and a file
+       is dropped, checked and sent on without ever leaving this screen. -->
+  <div class="start" id="start" hidden>
+    <div class="start__inner">
+      <div data-journey class="mb-3"></div>
+
+      <!-- Straight from the step marker to the work. There was a greeting and
+           a paragraph restating the five steps here; the stepper above already
+           shows them, and neither line was ever read twice.
+
+           What is waiting on this person is not announced here either. It is
+           counted on the menu entries that can act on it, so the notice and
+           the way to deal with it are the same thing. -->
+      <div class="t-eyebrow mb-3">Step 1 of 5 · Document Studio</div>
+
+      <!-- The two ways a document begins, side by side and both complete.
+           Neither one sends you to another screen to finish the job. -->
+      <div class="ways">
+        <!-- Write -->
+        <section class="way way--write">
+          <span class="way__icon"><i data-icon="compose"></i></span>
+          <h2 class="way__title">Write a new document</h2>
+          <p class="way__lead">Opens a blank page straight away. Letterheads, images, your
+            signature and AI drafting are all in the side panel while you write.</p>
+
+          <button class="btn btn--primary btn--lg way__cta" id="btn-write">
+            <i data-icon="compose"></i>Start writing</button>
+
+          <div class="way__foot" id="write-foot">
+            <span class="t-xs muted-2">Or start from a letterhead:</span>
+            <div class="chiprow" id="start-heads"></div>
+          </div>
+        </section>
+
+        <!-- Upload -->
+        <section class="way way--upload">
+          <span class="way__icon"><i data-icon="upload"></i></span>
+          <h2 class="way__title">Add a file you already have</h2>
+          <p class="way__lead">PDF, Word, Excel, scans and photos. The text is read out of scans
+            too, so every file becomes searchable.</p>
+
+          <div class="dropzone dropzone--inline" id="dropzone" tabindex="0" role="button"
+               aria-label="Drop a file here, or browse your computer">
+            <span class="dropzone__icon"><i data-icon="capture"></i></span>
+            <div class="dropzone__title">Drop files here</div>
+            <div class="dropzone__sub">or <span class="accent-text">browse your computer</span></div>
+            <input type="file" id="file-input" multiple hidden>
+          </div>
+          <div class="way__foot">
+            <span class="t-xs muted-2">PDF · Word · Excel · Images · Email</span>
+          </div>
+        </section>
+      </div>
+
+      <!-- Recent documents.
+           There used to be a list of the last five below this, which said the
+           same thing twice in two shapes. This strip is now the only one: the
+           last four, each shown as a picture of its own first page, because a
+           filename is not proof you picked the right file. Anything older is
+           in All Documents, which is what that screen is for. -->
+      <div id="intake" hidden>
+        <div class="section__head" style="margin-top:34px;align-items:baseline">
+          <div>
+            <h2 class="t-h2">Recent documents</h2>
+            <p class="t-sm muted mt-1" id="intake-hint">The last few you brought in.
+              Pick up where you left off.</p>
+          </div>
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="intake-count"></span>
+          <button class="btn btn--ghost btn--sm" id="btn-add-more">
+            <i data-icon="plus"></i>Add another</button>
+          <a class="btn btn--ghost btn--sm" href="/documents">See all<i data-icon="chevronRight"></i></a>
+        </div>
+        <div class="filecards" id="intake-list"></div>
+      </div>
+
+      <div id="start-drafts" hidden>
+        <div class="section__head" style="margin-top:34px;align-items:baseline">
+          <div>
+            <h2 class="t-h2">Pick up where you left off</h2>
+            <p class="t-sm muted mt-1">Unfinished documents, saved as you wrote them.</p>
+          </div>
+          <span class="spacer"></span>
+          <span class="t-sm muted" id="draft-count"></span>
+        </div>
+        <div class="stack" id="draft-list"></div>
+      </div>
+    </div>
+
+    <!-- Only appears once at least one file is safely in. -->
+    <div class="next-bar next-bar--fixed" id="intake-next" hidden>
+      <div>
+        <div class="next-bar__text"><strong id="intake-next-name">Document</strong> is in.</div>
+        <div class="t-xs muted-2">Next: check the details we read and correct anything wrong.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn--outline" id="btn-intake-more">Add another</button>
+        <a class="btn btn--primary btn--lg" id="btn-intake-next" href="/review">
+          Review details<i data-icon="arrowRight"></i></a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script src="/static/ui/js/studio.js"></script>
+</body>
+
+</html>

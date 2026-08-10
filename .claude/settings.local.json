@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(.venv\\\\Scripts\\\\python.exe \"C:\\\\Users\\\\Pravisht\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Pravisht-Desktop-DMS\\\\98207667-9488-4e05-b8e9-0a06ab712138\\\\scratchpad\\\\intake.py\" qa.admin Harman@2026 2>&1)"
+    ]
+  }
+}

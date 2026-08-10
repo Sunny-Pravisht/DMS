@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document · DMS</title>
+  <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="documents" data-title="Document"
+      data-crumb="All Documents" data-crumb-href="/documents">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <a class="btn btn--outline btn--sm" id="btn-edit" hidden><i data-icon="compose"></i>Edit</a>
+        <button class="btn btn--outline btn--sm" id="btn-download"><i data-icon="download"></i>Download</button>
+        <!-- Routing a document for approval is an administrator's screen, so
+             this button is removed outright for anyone else rather than left
+             in the page as a link that would redirect them. -->
+        <a class="btn btn--primary btn--sm" id="btn-route" href="/process" hidden
+           data-admin-only>
+          <i data-icon="workflow"></i>Set up approval</a>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="page-head__row">
+            <div style="min-width:0">
+              <div class="row wrap" style="gap:8px" id="d-badges"></div>
+              <h1 class="t-h1 mt-2" id="d-title">Loading…</h1>
+              <p class="t-sm muted mt-1" id="d-sub">Loading…</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- The approval, when there is one. Rendered from the live workflow,
+             so this page never claims a decision is waiting when it is not. -->
+        <div id="approval-bar" class="mb-3"></div>
+
+        <div class="grid grid-sidebar" id="doc-body">
+          <div>
+            <div class="tabs" data-tabs="doc">
+              <button data-tab="preview" class="is-active">Document</button>
+              <button data-tab="text">Extracted text</button>
+              <button data-tab="versions">Versions<span class="tabs__count" id="c-versions">0</span></button>
+              <button data-tab="history">Activity</button>
+            </div>
+
+            <!-- The document itself -->
+            <div class="tab-panel is-active" data-panel="preview" data-scope="doc">
+              <div class="row mb-2">
+                <span class="t-sm muted" id="preview-note">Loading…</span>
+                <span class="spacer"></span>
+                <a class="btn btn--outline btn--sm" id="btn-fullscreen" target="_blank" rel="noopener">
+                  <i data-icon="external"></i>Open the whole document</a>
+              </div>
+              <div class="viewer viewer--tall" id="viewer"></div>
+            </div>
+
+            <!-- What was read out of it -->
+            <div class="tab-panel" data-panel="text" data-scope="doc">
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="t-h3">Text read from this document</h3>
+                  <span class="spacer"></span>
+                  <span class="t-sm muted" id="text-len"></span>
+                  <button class="btn btn--sm btn--outline" id="btn-reocr">
+                    <i data-icon="refresh"></i>Read it again</button>
+                </div>
+                <div class="card__body">
+                  <div id="summary-block"></div>
+                  <pre class="viewer__text" id="d-fulltext">Loading…</pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Real version history -->
+            <div class="tab-panel" data-panel="versions" data-scope="doc">
+              <div class="card">
+                <div class="card__head">
+                  <h3 class="t-h3">Version history</h3>
+                  <span class="spacer"></span>
+                  <a class="btn btn--sm btn--outline" id="btn-new-version">
+                    <i data-icon="compose"></i>Save a new version</a>
+                </div>
+                <div class="card__body" id="versions-body">
+                  <div class="skeleton" style="height:90px"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- The approval trail -->
+            <div class="tab-panel" data-panel="history" data-scope="doc">
+              <div class="card card--pad" id="history-body">
+                <div class="skeleton" style="height:90px"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right rail -->
+          <aside class="stack">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Details</h3>
+                <span class="spacer"></span>
+                <a class="btn btn--sm btn--ghost" id="btn-edit-details">
+                  <i data-icon="edit"></i>Edit</a>
+              </div>
+              <div class="card__body">
+                <dl class="dl">
+                  <dt>Document type</dt><dd id="m-type">Not set</dd>
+                  <dt>From / supplier</dt><dd id="m-corr">Not set</dd>
+                  <dt>Document date</dt><dd id="m-date">Not set</dd>
+                  <dt>Version</dt><dd id="m-version">v1.0</dd>
+                  <dt>Created by</dt><dd id="m-author">Not set</dd>
+                  <dt>Added</dt><dd id="m-added">Not set</dd>
+                  <dt>File</dt><dd id="m-file" class="mono truncate">Not set</dd>
+                  <dt>Size</dt><dd id="m-size">Not set</dd>
+                </dl>
+                <div class="divider"></div>
+                <div class="row wrap" id="m-tags"><span class="muted-2 t-sm">No tags</span></div>
+              </div>
+            </div>
+
+            <div class="card" id="workflow-card" hidden>
+              <div class="card__head">
+                <h3 class="t-h3">Approval</h3>
+                <span class="spacer"></span>
+                <span id="wf-status"></span>
+              </div>
+              <div class="card__body" id="wf-body"></div>
+            </div>
+
+            <div class="card card--danger card--pad">
+              <h3 class="t-h3 danger-text">Delete this document</h3>
+              <p class="t-sm mt-1" style="color:var(--red-700)" id="delete-note">
+                The file and everything read from it are removed. The deletion itself stays in
+                the activity log.</p>
+              <button class="btn btn--danger btn--sm mt-2" id="btn-delete">
+                <i data-icon="trash"></i>Delete document</button>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+  <script src="/static/ui/js/viewer.js"></script>
+  <script>
+    (function () {
+      const { api, fmt, escapeHtml, toast, confirmDanger, icon, workflow,
+              signatureMark, isAdmin } = DMS;
+      const id = new URLSearchParams(location.search).get('id');
+      const $ = s => document.querySelector(s);
+
+      let doc = null;
+      let wf = null;
+
+      if (!id) {
+        // Nothing was asked for, so nothing is shown. Leaving the tabs, an
+        // empty Details panel of "Not set" and a Delete button on screen
+        // describes a document that does not exist.
+        $('#d-title').textContent = 'No document selected';
+        $('#d-sub').textContent = '';
+        $('#doc-body').innerHTML =
+          '<div class="card card--pad" style="grid-column:1/-1">' +
+            '<div class="empty" style="padding:52px">' +
+              '<span class="tile-icon tile-icon--grey"><i data-icon="file"></i></span>' +
+              '<h3>Open a document to see it here</h3>' +
+              '<p>This screen shows one document: how it reads, what was pulled out of ' +
+              'it, its versions and everything that has happened to it.</p>' +
+              '<div class="btn-row mt-3" style="justify-content:center">' +
+                '<a class="btn btn--primary" href="/documents">Browse all documents</a>' +
+                '<a class="btn btn--outline" href="/search">Search for one</a>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        document.querySelectorAll('#doc-body [data-icon]').forEach(el => {
+          el.outerHTML = icon(el.dataset.icon, el.className || '');
+        });
+        document.querySelectorAll('#topbar-actions, .topbar__actions .btn')
+          .forEach(el => el.remove());
+        return;
+      }
+
+      /* ------------------------------------------------------------ header */
+      function paintHeader() {
+        const title = doc.title || doc.original_filename || doc.filename || 'Untitled';
+        document.title = title + ' · DMS';
+        $('#d-title').textContent = title;
+
+        $('#d-sub').textContent = [
+          fmt.bytes(doc.file_size),
+          doc.mime_type,
+          doc.origin === 'composed' ? 'written in the Studio' : 'captured',
+          fmt.ago(doc.created_at),
+        ].filter(Boolean).join(' · ');
+
+        // Badges describe what is true of this document, nothing more.
+        const badges = [];
+        if (doc.doctype) badges.push('<span class="badge badge--accent">' +
+          escapeHtml(doc.doctype.name) + '</span>');
+        if (doc.correspondent) badges.push('<span class="badge">' +
+          escapeHtml(doc.correspondent.name) + '</span>');
+        badges.push('<span class="version__tag">v' + escapeHtml(doc.version || '1.0') + '</span>');
+        if (doc.is_approved) badges.push('<span class="badge badge--accent">' +
+          icon('check') + 'Approved</span>');
+        $('#d-badges').innerHTML = badges.join('');
+
+        $('#m-type').textContent = (doc.doctype && doc.doctype.name) || 'Not set';
+        $('#m-corr').textContent = (doc.correspondent && doc.correspondent.name) || 'Not set';
+        $('#m-date').textContent = fmt.date(doc.document_date);
+        $('#m-version').textContent = 'v' + (doc.version || '1.0');
+        $('#m-added').textContent = fmt.dateTime(doc.created_at);
+        $('#m-file').textContent = doc.original_filename || doc.filename || 'Not set';
+        $('#m-size').textContent = fmt.bytes(doc.file_size);
+
+        $('#m-tags').innerHTML = (doc.tags && doc.tags.length)
+          ? doc.tags.map(t => '<span class="chip">' + escapeHtml(t.name) + '</span>').join('')
+          : '<span class="muted-2 t-sm">No tags</span>';
+
+        const text = (doc.full_text || '').trim();
+        $('#text-len').textContent = text ? fmt.num(text.length) + ' characters' : '';
+        $('#d-fulltext').textContent = text ||
+          'No text has been read from this document yet.';
+        $('#summary-block').innerHTML = doc.summary
+          ? '<div class="t-eyebrow">Summary</div>' +
+            '<div class="md mt-1 mb-3">' + DMS.markdown(doc.summary) + '</div>' +
+            '<div class="divider"></div>'
+          : '';
+
+        $('#btn-fullscreen').href = '/documents/view?id=' + encodeURIComponent(id);
+        $('#btn-edit-details').href = '/review?id=' + encodeURIComponent(id);
+        $('#btn-new-version').href = '/studio?id=' + encodeURIComponent(id);
+      }
+
+      /* ---------------------------------------------------------- approval */
+
+      /**
+       * The approval bar, driven entirely by the live workflow.
+       *
+       * There are three honest states: no approval yet, one running, or one
+       * finished. The decision buttons appear only when the server says this
+       * person may act on the current step.
+       */
+      function paintApproval() {
+        const bar = $('#approval-bar');
+        const card = $('#workflow-card');
+
+        if (!wf) {
+          card.hidden = true;
+          // Setting up an approval is an administrator's job, and the screen
+          // redirects anyone else. Members are told the state of things
+          // instead of being handed a button that will refuse them.
+          bar.innerHTML = '<div class="banner">' + icon('info') +
+            '<div>This document is not in an approval process yet.</div>' +
+            (isAdmin()
+              ? '<span class="spacer"></span>' +
+                '<a class="btn btn--sm btn--primary" href="/process?id=' +
+                  encodeURIComponent(id) + '">' + icon('workflow') + 'Set one up</a>'
+              : '') +
+            '</div>';
+          // Absent entirely for a member: the shell removes [data-admin-only].
+          const route = $('#btn-route');
+          if (route) {
+            route.hidden = false;
+            route.href = '/process?id=' + encodeURIComponent(id);
+          }
+          return;
+        }
+
+        const route = $('#btn-route');
+        if (route) route.hidden = true;
+        card.hidden = false;
+        $('#wf-status').innerHTML = workflow.statusBadge(wf.status);
+
+        const step = wf.current_step;
+
+        if (step && step.can_act) {
+          bar.innerHTML = '<div class="decision">' +
+            '<span class="tile-icon tile-icon--solid">' + icon('approvals') + '</span>' +
+            '<div><div class="decision__prompt">This document is waiting for your decision</div>' +
+            '<div class="decision__sub">Step ' + step.order + ' of ' + wf.progress.total + ' · ' +
+              escapeHtml(step.name) +
+              (step.requires_signature ? ' · your signature is required'
+                                       : ' · approval only, no signature needed') +
+              (step.due_date ? ' · due ' + fmt.date(step.due_date) : '') + '</div></div>' +
+            '<div class="decision__actions">' +
+              '<button class="btn btn--danger" data-act="reject">' + icon('x') + 'Reject</button>' +
+              '<button class="btn btn--warn" data-act="changes">' + icon('refresh') +
+                'Request changes</button>' +
+              '<button class="btn btn--primary" data-act="approve">' +
+                icon(step.requires_signature ? 'stamp' : 'check') +
+                (step.requires_signature ? 'Approve &amp; sign' : 'Approve') + '</button>' +
+            '</div></div>';
+        } else if (step) {
+          bar.innerHTML = '<div class="banner">' + icon('clock') +
+            '<div><strong>Waiting on ' + escapeHtml(workflow.addressee(step)) + '</strong> at step ' +
+            step.order + ' of ' + wf.progress.total + '. ' +
+            escapeHtml(step.blocked_reason || '') + '</div>' +
+            '<span class="spacer"></span>' +
+            '<a class="btn btn--sm btn--outline" href="/track?id=' + encodeURIComponent(id) + '">' +
+            'Track it</a></div>';
+        } else if (wf.status === 'approved') {
+          bar.innerHTML = '<div class="decision">' +
+            '<span class="tile-icon">' + icon('check') + '</span>' +
+            '<div><div class="decision__prompt">Fully approved</div>' +
+            '<div class="decision__sub">Completed ' + fmt.dateTime(wf.completed_at) +
+            (isAdmin() ? ' · ready to publish' : ' · an administrator will release it') +
+            '</div></div><span class="spacer"></span>' +
+            (isAdmin()
+              ? '<a class="btn btn--primary" href="/publish?id=' + encodeURIComponent(id) + '">' +
+                icon('send') + 'Publish it</a>'
+              : '') +
+            '</div>';
+        } else if (wf.status === 'published') {
+          bar.innerHTML = '<div class="decision">' +
+            '<span class="tile-icon">' + icon('send') + '</span>' +
+            '<div><div class="decision__prompt">Published</div>' +
+            '<div class="decision__sub">Released ' + fmt.dateTime(wf.published_at) +
+            (wf.published_by ? ' by ' + escapeHtml(wf.published_by.name) : '') +
+            '</div></div></div>';
+        } else if (wf.status === 'rejected') {
+          const r = (wf.steps || []).find(s => s.status === 'rejected') || {};
+          bar.innerHTML = '<div class="decision card--danger">' +
+            '<span class="tile-icon tile-icon--danger">' + icon('x') + '</span>' +
+            '<div><div class="decision__prompt danger-text">Rejected</div>' +
+            '<div class="decision__sub">' + escapeHtml(r.reason || '') +
+            (r.decided_by ? ' · ' + escapeHtml(r.decided_by.name) : '') + '</div></div></div>';
+        } else if (wf.status === 'changes_requested') {
+          const s = (wf.steps || []).find(x => x.status === 'changes_requested') || {};
+          bar.innerHTML = '<div class="decision">' +
+            '<span class="tile-icon tile-icon--warn">' + icon('refresh') + '</span>' +
+            '<div><div class="decision__prompt">Sent back for changes</div>' +
+            '<div class="decision__sub">' + escapeHtml(s.comment || '') + '</div></div>' +
+            '<span class="spacer"></span>' +
+            '<a class="btn btn--outline" href="/studio?id=' + encodeURIComponent(id) + '">' +
+            icon('compose') + 'Edit it</a>' +
+            '<a class="btn btn--primary" href="/track?id=' + encodeURIComponent(id) + '">' +
+            'Resubmit</a></div>';
+        } else {
+          bar.innerHTML = '';
+        }
+
+        // Right-rail summary of the same workflow.
+        $('#wf-body').innerHTML =
+          '<div class="progress progress--tall mb-3"><div class="progress__bar" style="width:' +
+            wf.progress.percent + '%"></div></div>' +
+          '<dl class="dl">' +
+            '<dt>Progress</dt><dd>' + wf.progress.done + ' of ' + wf.progress.total +
+              ' approved</dd>' +
+            '<dt>Priority</dt><dd>' + workflow.priorityBadge(wf.priority) + '</dd>' +
+            '<dt>With</dt><dd>' + (step ? escapeHtml(workflow.addressee(step))
+              : '<span class="muted-2">Nobody, it is finished</span>') + '</dd>' +
+            '<dt>Route</dt><dd>' + escapeHtml(wf.name || 'Approval') + '</dd>' +
+            (wf.retention_policy
+              ? '<dt>Retention</dt><dd>' + escapeHtml(wf.retention_policy) + '</dd>' : '') +
+          '</dl>' +
+          '<a class="btn btn--sm btn--outline btn--block mt-3" href="/track?id=' +
+            encodeURIComponent(id) + '">' + icon('approvals') + 'The full trail</a>';
+
+        // Deleting a document mid-approval is not something to do casually.
+        if (['active', 'changes_requested'].includes(wf.status)) {
+          $('#delete-note').textContent =
+            'This document is in an approval process. Deleting it cancels that process and ' +
+            'removes the file. The deletion stays in the activity log.';
+        }
+      }
+
+      document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn || !wf || !wf.current_step) return;
+
+        let updated;
+        try {
+          updated = await workflow.decide(wf, wf.current_step, btn.dataset.act, {
+            subject: doc.title || doc.original_filename,
+          });
+        } catch (err) {
+          toast('Could not record that', String(err.message || err).slice(0, 220), 'danger');
+          return;
+        }
+        if (!updated) return;
+
+        toast({ approve: 'Approved', reject: 'Rejected',
+                changes: 'Sent back for changes' }[btn.dataset.act],
+          updated.current_step ? 'Now with ' + workflow.addressee(updated.current_step)
+                               : ((workflow.STATUS[updated.status] || {}).label || ''));
+        wf = updated;
+        doc = await api.safe('/api/documents/' + id, doc);
+        paintHeader();
+        paintApproval();
+        loadHistory();
+      });
+
+      /* ---------------------------------------------------------- versions */
+      async function loadVersions() {
+        const data = await api.safe('/api/documents/' + id + '/versions', { versions: [] });
+        const versions = data.versions || [];
+        $('#c-versions').textContent = versions.length;
+
+        if (!versions.length) {
+          $('#versions-body').innerHTML =
+            '<p class="t-sm muted-2">No versions recorded yet.</p>';
+          return;
+        }
+
+        $('#versions-body').innerHTML =
+          '<div class="timeline">' + versions.map((v, i) =>
+            '<div class="timeline__item' + (v.is_current ? ' is-accent' : '') + '">' +
+              '<div class="version">' +
+                '<span class="version__tag' + (v.is_locked ? ' is-locked' : '') + '">' +
+                  (v.is_locked ? icon('lock') : '') + 'v' + escapeHtml(v.version) + '</span>' +
+                '<div style="flex:1;min-width:0">' +
+                  '<div class="timeline__title">' + escapeHtml(v.note || 'Saved') + '</div>' +
+                  '<div class="timeline__meta">' +
+                    (v.author ? escapeHtml(v.author) + ' · ' : '') +
+                    fmt.dateTime(v.created_at) + ' · ' + fmt.bytes(v.file_size) +
+                    (v.is_current ? ' · current' : '') +
+                    (v.is_locked ? ' · locked by an approval' : '') +
+                  '</div>' +
+                '</div>' +
+                '<div class="btn-row">' +
+                  '<a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" href="' +
+                    escapeHtml(v.file_url) + '">View</a>' +
+                  (v.is_current ? '' :
+                    '<button class="btn btn--sm btn--outline" data-restore="' +
+                      escapeHtml(v.id) + '" data-v="' + escapeHtml(v.version) + '">Restore</button>') +
+                '</div>' +
+              '</div></div>').join('') +
+          '</div>' +
+          '<div class="banner banner--grey mt-3">' + icon('info') +
+          '<div>History is append-only. Restoring an older version writes a <em>new</em> version ' +
+          'carrying its content, so the restore is itself part of the record. A version locked ' +
+          'by an approval can be superseded but never overwritten.</div></div>';
+      }
+
+      document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-restore]');
+        if (!btn) return;
+        const ok = await confirmDanger({
+          title: 'Restore v' + btn.dataset.v + '?',
+          message: 'A new version is written carrying that content. Nothing in the history is ' +
+                   'removed, and the current version stays in the record.',
+          confirmLabel: 'Restore it',
+        });
+        if (!ok) return;
+        try {
+          const r = await api.post('/api/documents/' + id + '/versions/' +
+            btn.dataset.restore + '/restore', {});
+          toast('Restored', r.message);
+          doc = await api.safe('/api/documents/' + id, doc);
+          paintHeader();
+          loadVersions();
+        } catch (err) {
+          toast('Could not restore it', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
+      /* ----------------------------------------------------------- history */
+      function loadHistory() {
+        const host = $('#history-body');
+        const events = (wf && wf.events) || [];
+
+        if (!events.length) {
+          host.innerHTML = '<div class="empty" style="padding:34px">' +
+            '<span class="tile-icon tile-icon--grey">' + icon('history') + '</span>' +
+            '<h3>Nothing has happened yet</h3>' +
+            '<p>Approval activity appears here once this document is in a process. ' +
+            'System-level access is recorded separately in the Activity Log.</p>' +
+            (isAdmin()
+              ? '<div class="btn-row"><a class="btn btn--outline btn--sm" href="/audit">' +
+                'Open the Activity Log</a></div>'
+              : '') +
+            '</div>';
+          return;
+        }
+
+        const tone = { approved: 'is-accent', published: 'is-accent',
+                       rejected: 'is-danger', changes: 'is-warn' };
+        host.innerHTML = '<div class="timeline">' +
+          events.slice().reverse().map(e =>
+            '<div class="timeline__item ' + (tone[e.kind] || '') + '">' +
+              '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
+              '<div class="timeline__meta">' + fmt.dateTime(e.at) +
+                (e.detail ? ' · “' + escapeHtml(e.detail) + '”' : '') + '</div>' +
+            '</div>').join('') + '</div>' +
+          ((wf.signatures || []).length
+            ? '<div class="divider"></div><div class="t-eyebrow mb-2">Signatures</div>' +
+              wf.signatures.map(s => '<div class="mb-2">' + signatureMark(
+                { dataUrl: s.dataUrl, name: s.name, signedAt: s.signedAt },
+                'Step ' + s.order + ' · ' + fmt.dateTime(s.signedAt)) + '</div>').join('')
+            : '');
+      }
+
+      /* ----------------------------------------------------------- actions */
+      $('#btn-download').onclick = () => {
+        window.location.href = '/api/documents/' + id + '/download';
+      };
+
+      $('#btn-reocr').onclick = async () => {
+        try {
+          await api.post('/api/documents/' + id + '/reprocess-ocr', {});
+          toast('Reading it again', 'The text refreshes when it finishes.');
+          setTimeout(reload, 6000);
+        } catch (err) {
+          toast('Could not re-read it', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+
+      $('#btn-delete').onclick = async () => {
+        const ok = await confirmDanger({
+          title: 'Delete this document?',
+          message: (wf && ['active', 'changes_requested'].includes(wf.status)
+            ? 'It is in an approval process, which is cancelled. '
+            : '') +
+            'Every version, the file and the extracted text are removed. This cannot be undone.',
+          confirmLabel: 'Delete permanently',
+        });
+        if (!ok) return;
+        try {
+          await api.del('/api/documents/' + id);
+          toast('Document deleted');
+          window.location.href = '/documents';
+        } catch (err) {
+          toast('Could not delete it', String(err.message || err).slice(0, 200), 'danger');
+        }
+      };
+
+      /* -------------------------------------------------------------- boot */
+      async function reload() {
+        // Half the actions on this page depend on whether this account may
+        // reach the administrator-only screens, so wait until that is known.
+        await DMS.ready;
+        doc = await api.safe('/api/documents/' + id, null);
+        if (!doc) {
+          $('#d-title').textContent = 'Document unavailable';
+          $('#d-sub').textContent = 'It may have been deleted.';
+          return;
+        }
+
+        paintHeader();
+
+        const [info, live] = await Promise.all([
+          window.DMSViewer ? DMSViewer.mount($('#viewer'), id) : null,
+          workflow.forDocument(id),
+        ]);
+
+        wf = live;
+        paintApproval();
+        loadHistory();
+        loadVersions();
+
+        if (info) {
+          $('#preview-note').textContent = {
+            pdf: 'Showing the PDF exactly as filed',
+            image: 'Showing the scan at full resolution',
+            text: 'Showing the file contents',
+            unsupported: 'This format cannot be displayed in a browser',
+            missing: 'The file is missing from storage',
+          }[info.mode] || 'Showing the document as filed';
+
+          if (info.editable) {
+            const edit = $('#btn-edit');
+            edit.hidden = false;
+            edit.href = '/studio?id=' + encodeURIComponent(id);
+            edit.title = info.origin === 'composed'
+              ? 'Open in the Document Studio'
+              : 'Revise this into a new version in the Document Studio';
+          }
+        }
+      }
+
+      reload();
+    })();
+  </script>
+</body>
+
+</html>

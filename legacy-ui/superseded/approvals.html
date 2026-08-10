@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Approvals · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="approvals" data-title="My Approvals">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--outline btn--sm"><i data-icon="users"></i>Delegate my tasks</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="page-head__row">
+            <div>
+              <h1 class="t-h1">My approvals</h1>
+              <p>Tasks assigned to you by role and department. Timers and reminders keep every
+                process on schedule.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="banner banner--danger mb-3">
+          <i data-icon="alert"></i>
+          <div><strong>2 tasks past their SLA.</strong> They have been escalated to the process owner
+            and will remain on your queue until actioned.</div>
+        </div>
+
+        <div class="tabs" data-tabs="ap">
+          <button data-tab="mine" class="is-active">Assigned to me<span class="tabs__count">6</span></button>
+          <button data-tab="team">My team<span class="tabs__count">14</span></button>
+          <button data-tab="done">Decided<span class="tabs__count">92</span></button>
+        </div>
+
+        <div class="tab-panel is-active" data-panel="mine" data-scope="ap">
+          <div class="card">
+            <div class="card__head">
+              <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+              <span class="t-sm muted">6 tasks</span>
+              <span class="spacer"></span>
+              <div class="btn-row">
+                <button class="btn btn--sm btn--outline"><i data-icon="x"></i>Send back</button>
+                <button class="btn btn--sm btn--primary"><i data-icon="check"></i>Approve selected</button>
+              </div>
+            </div>
+
+            <ul class="list">
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon tile-icon--danger"><i data-icon="alert"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">INV-88104 — Vertex Supplies · ₹ 6,42,000</span>
+                  <span class="list-item__sub">Invoice processing · step 4 of 5 · raised by Finance</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge badge--danger"><i data-icon="clock"></i>6 h over SLA</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--primary">Approve</button>
+                  </div>
+                </span>
+              </div></li>
+
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon tile-icon--danger"><i data-icon="alert"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">Vendor NDA — Kestrel Tech</span>
+                  <span class="list-item__sub">Contract review · step 3 of 6 · escalated from A. Kapoor</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge badge--danger"><i data-icon="clock"></i>2 h over SLA</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--primary">Approve</button>
+                  </div>
+                </span>
+              </div></li>
+
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon"><i data-icon="file"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">MSA-2291 — Northwind Logistics</span>
+                  <span class="list-item__sub">Contract review · step 3 of 6 · v2.0 pending lock</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge"><i data-icon="clock"></i>Due in 6 h</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--primary">Approve</button>
+                  </div>
+                </span>
+              </div></li>
+
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon"><i data-icon="file"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">Capex request — production line 4 upgrade</span>
+                  <span class="list-item__sub">Capex authorisation · step 2 of 6 · Operations</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge"><i data-icon="clock"></i>Due in 2 d</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--primary">Approve</button>
+                  </div>
+                </span>
+              </div></li>
+
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon"><i data-icon="scale"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">Disposition batch DIS-2026-07 — 23 records</span>
+                  <span class="list-item__sub">Records disposition review · dual approval · second approver</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge"><i data-icon="clock"></i>Due in 5 d</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--danger-soft">Review destruction</button>
+                  </div>
+                </span>
+              </div></li>
+
+              <li><div class="list-item">
+                <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span></label>
+                <span class="tile-icon"><i data-icon="users"></i></span>
+                <span class="list-item__body">
+                  <span class="list-item__title">Access request — Finance controllers → Legal repository</span>
+                  <span class="list-item__sub">Permission change · requested by S. Iyer</span>
+                </span>
+                <span class="list-item__end">
+                  <span class="badge"><i data-icon="clock"></i>Due in 3 d</span>
+                  <div class="btn-row mt-2" style="justify-content:flex-end">
+                    <button class="btn btn--sm btn--outline">Open</button>
+                    <button class="btn btn--sm btn--primary">Approve</button>
+                  </div>
+                </span>
+              </div></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="team" data-scope="ap">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Task</th><th>Assignee</th><th>Process</th><th>SLA</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="cell-title">INV-88213 — Northwind</td><td>A. Kapoor</td>
+                    <td>Invoice processing</td><td><span class="badge">Due in 1 d</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline">Reassign</button></td></tr>
+                  <tr><td class="cell-title">PO-4471 — office refit</td><td>S. Iyer</td>
+                    <td>Vendor onboarding</td><td><span class="badge">Due in 4 d</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--outline">Reassign</button></td></tr>
+                  <tr><td class="cell-title">Payroll variance — July</td><td>Unassigned</td>
+                    <td>Employee file update</td><td><span class="badge badge--danger">Unclaimed 2 d</span></td>
+                    <td class="actions"><button class="btn btn--sm btn--primary">Assign</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="done" data-scope="ap">
+          <div class="card card--pad">
+            <div class="timeline">
+              <div class="timeline__item is-accent">
+                <div class="timeline__title">Approved — MSA-2288 Vertex Supplies</div>
+                <div class="timeline__meta">15 Jan 2026, 11:04 · locked at v2.0 · comment recorded</div>
+              </div>
+              <div class="timeline__item is-danger">
+                <div class="timeline__title">Sent back — INV-87641 missing GRN reference</div>
+                <div class="timeline__meta">14 Jan 2026, 16:20 · returned to AP Clerk</div>
+              </div>
+              <div class="timeline__item is-accent">
+                <div class="timeline__title">Approved — Vendor onboarding, Kestrel Tech</div>
+                <div class="timeline__meta">13 Jan 2026, 09:47</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Process Designer · DMS</title>
+  <link rel="icon" type="image/svg+xml" href="/static/ui/favicon.svg">
+  <link rel="stylesheet" href="/static/ui/css/dms.css">
+</head>
+
+<body data-page="workflows" data-title="Process Designer">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div id="topbar-actions" hidden>
+        <button class="btn btn--primary btn--sm" data-open="modal-new"><i data-icon="plus"></i>New process</button>
+      </div>
+
+      <main class="page">
+        <div class="page-head">
+          <div class="t-eyebrow">Business process automation</div>
+          <h1 class="t-h1 mt-1">Workflow management</h1>
+          <p>Design multi-step approval chains without code. Tasks route by department and role,
+            timers keep them on schedule, and nothing is handed off manually.</p>
+        </div>
+
+        <div class="banner banner--grey mb-3">
+          <i data-icon="info"></i>
+          <div><strong>Module preview.</strong> The workflow engine ships in Phase&nbsp;2. This screen
+            shows the designed experience against representative data.</div>
+        </div>
+
+        <!-- Canonical flow -->
+        <section class="mb-3">
+          <div class="flowline">
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="upload"></i></span><h4>Submit</h4>
+              <p>Captured or manually raised</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="eye"></i></span><h4>Review</h4>
+              <p>Checked by the owning department</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step is-current">
+              <span class="tile-icon tile-icon--solid"><i data-icon="stamp"></i></span><h4>Approve</h4>
+              <p>Role-based sign-off with SLA</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="workflow"></i></span><h4>Route</h4>
+              <p>Onward to the next department</p>
+            </div>
+            <div class="flowline__arrow"><i data-icon="chevronRight"></i></div>
+            <div class="flowline__step">
+              <span class="tile-icon"><i data-icon="archive"></i></span><h4>Archive</h4>
+              <p>Retention clock starts</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid grid-4">
+          <div class="card stat"><div class="stat__label">Active instances</div>
+            <div class="stat__value">248</div><div class="stat__foot">Across 6 processes</div></div>
+          <div class="card stat"><div class="stat__label">Completed this month</div>
+            <div class="stat__value">1,913</div>
+            <div class="stat__foot"><span class="delta delta--up"><i data-icon="arrowUp"></i>11%</span> throughput</div></div>
+          <div class="card stat"><div class="stat__label">Avg. cycle time</div>
+            <div class="stat__value">1.8<span class="t-h2 muted"> d</span></div>
+            <div class="stat__foot"><span class="delta delta--down"><i data-icon="arrowDown"></i>60%</span> vs. manual baseline</div></div>
+          <div class="card stat stat--danger"><div class="stat__label">SLA breaches</div>
+            <div class="stat__value">3</div><div class="stat__foot">Escalated automatically</div></div>
+        </section>
+
+        <div class="tabs mt-4" data-tabs="wf">
+          <button data-tab="board" class="is-active">Live board</button>
+          <button data-tab="processes">Process definitions<span class="tabs__count">6</span></button>
+          <button data-tab="designer">Designer</button>
+        </div>
+
+        <!-- Board -->
+        <div class="tab-panel is-active" data-panel="board" data-scope="wf">
+          <div class="filter-bar">
+            <select class="select" style="width:auto"><option>All processes</option>
+              <option>Invoice processing</option><option>Contract review &amp; approval</option>
+              <option>Vendor onboarding</option></select>
+            <select class="select" style="width:auto"><option>All departments</option>
+              <option>Finance</option><option>Legal</option><option>Operations</option></select>
+            <span class="spacer"></span>
+            <label class="check"><input type="checkbox"><span class="check__box"><i data-icon="check"></i></span>
+              <span class="check__text">Only SLA at risk</span></label>
+          </div>
+
+          <div class="board">
+            <div class="board__col">
+              <div class="board__head"><h4>SUBMITTED</h4><span class="badge">42</span></div>
+              <div class="board__body">
+                <div class="board-card"><div class="board-card__title">INV-88213 for Northwind Logistics</div>
+                  <div class="board-card__meta"><span class="badge">Finance</span><span>12 min ago</span></div></div>
+                <div class="board-card"><div class="board-card__title">PO-4471 for the office refit</div>
+                  <div class="board-card__meta"><span class="badge">Procurement</span><span>38 min ago</span></div></div>
+                <div class="board-card"><div class="board-card__title">Onboarding pack for S. Rao</div>
+                  <div class="board-card__meta"><span class="badge">HR</span><span>1 h ago</span></div></div>
+              </div>
+            </div>
+            <div class="board__col">
+              <div class="board__head"><h4>IN REVIEW</h4><span class="badge">37</span></div>
+              <div class="board__body">
+                <div class="board-card"><div class="board-card__title">MSA-2291 for Northwind Logistics</div>
+                  <div class="board-card__meta"><span class="badge">Legal</span><span>Reviewer: A. Kapoor</span></div></div>
+                <div class="board-card is-breach"><div class="board-card__title">INV-88104 for Vertex Supplies</div>
+                  <div class="board-card__meta"><i data-icon="alert"></i><span>SLA breached · 6 h over</span></div></div>
+              </div>
+            </div>
+            <div class="board__col">
+              <div class="board__head"><h4>AWAITING APPROVAL</h4><span class="badge">29</span></div>
+              <div class="board__body">
+                <div class="board-card"><div class="board-card__title">Capex request for the line 4 upgrade</div>
+                  <div class="board-card__meta"><span class="badge">Operations</span><span>Due in 2 d</span></div></div>
+                <div class="board-card is-breach"><div class="board-card__title">Vendor NDA for Kestrel Tech</div>
+                  <div class="board-card__meta"><i data-icon="alert"></i><span>Escalated to Head of Legal</span></div></div>
+                <div class="board-card"><div class="board-card__title">July payroll variance report</div>
+                  <div class="board-card__meta"><span class="badge">HR</span><span>Due in 6 h</span></div></div>
+              </div>
+            </div>
+            <div class="board__col">
+              <div class="board__head"><h4>ROUTING</h4><span class="badge">18</span></div>
+              <div class="board__body">
+                <div class="board-card"><div class="board-card__title">GRN-9922 for an inbound shipment</div>
+                  <div class="board-card__meta"><span class="badge">Operations</span><span>→ Finance</span></div></div>
+              </div>
+            </div>
+            <div class="board__col">
+              <div class="board__head"><h4>ARCHIVED</h4><span class="badge">122</span></div>
+              <div class="board__body">
+                <div class="board-card"><div class="board-card__title">MSA-2288 for Vertex Supplies</div>
+                  <div class="board-card__meta"><i data-icon="clock"></i><span>Retention started · 7 yrs</span></div></div>
+                <div class="board-card"><div class="board-card__title">INV-87990 for Kestrel Tech</div>
+                  <div class="board-card__meta"><i data-icon="clock"></i><span>Retention started · 8 yrs</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Process definitions -->
+        <div class="tab-panel" data-panel="processes" data-scope="wf">
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Process</th><th>Owner</th><th>Steps</th><th>SLA</th><th>Active</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><div class="cell-title">Invoice processing</div>
+                      <div class="cell-sub">3-way match, exception routing</div></td>
+                    <td>Finance</td><td>5</td><td>3 business days</td><td class="num">112</td>
+                    <td><span class="badge badge--accent">Live</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Contract review &amp; approval</div>
+                      <div class="cell-sub">Parallel legal + commercial review</div></td>
+                    <td>Legal</td><td>6</td><td>5 business days</td><td class="num">48</td>
+                    <td><span class="badge badge--accent">Live</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Vendor onboarding</div>
+                      <div class="cell-sub">KYC, banking, compliance checks</div></td>
+                    <td>Procurement</td><td>7</td><td>10 business days</td><td class="num">31</td>
+                    <td><span class="badge badge--accent">Live</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Records disposition review</div>
+                      <div class="cell-sub">Dual approval before destruction</div></td>
+                    <td>Compliance</td><td>4</td><td>15 business days</td><td class="num">23</td>
+                    <td><span class="badge badge--accent">Live</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Employee file update</div>
+                      <div class="cell-sub">Restricted to HR only</div></td>
+                    <td>Human Resources</td><td>3</td><td>2 business days</td><td class="num">34</td>
+                    <td><span class="badge">Draft</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                  <tr><td><div class="cell-title">Capex authorisation</div>
+                      <div class="cell-sub">Value-banded approval chain</div></td>
+                    <td>Operations</td><td>6</td><td>7 business days</td><td class="num">0</td>
+                    <td><span class="badge">Paused</span></td>
+                    <td class="actions"><span class="row-actions">
+                      <button class="icon-btn"><i data-icon="edit"></i></button>
+                      <button class="icon-btn"><i data-icon="copy"></i></button>
+                      <button class="icon-btn is-danger"><i data-icon="trash"></i></button></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Designer -->
+        <div class="tab-panel" data-panel="designer" data-scope="wf">
+          <div class="grid grid-sidebar">
+            <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">Invoice processing</h3>
+                <span class="badge badge--accent">Live · v4</span>
+                <span class="spacer"></span>
+                <button class="btn btn--sm btn--outline"><i data-icon="play"></i>Test run</button>
+                <button class="btn btn--sm btn--primary">Publish</button>
+              </div>
+              <div class="card__body stack">
+                <div class="card card--flat card--pad">
+                  <div class="row"><span class="tile-icon tile-icon--solid"><i data-icon="upload"></i></span>
+                    <div><div class="t-h3">1 · Submit</div>
+                      <div class="t-xs muted mt-1">Trigger: document classified as <strong>Invoice</strong></div></div>
+                    <span class="spacer"></span>
+                    <button class="icon-btn"><i data-icon="more"></i></button></div>
+                </div>
+                <div class="row" style="justify-content:center;color:var(--grey-300)"><i data-icon="arrowDown"></i></div>
+                <div class="card card--flat card--pad">
+                  <div class="row"><span class="tile-icon"><i data-icon="eye"></i></span>
+                    <div><div class="t-h3">2 · Review</div>
+                      <div class="t-xs muted mt-1">Assign to role <strong>AP Clerk</strong> in department <strong>Finance</strong> · SLA 8 h</div></div>
+                    <span class="spacer"></span>
+                    <button class="icon-btn"><i data-icon="more"></i></button></div>
+                </div>
+                <div class="row" style="justify-content:center;color:var(--grey-300)"><i data-icon="arrowDown"></i></div>
+                <div class="card card--pad" style="border-color:var(--blue-200)">
+                  <div class="row"><span class="tile-icon"><i data-icon="sliders"></i></span>
+                    <div><div class="t-h3">3 · Condition</div>
+                      <div class="t-xs muted mt-1">If <strong>amount &gt; ₹5,00,000</strong> → Head of Finance, else AP Manager</div></div>
+                    <span class="spacer"></span>
+                    <button class="icon-btn"><i data-icon="more"></i></button></div>
+                </div>
+                <div class="row" style="justify-content:center;color:var(--grey-300)"><i data-icon="arrowDown"></i></div>
+                <div class="card card--flat card--pad">
+                  <div class="row"><span class="tile-icon"><i data-icon="stamp"></i></span>
+                    <div><div class="t-h3">4 · Approve</div>
+                      <div class="t-xs muted mt-1">SLA 24 h · escalate to Head of Finance on breach</div></div>
+                    <span class="spacer"></span>
+                    <button class="icon-btn"><i data-icon="more"></i></button></div>
+                </div>
+                <div class="row" style="justify-content:center;color:var(--grey-300)"><i data-icon="arrowDown"></i></div>
+                <div class="card card--flat card--pad">
+                  <div class="row"><span class="tile-icon"><i data-icon="archive"></i></span>
+                    <div><div class="t-h3">5 · Archive</div>
+                      <div class="t-xs muted mt-1">Apply retention policy <strong>Financial records, 8 years</strong></div></div>
+                    <span class="spacer"></span>
+                    <button class="icon-btn"><i data-icon="more"></i></button></div>
+                </div>
+                <button class="btn btn--outline btn--block mt-2"><i data-icon="plus"></i>Add step</button>
+              </div>
+            </div>
+
+            <aside class="stack">
+              <div class="card card--pad">
+                <h3 class="t-h3">Step library</h3>
+                <div class="stack-sm mt-3">
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="eye"></i>Review</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="stamp"></i>Approval</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="sliders"></i>Condition</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="workflow"></i>Parallel branch</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="mail"></i>Notify</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="integrations"></i>Call external API</button>
+                  <button class="btn btn--outline btn--block" style="justify-content:flex-start"><i data-icon="archive"></i>Archive &amp; retain</button>
+                </div>
+              </div>
+              <div class="card card--pad">
+                <h3 class="t-h3">SLA &amp; escalation</h3>
+                <label class="field mt-2"><span class="field__label">Overall SLA</span>
+                  <select class="select"><option>3 business days</option><option>5 business days</option>
+                    <option>10 business days</option></select></label>
+                <label class="field"><span class="field__label">On breach</span>
+                  <select class="select"><option>Escalate to next approver</option>
+                    <option>Notify process owner</option><option>Auto-approve (not recommended)</option></select></label>
+                <label class="switch mt-3"><input type="checkbox" checked>
+                  <span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="t-sm">Send reminders at 50% and 80% of SLA</span></label>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-new">
+    <div class="modal__head">
+      <h3 class="t-h2">New process</h3>
+      <p class="t-sm muted mt-1">Start from the standard lifecycle, then add conditions and branches.</p>
+    </div>
+    <div class="modal__body">
+      <label class="field"><span class="field__label">Process name</span>
+        <input class="input" placeholder="e.g. Credit note approval"></label>
+      <div class="grid grid-2 mt-3">
+        <label class="field" style="margin:0"><span class="field__label">Owning department</span>
+          <select class="select"><option>Finance</option><option>Legal</option><option>Operations</option>
+            <option>Human Resources</option><option>Procurement</option><option>Compliance</option></select></label>
+        <label class="field" style="margin:0"><span class="field__label">Trigger</span>
+          <select class="select"><option>Document type classified</option><option>Manual submission</option>
+            <option>Connector event</option><option>Retention date reached</option></select></label>
+      </div>
+      <label class="field"><span class="field__label">Template</span>
+        <select class="select"><option>Submit → Review → Approve → Route → Archive</option>
+          <option>Two-stage approval</option><option>Parallel review</option><option>Blank</option></select></label>
+    </div>
+    <div class="modal__foot">
+      <div class="btn-row">
+        <button class="btn btn--outline" data-close>Cancel</button>
+        <button class="btn btn--primary" data-close>Create process</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/js/shell.js"></script>
+</body>
+
+</html>

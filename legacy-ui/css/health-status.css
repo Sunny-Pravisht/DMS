@@ -1,0 +1,177 @@
+/* Health Status Styles */
+.health-status-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.health-service-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.health-service-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.health-service-card.healthy {
+    border-left: 4px solid #28a745;
+}
+
+.health-service-card.warning {
+    border-left: 4px solid #ffc107;
+}
+
+.health-service-card.unhealthy {
+    border-left: 4px solid #dc3545;
+}
+
+.health-service-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.health-service-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.health-service-icon {
+    font-size: 1.2rem;
+}
+
+.health-service-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.health-service-message {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.health-service-details {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.health-service-details dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 1rem;
+}
+
+.health-service-details dt {
+    font-weight: 600;
+    color: #444;
+}
+
+.health-service-details dd {
+    margin: 0;
+    color: #666;
+}
+
+.health-summary-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.health-summary-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.health-summary-stats {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.health-stat {
+    text-align: center;
+}
+
+.health-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    display: block;
+}
+
+.health-stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.health-refresh-btn {
+    background: white;
+    color: #667eea;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.health-refresh-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Loading animation */
+.health-loading {
+    text-align: center;
+    padding: 3rem;
+}
+
+.health-loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .health-status-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .health-summary-stats {
+        gap: 1rem;
+    }
+    
+    .health-stat-value {
+        font-size: 1.5rem;
+    }
+}
