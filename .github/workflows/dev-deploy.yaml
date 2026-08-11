@@ -13,12 +13,13 @@ permissions:
 env:
   APP_NAME: dms
   APP_PORT: 8010
-  SERVER_APP_DIR: /opt/dms
+  CONTAINER_PORT: 8000
+  SERVER_APP_DIR: /home/ubuntu/DMS
 
 jobs:
 
   # ==========================================================
-  # 1. TEST
+  # 1. TEST APPLICATION
   # ==========================================================
 
   test:
@@ -29,7 +30,7 @@ jobs:
 
     steps:
 
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Setup Python 3.12
@@ -40,6 +41,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             tesseract-ocr \
             poppler-utils \
@@ -60,12 +62,12 @@ jobs:
 
 
   # ==========================================================
-  # 2. BUILD + TEST DOCKER IMAGE
+  # 2. BUILD DOCKER IMAGE
   # ==========================================================
 
   build:
 
-    name: Build and Test Docker Image
+    name: Build DMS Docker Image
 
     runs-on: ubuntu-latest
 
@@ -74,7 +76,7 @@ jobs:
 
     steps:
 
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Build Docker image
@@ -84,13 +86,17 @@ jobs:
             -t dms:latest \
             .
 
-      - name: Start DMS test container
+      # ------------------------------------------------------
+      # Test Docker container
+      # ------------------------------------------------------
+
+      - name: Start test container
         run: |
           docker run -d \
             --name dms-ci-test \
             -p 18010:8000 \
             -e ENVIRONMENT=production \
-            -e SECRET_KEY="${{ secrets.DMS_SECRET_KEY }}" \
+            -e SECRET_KEY="$(openssl rand -hex 32)" \
             dms:${{ github.sha }}
 
       - name: Wait for DMS health
@@ -107,6 +113,7 @@ jobs:
 
               echo ""
               echo "DMS health check passed."
+
               exit 0
 
             fi
@@ -123,15 +130,19 @@ jobs:
 
           exit 1
 
-      - name: Show logs
+      - name: Show container logs
         if: always()
         run: |
           docker logs --tail 100 dms-ci-test || true
 
-      - name: Remove test container
+      - name: Stop CI test container
         if: always()
         run: |
           docker rm -f dms-ci-test || true
+
+      # ------------------------------------------------------
+      # Export Docker image
+      # ------------------------------------------------------
 
       - name: Export Docker image
         run: |
@@ -139,8 +150,9 @@ jobs:
             dms:${{ github.sha }} \
             | gzip > dms-image.tar.gz
 
-      - name: Upload Docker image
+      - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
+
         with:
           name: dms-docker-image-${{ github.sha }}
           path: dms-image.tar.gz
@@ -148,12 +160,12 @@ jobs:
 
 
   # ==========================================================
-  # 3. DEPLOY TO MILESWEB
+  # 3. DEPLOY TO MILESWEB UBUNTU SERVER
   # ==========================================================
 
   deploy:
 
-    name: Deploy DMS to MilesWeb
+    name: Deploy DMS to MilesWeb Server
 
     runs-on: ubuntu-latest
 
@@ -162,278 +174,347 @@ jobs:
 
     steps:
 
+      # ------------------------------------------------------
+      # Download Docker image
+      # ------------------------------------------------------
+
       - name: Download Docker image
+
         uses: actions/download-artifact@v4
+
         with:
           name: dms-docker-image-${{ github.sha }}
+
 
       # ------------------------------------------------------
       # Install sshpass
       # ------------------------------------------------------
 
-      - name: Install sshpass
+      - name: Install SSH password utility
+
         run: |
           sudo apt-get update
           sudo apt-get install -y sshpass
 
-      # ------------------------------------------------------
-      # Create SSH options
-      # ------------------------------------------------------
-
-      - name: Prepare SSH
-        run: |
-
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          ssh-keyscan \
-            -p "${{ secrets.SERVER_PORT }}" \
-            -H "${{ secrets.SERVER_HOST }}" \
-            > ~/.ssh/known_hosts
-
-          chmod 644 ~/.ssh/known_hosts
 
       # ------------------------------------------------------
-      # Test password login
+      # Test SSH connection
       # ------------------------------------------------------
 
-      - name: Test SSH connection
+      - name: Test server connection
+
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
         run: |
 
           sshpass -e ssh \
-            -o StrictHostKeyChecking=yes \
+            -o StrictHostKeyChecking=no \
             -o PreferredAuthentications=password \
             -o PubkeyAuthentication=no \
             -p "${{ secrets.SERVER_PORT }}" \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
             "echo 'SSH connection successful'"
 
+
       # ------------------------------------------------------
-      # Create DMS directories
+      # Verify Docker
+      # ------------------------------------------------------
+
+      - name: Verify Docker on server
+
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
+
+        run: |
+
+          sshpass -e ssh \
+            -o StrictHostKeyChecking=no \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            -p "${{ secrets.SERVER_PORT }}" \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            "docker version"
+
+
+      # ------------------------------------------------------
+      # Verify DMS directory
       # ------------------------------------------------------
 
       - name: Prepare DMS directory
+
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
         run: |
 
           sshpass -e ssh \
-            -o StrictHostKeyChecking=yes \
+            -o StrictHostKeyChecking=no \
             -o PreferredAuthentications=password \
             -o PubkeyAuthentication=no \
             -p "${{ secrets.SERVER_PORT }}" \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "mkdir -p /opt/dms/data /opt/dms/backups && \
-             chown -R 1000:1000 /opt/dms/data /opt/dms/backups"
+            "sudo mkdir -p /home/ubuntu/DMS/data /home/ubuntu/DMS/backups"
+
 
       # ------------------------------------------------------
-      # Create production .env
+      # Verify existing .env
+      # IMPORTANT:
+      # Workflow DOES NOT overwrite .env
       # ------------------------------------------------------
 
-      - name: Create production environment
-        run: |
+      - name: Verify production environment file
 
-          cat > dms.env <<EOF
-          ENVIRONMENT=production
-          SECRET_KEY=${{ secrets.DMS_SECRET_KEY }}
-
-          DATABASE_URL=sqlite:///./data/documents.db
-
-          DATA_FOLDER=./data
-          STAGING_FOLDER=./data/staging
-          STORAGE_FOLDER=./data/storage
-          LOGS_FOLDER=./data/logs
-          BACKUP_FOLDER=./data/backups
-
-          EMBEDDING_PROVIDER=local
-          OCR_ENGINE=auto
-
-          TESSERACT_PATH=/usr/bin/tesseract
-          POPPLER_PATH=/usr/bin
-
-          LOG_LEVEL=INFO
-          TRUSTED_PROXY_IPS=127.0.0.1
-          EOF
-
-      - name: Add Groq configuration
-        if: ${{ secrets.GROQ_API_KEY != '' }}
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
         run: |
 
-          echo "AI_PROVIDER=groq" >> dms.env
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" >> dms.env
+          sshpass -e ssh \
+            -o StrictHostKeyChecking=no \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            -p "${{ secrets.SERVER_PORT }}" \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            "test -f /home/ubuntu/DMS/.env && \
+             echo 'Production .env found' || \
+             (echo 'ERROR: /home/ubuntu/DMS/.env not found' && exit 1)"
+
 
       # ------------------------------------------------------
-      # Copy image
+      # Copy Docker image to server
       # ------------------------------------------------------
 
-      - name: Copy Docker image to server
+      - name: Copy Docker image
+
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
         run: |
 
           sshpass -e scp \
+            -o StrictHostKeyChecking=no \
             -P "${{ secrets.SERVER_PORT }}" \
-            -o StrictHostKeyChecking=yes \
             dms-image.tar.gz \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dms-image.tar.gz"
 
-      # ------------------------------------------------------
-      # Copy environment
-      # ------------------------------------------------------
-
-      - name: Copy environment to server
-        env:
-          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
-
-        run: |
-
-          sshpass -e scp \
-            -P "${{ secrets.SERVER_PORT }}" \
-            -o StrictHostKeyChecking=yes \
-            dms.env \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/dms.env"
 
       # ======================================================
-      # DEPLOY ONLY DMS
+      # DEPLOY
       # ======================================================
 
       - name: Deploy DMS
+
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
         run: |
 
           sshpass -e ssh \
-            -o StrictHostKeyChecking=yes \
+            -o StrictHostKeyChecking=no \
             -o PreferredAuthentications=password \
             -o PubkeyAuthentication=no \
             -p "${{ secrets.SERVER_PORT }}" \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "bash -s" <<REMOTE_SCRIPT
+            "sudo bash -s" <<'REMOTE_SCRIPT'
 
           set -e
 
-          APP_DIR="/opt/dms"
+          APP_DIR="/home/ubuntu/DMS"
+
           IMAGE="dms:${{ github.sha }}"
+
           CONTAINER="dms"
+
           PORT="8010"
 
+
           echo "========================================"
+
           echo "DMS Deployment Started"
-          echo "Image: \${IMAGE}"
+
+          echo "Application directory: ${APP_DIR}"
+
+          echo "Image: ${IMAGE}"
+
+          echo "Container: ${CONTAINER}"
+
+          echo "Port: ${PORT}"
+
           echo "========================================"
 
-          # -----------------------------------------------
-          # Prepare directories
-          # -----------------------------------------------
 
-          mkdir -p "\${APP_DIR}/data"
-          mkdir -p "\${APP_DIR}/backups"
+          # --------------------------------------------------
+          # Verify .env
+          # --------------------------------------------------
 
-          cp /tmp/dms.env "\${APP_DIR}/.env"
-          chmod 600 "\${APP_DIR}/.env"
+          if [ ! -f "${APP_DIR}/.env" ]; then
 
-          # -----------------------------------------------
+            echo "ERROR: ${APP_DIR}/.env does not exist"
+
+            exit 1
+
+          fi
+
+
+          chmod 600 "${APP_DIR}/.env"
+
+
+          # --------------------------------------------------
+          # Verify Docker
+          # --------------------------------------------------
+
+          docker version
+
+
+          # --------------------------------------------------
           # Load Docker image
-          # -----------------------------------------------
+          # --------------------------------------------------
 
           echo "Loading Docker image..."
 
           gunzip -c /tmp/dms-image.tar.gz | docker load
 
-          # -----------------------------------------------
+
+          # --------------------------------------------------
           # Verify image
-          # -----------------------------------------------
+          # --------------------------------------------------
 
-          docker image inspect "\${IMAGE}" > /dev/null
+          docker image inspect "${IMAGE}" > /dev/null
 
-          # -----------------------------------------------
-          # Stop ONLY DMS
-          # -----------------------------------------------
+          echo "Docker image verified."
+
+
+          # --------------------------------------------------
+          # Check ONLY DMS container
+          # --------------------------------------------------
 
           if docker ps -a \
             --format '{{.Names}}' \
-            | grep -qx "\${CONTAINER}"; then
+            | grep -qx "${CONTAINER}"; then
 
             echo "Existing DMS container found."
 
-            docker stop "\${CONTAINER}" || true
+            echo "Stopping ONLY DMS container..."
 
-            docker rm "\${CONTAINER}" || true
+            docker stop "${CONTAINER}" || true
+
+            echo "Removing ONLY DMS container..."
+
+            docker rm "${CONTAINER}" || true
+
+          else
+
+            echo "No existing DMS container found."
 
           fi
 
-          # -----------------------------------------------
-          # Start ONLY DMS
-          # -----------------------------------------------
 
-          echo "Starting DMS..."
+          # --------------------------------------------------
+          # Start DMS
+          # --------------------------------------------------
+
+          echo "Starting DMS container..."
+
 
           docker run -d \
-            --name "\${CONTAINER}" \
+            --name "${CONTAINER}" \
             --restart unless-stopped \
-            -p "127.0.0.1:\${PORT}:8000" \
-            --env-file "\${APP_DIR}/.env" \
-            -v "\${APP_DIR}/data:/app/data" \
+            -p "127.0.0.1:${PORT}:8000" \
+            --env-file "${APP_DIR}/.env" \
+            -v "${APP_DIR}/data:/app/data" \
             --cpus="2.0" \
             --memory="2g" \
-            "\${IMAGE}"
+            "${IMAGE}"
 
-          # -----------------------------------------------
-          # Health check
-          # -----------------------------------------------
+
+          # --------------------------------------------------
+          # Wait for Docker health
+          # --------------------------------------------------
 
           echo "Waiting for DMS health..."
 
-          for i in \$(seq 1 30); do
 
-            HEALTH=\$(docker inspect \
+          HEALTH="starting"
+
+
+          for i in $(seq 1 30); do
+
+            HEALTH=$(docker inspect \
               --format='{{.State.Health.Status}}' \
-              "\${CONTAINER}" \
+              "${CONTAINER}" \
               2>/dev/null || echo "starting")
 
-            echo "Health attempt \${i}/30: \${HEALTH}"
 
-            if [ "\${HEALTH}" = "healthy" ]; then
+            echo "Health attempt ${i}/30: ${HEALTH}"
+
+
+            if [ "${HEALTH}" = "healthy" ]; then
 
               echo ""
-              echo "========================================"
-              echo "DMS DEPLOYMENT SUCCESSFUL"
+
               echo "========================================"
 
-              docker ps --filter "name=\${CONTAINER}"
+              echo "DMS DEPLOYMENT SUCCESSFUL"
+
+              echo "========================================"
+
+
+              docker ps \
+                --filter "name=${CONTAINER}"
+
+
+              curl \
+                --fail \
+                --silent \
+                http://127.0.0.1:${PORT}/api/health
+
+
+              echo ""
 
               exit 0
 
             fi
 
+
             sleep 5
 
           done
 
+
+          # --------------------------------------------------
+          # Deployment failed
+          # --------------------------------------------------
+
+          echo ""
+
           echo "========================================"
+
           echo "DMS DEPLOYMENT FAILED"
+
           echo "========================================"
 
-          docker ps -a --filter "name=\${CONTAINER}"
 
-          docker logs --tail 200 "\${CONTAINER}" || true
+          docker ps -a \
+            --filter "name=${CONTAINER}"
+
+
+          docker logs \
+            --tail 200 \
+            "${CONTAINER}" || true
+
 
           exit 1
 
           REMOTE_SCRIPT
 
+
       # ------------------------------------------------------
-      # Cleanup
+      # Cleanup temporary image
       # ------------------------------------------------------
 
-      - name: Cleanup temporary files
+      - name: Cleanup server temporary files
+
         if: always()
 
         env:
@@ -442,6 +523,38 @@ jobs:
         run: |
 
           sshpass -e ssh \
+            -o StrictHostKeyChecking=no \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
             -p "${{ secrets.SERVER_PORT }}" \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "rm -f /tmp/dms-image.tar.gz /tmp/dms.env"
+            "sudo rm -f /tmp/dms-image.tar.gz"
+
+
+      # ------------------------------------------------------
+      # Deployment complete
+      # ------------------------------------------------------
+
+      - name: Deployment summary
+
+        run: |
+
+          echo "========================================"
+
+          echo "DMS DEPLOYMENT COMPLETED"
+
+          echo "========================================"
+
+          echo "Server path: /home/ubuntu/DMS"
+
+          echo "Container: dms"
+
+          echo "Application port: 8010"
+
+          echo "Container port: 8000"
+
+          echo "Environment: /home/ubuntu/DMS/.env"
+
+          echo "Persistent data: /home/ubuntu/DMS/data"
+
+          echo "========================================"
