@@ -155,12 +155,12 @@
 
   const NAV_ADMIN = [
     { label: 'Workflow', journey: true, items: JOURNEY },
-    { label: 'Find & do', items: FIND_AND_DO },
+    { label: 'Find & Do', items: FIND_AND_DO },
     // Settings is not listed. It is reached by pressing your own name at the
     // foot of this menu, which is where an account's own preferences belong
     // and where people look for them.
     {
-      label: 'Set up', items: [
+      label: 'Set Up', items: [
         { id: 'templates', label: 'Approval Routes', icon: 'layers', href: '/templates' },
         { id: 'organization', label: 'People', icon: 'org', href: '/organization' },
         { id: 'audit', label: 'Activity Log', icon: 'audit', href: '/audit' },
@@ -182,7 +182,7 @@
    */
   const NAV_MEMBER = [
     {
-      label: 'My work', items: [
+      label: 'My Work', items: [
         { id: 'tasks', label: 'My Tasks', icon: 'approvals', href: '/tasks' },
         { id: 'track', label: 'Status & Tracking', icon: 'workflow', href: '/track' },
       ]
