@@ -284,6 +284,10 @@ table { border-collapse: collapse; width: 100%; }
   transition: all var(--dur) var(--ease);
 }
 .nav-link:hover .nav-link__step { background: rgba(255, 255, 255, .18); color: #FFFFFF; }
+.nav-link.is-locked { cursor: not-allowed; opacity: .65; }
+.nav-link.is-locked:hover { color: #FFFFFF; background: rgba(255, 255, 255, .13); }
+.nav-link.is-locked:hover .nav-link__step { background: #dc2626; color: #FFFFFF; }
+.nav-link.is-locked:hover .nav-link__step::after { content: "×"; font-weight: 700; }
 .nav-link.is-active .nav-link__step { background: var(--brand-blue); color: var(--brand-navy); }
 .nav-link.is-done .nav-link__step { background: rgba(0, 167, 228, .28); color: var(--brand-blue); }
 
@@ -1658,6 +1662,9 @@ a.banner--danger:hover { border-color: var(--red-500); }
    24. Journey: the four-step spine (Upload → Review → Process → Track)
    -------------------------------------------------------------------------- */
 .journey {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 40;
   display: flex; align-items: stretch; gap: 0;
   background: var(--white);
   border: 1px solid var(--border);
@@ -1696,7 +1703,7 @@ a.banner--danger:hover { border-color: var(--red-500); }
 }
 .journey__step.is-current .journey__num { background: var(--brand-blue); color: var(--brand-navy); }
 .journey__step.is-current .journey__hint { color: rgba(255, 255, 255, .6); }
-.journey__step.is-locked { opacity: .5; pointer-events: none; }
+.journey__step.is-locked { opacity: .5; cursor: not-allowed; }
 
 .journey__sep {
   align-self: center; width: 16px; flex: 0 0 auto;
@@ -2286,4 +2293,28 @@ a.banner--danger:hover { border-color: var(--red-500); }
   .sidebar, .topbar, .btn-row, .toasts { display: none !important; }
   .main { margin: 0; }
   .card { break-inside: avoid; }
+}
+
+/* Document carried from Track -> Publish. */
+.card.is-target { box-shadow: 0 0 0 2px var(--accent), 0 10px 28px rgba(0,100,153,.12); }
+@media (max-width: 700px) { .journey { position: relative; top: auto; } }
+
+
+/* Locked workflow steps: visual feedback only, no notification. */
+.journey__step.is-locked {
+  cursor: not-allowed;
+}
+
+.journey__step.is-locked:hover .journey__num {
+  color: #dc2626;
+  border-color: #dc2626;
+}
+
+.journey__step.is-locked:hover .journey__num::after {
+  content: "×";
+  font-weight: 700;
+}
+
+.journey__step.is-locked:hover {
+  color: #dc2626;
 }

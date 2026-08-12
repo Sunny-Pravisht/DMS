@@ -123,11 +123,11 @@
   // both belong to the same step. Splitting them into two destinations was the
   // single biggest source of "which screen do I use?" in the old navigation.
   const JOURNEY = [
-    { id: 'studio',  n: 1, label: 'Document Studio',   hint: 'Write one or bring one in', href: '/studio',  icon: 'compose' },
-    { id: 'review',  n: 2, label: 'Review',            hint: 'Confirm the details',       href: '/review',  icon: 'eye' },
-    { id: 'process', n: 3, label: 'Approval',          hint: 'Who signs, in what order',  href: '/process', icon: 'workflow' },
-    { id: 'track',   n: 4, label: 'Status & Tracking', hint: 'Where it is right now',     href: '/track',   icon: 'approvals' },
-    { id: 'publish', n: 5, label: 'Publishing',        hint: 'Release and export',        href: '/publish', icon: 'send' },
+    { id: 'studio',  n: 1, label: 'Upload Document',  hint: 'Add a document',          href: '/studio',  icon: 'compose' },
+    { id: 'review',  n: 2, label: 'Review & Confirm', hint: 'Check extracted details', href: '/review',  icon: 'eye' },
+    { id: 'process', n: 3, label: 'Set Up Approval',  hint: 'Choose who approves',     href: '/process', icon: 'workflow' },
+    { id: 'track',   n: 4, label: 'Track Status',     hint: 'Follow approvals',       href: '/track',   icon: 'approvals' },
+    { id: 'publish', n: 5, label: 'Publish',           hint: 'Release the record',      href: '/publish', icon: 'send' },
   ];
 
   const STEP_COUNT = JOURNEY.length;
@@ -656,20 +656,55 @@
       const next = Object.assign(flow.get(), partial);
       return flow.set(next);
     },
-    /** Record that the user got at least this far. */
-    advance(step) {
+    /**
+     * Completion is deliberately different from "the user visited this page".
+     * A step becomes unlocked only after its primary action succeeds.
+     */
+    completedSteps() {
       const s = flow.get();
-      if (!s.step || step > s.step) flow.patch({ step: step });
+      return Array.isArray(s.completedSteps) ? s.completedSteps.map(Number).filter(Boolean) : [];
     },
-    /** Highest step unlocked so far. Step 1 is always available. */
+    isComplete(step) {
+      return flow.completedSteps().includes(Number(step));
+    },
+    complete(step) {
+      step = Number(step);
+      if (!step || step < 1 || step > STEP_COUNT) return flow.get();
+      const done = flow.completedSteps();
+      if (!done.includes(step)) done.push(step);
+      done.sort((a, b) => a - b);
+      return flow.patch({
+        completedSteps: done,
+        step: Math.max.apply(null, done.concat([1]))
+      });
+    },
+    /**
+     * Highest contiguous step that is available. Step 1 is always available.
+     * Example: completed [1,2] => step 3 is unlocked; completed [1] => step 2.
+     */
     reached() {
-      const s = flow.get().step;
-      return Math.min(STEP_COUNT, Math.max(1, Number(s) || 1));
+      const done = new Set(flow.completedSteps());
+      let unlocked = 1;
+      while (done.has(unlocked) && unlocked < STEP_COUNT) unlocked += 1;
+      return unlocked;
+    },
+    canEnter(step) {
+      step = Number(step);
+      if (!step || step <= 1) return true;
+      const done = new Set(flow.completedSteps());
+      for (let n = 1; n < step; n++) {
+        if (!done.has(n)) return false;
+      }
+      return !!flow.doc();
     },
     doc() { return flow.get().doc || null; },
     clear() {
       const key = userKey(FLOW_KEY);
       try { if (key) localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    },
+    clearForUser(userId) {
+      if (!userId) return;
+      try { localStorage.removeItem(FLOW_KEY + '::' + userId); } catch (e) { /* ignore */ }
     },
 
     /* ------------------------------------------------------ recent intake
@@ -800,12 +835,19 @@
           // A placeholder the loader fills in, so the badge appears only when
           // there is genuinely something to show.
           : '<span class="nav-link__count is-alert" data-nav-count="' + item.id + '" hidden></span>';
-        const done = group.journey && item.n < reached && !isActive;
+        const done = group.journey && flow.isComplete(item.n);
+        const locked = group.journey && item.n > reached;
         const lead = group.journey
           ? '<span class="nav-link__step">' + (done ? '&#10003;' : item.n) + '</span>'
           : icon(item.icon);
-        return '<li><a class="nav-link' + (isActive ? ' is-active' : '') + (done ? ' is-done' : '') +
-          '" href="' + item.href + '">' + lead + '<span>' + item.label + '</span>' + count + '</a></li>';
+        const href = group.journey
+          ? (locked ? '#' : journeyHref(item.href))
+          : item.href;
+        return '<li><a class="nav-link' + (isActive ? ' is-active' : '') +
+          (done ? ' is-done' : '') + (locked ? ' is-locked' : '') +
+          '" href="' + href + '"' +
+          (locked ? ' data-journey-locked="1" aria-disabled="true" title="Complete the previous step first"' : '') +
+          '>' + lead + '<span>' + item.label + '</span>' + count + '</a></li>';
       }).join('');
       return '<div class="nav-group"><div class="nav-group__label">' + group.label + '</div><ul>' + items + '</ul></div>';
     }).join('');
@@ -852,16 +894,40 @@
       : '<div class="user-chip user-chip--static">' + inner + '</div>';
   }
 
-  /** The horizontal 1-2-3-4 stepper shown at the top of every journey screen. */
+  /** Keep the current document attached while moving through the five-step journey. */
+  function journeyHref(href) {
+    try {
+      if (!href) return href;
+      const u = new URL(href, window.location.origin);
+
+      // Step 1 always means "start a new document". Never carry the current
+      // document id back into Studio, otherwise a fresh upload reopens the last
+      // document instead of showing the clean start screen.
+      if (u.pathname === '/studio') return '/studio?new=1';
+
+      const current = new URLSearchParams(window.location.search).get('id') ||
+        (flow.doc() && flow.doc().id);
+      if (!current) return u.pathname + u.search + u.hash;
+
+      u.searchParams.set('id', current);
+      return u.pathname + u.search + u.hash;
+    } catch (e) { return href; }
+  }
+
+  /** The horizontal five-step spine shown at the top of every journey screen. */
   function renderJourney(activeId) {
     const reached = flow.reached();
     const parts = JOURNEY.map(step => {
       let state = '';
+      const done = flow.isComplete(step.n);
+      const locked = step.n > reached;
       if (step.id === activeId) state = ' is-current';
-      else if (step.n < reached) state = ' is-done';
-      else if (step.n > reached) state = ' is-locked';
-      const mark = (step.n < reached && step.id !== activeId) ? icon('check') : step.n;
-      return '<a class="journey__step' + state + '" href="' + step.href + '">' +
+      else if (done) state = ' is-done';
+      else if (locked) state = ' is-locked';
+      const mark = (done && step.id !== activeId) ? icon('check') : step.n;
+      const href = locked ? '#' : journeyHref(step.href);
+      return '<a class="journey__step' + state + '" href="' + href + '"' +
+        (locked ? ' data-journey-locked="1" aria-disabled="true" title="Complete the previous step first"' : '') + '>' +
         '<span class="journey__num">' + mark + '</span>' +
         '<span><span class="journey__label">' + step.label + '</span>' +
         '<span class="journey__hint" style="display:block">' + step.hint + '</span></span></a>';
@@ -869,6 +935,25 @@
     return '<nav class="journey">' +
       parts.join('<span class="journey__sep">' + icon('chevronRight') + '</span>') +
       '</nav>';
+  }
+
+  /**
+   * Hard gate the five-step journey. The visual lock is not enough: a user can
+   * type /review, /process, /track or /publish directly into the address bar.
+   */
+  function enforceJourneyAccess() {
+    const stepNo = Number(document.body && document.body.dataset.step || 0);
+    if (!stepNo || stepNo <= 1) return true;
+    if (flow.canEnter(stepNo)) return true;
+
+    const reached = flow.reached();
+    const doc = flow.doc();
+    const target = reached <= 1
+      ? '/studio?new=1'
+      : JOURNEY[Math.max(0, reached - 1)].href +
+        (doc && doc.id ? '?id=' + encodeURIComponent(doc.id) : '');
+    window.location.replace(target);
+    return false;
   }
 
   /**
@@ -992,14 +1077,10 @@
       }
     }
 
-    // Journey screens declare data-step="1..4"; the stepper renders into
-    // [data-journey] and the step is marked as reached.
+    // Journey screens are gated by completed actions, not by page visits.
     const stepNo = Number(body.dataset.step || 0);
     const host = document.querySelector('[data-journey]');
-    if (stepNo && host) {
-      flow.advance(stepNo);
-      host.innerHTML = renderJourney(active);
-    }
+    if (stepNo && host) host.innerHTML = renderJourney(active);
 
     // Inline icons declared as <i data-icon="name"></i>
     document.querySelectorAll('[data-icon]').forEach(el => {
@@ -1015,6 +1096,15 @@
       else if (sidebar && sidebar.classList.contains('is-open') && !e.target.closest('.sidebar')) {
         sidebar.classList.remove('is-open');
       }
+    });
+
+    // Locked workflow items are deliberately non-navigable. Give the user a
+    // short explanation instead of a dead-looking click.
+    document.addEventListener('click', e => {
+      const locked = e.target.closest('[data-journey-locked]');
+      if (!locked) return;
+      e.preventDefault();
+      toast('Step is locked', 'Complete the previous step before opening this one.');
     });
 
     // Logout. Everything this user left in the browser goes with them: the
@@ -1085,6 +1175,24 @@
     currentUserId = me ? me.id : null;
     window.DMS.me = me;
 
+    // A successful login starts a fresh document journey. This prevents the
+    // previous browser session from reopening its last document on Review,
+    // Process, Track or Publish. Repository data is untouched.
+    let workflowReset = false;
+    try {
+      workflowReset = sessionStorage.getItem('dms.resetWorkflowOnLogin') === '1';
+      if (workflowReset) sessionStorage.removeItem('dms.resetWorkflowOnLogin');
+    } catch (e) { /* private mode */ }
+
+    // Opening Studio without a document id is also an explicit new-document
+    // entry point. Only an /studio?id=... URL means edit an existing document.
+    const studioIsNew = window.location.pathname === '/studio' &&
+      !new URLSearchParams(window.location.search).get('id');
+
+    if (me && (workflowReset || studioIsNew)) {
+      flow.clear();
+    }
+
     // Screens like Approval and Publishing are administrator-only and redirect
     // anyone else to their task list. A button that silently sends you
     // somewhere you did not ask to go reads as a broken product, so anything
@@ -1096,11 +1204,22 @@
     // The navigation follows who is signed in, so re-render now that we know.
     // mount() drew the smaller menu; this grows it for an administrator.
     const wanted = me && me.is_admin ? NAV_ADMIN : NAV_MEMBER;
-    if (wanted !== NAV) {
-      NAV = wanted;
+    const navChanged = wanted !== NAV;
+    if (navChanged) NAV = wanted;
+
+    // Re-render after loadUser because the flow may have just been reset.
+    // Otherwise the first paint could still show the previous session's
+    // completed steps.
+    if (navChanged || workflowReset || studioIsNew) {
       const sidebar = document.getElementById('sidebar');
       if (sidebar) sidebar.innerHTML = renderSidebar(document.body.dataset.page || '');
+      const journeyHost = document.querySelector('[data-journey]');
+      if (journeyHost) journeyHost.innerHTML = renderJourney(document.body.dataset.page || '');
     }
+
+    // Enforce the same gate for direct URLs after the signed-in user is known.
+    // This also prevents an old URL from bypassing the disabled sidebar.
+    if (!enforceJourneyAccess()) return;
 
     if (document.querySelector('[data-user-name]')) {
       const name = (me && (me.full_name || me.username)) || 'Signed in';
@@ -2769,7 +2888,7 @@
     refreshDates,
     icon, api, toast, fmt, escapeHtml, confirmDanger,
     openOverlay, closeOverlays, initials, NAV, JOURNEY,
-    flow, signaturePad, signatureMark, decide, renderJourney,
+    flow, signaturePad, signatureMark, decide, renderJourney, journeyHref,
     templates, dir, peoplePicker, DEPARTMENTS, SLA_OPTIONS,
     // Kept for anything still reading the flat list.
     get TEMPLATES() { return templates.all(); },

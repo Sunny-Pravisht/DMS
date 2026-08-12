@@ -79,8 +79,8 @@
     <!-- Aside -->
     <aside class="auth__aside">
       <div style="max-width:440px">
-        <div class="t-eyebrow">Four steps, start to finish</div>
-        <h2 class="t-h1 mt-2">From an email attachment to a signed, filed record.</h2>
+        <div class="t-eyebrow">Five steps, start to finish</div>
+        <h2 class="t-h1 mt-2">From an uploaded document to an approved, signed and filed record.</h2>
 
         <div class="auth__aside-list">
           <div class="auth__aside-item">
@@ -97,15 +97,18 @@
           </div>
           <div class="auth__aside-item">
             <span class="tile-icon"><i data-icon="workflow"></i></span>
-            <div><div class="t-h3">3 · Choose who approves</div>
-              <p class="t-sm muted mt-1">Pick a ready-made route. The right people, in the right
-                order, with deadlines.</p></div>
+            <div><div class="t-h3">3 · Set up approval</div>
+              <p class="t-sm muted mt-1">Choose a saved route or build the approval chain, with the right people and deadlines.</p></div>
           </div>
           <div class="auth__aside-item">
             <span class="tile-icon"><i data-icon="stamp"></i></span>
-            <div><div class="t-h3">4 · Watch it get signed</div>
-              <p class="t-sm muted mt-1">Every approval, signature, comment and rejection,
-                on record, with no chasing.</p></div>
+            <div><div class="t-h3">4 · Track the process</div>
+              <p class="t-sm muted mt-1">Follow approvals, comments and signatures until every required step is complete.</p></div>
+          </div>
+          <div class="auth__aside-item">
+            <span class="tile-icon"><i data-icon="send"></i></span>
+            <div><div class="t-h3">5 · Publish the record</div>
+              <p class="t-sm muted mt-1">Release the approved document, keep its version history and approval trail attached.</p></div>
           </div>
         </div>
       </div>
@@ -143,6 +146,10 @@
             username: document.getElementById('username').value.trim(),
             password: document.getElementById('password').value,
           });
+          // A new sign-in starts a clean document journey. Keep repository
+          // documents, drafts and uploads intact; only clear the current
+          // workflow pointer after the next page identifies the signed-in user.
+          try { sessionStorage.setItem('dms.resetWorkflowOnLogin', '1'); } catch (e) {}
           window.location.href = '/home';
         } catch (err) {
           showError('login-error', 'Sign-in failed. Check your username and password.');
@@ -171,6 +178,7 @@
             username: document.getElementById('s-username').value.trim(),
             password: password,
           });
+          try { sessionStorage.setItem('dms.resetWorkflowOnLogin', '1'); } catch (e) {}
           window.location.href = '/home';
         } catch (err) {
           showError('setup-error', String(err.message || err));

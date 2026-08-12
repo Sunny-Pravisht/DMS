@@ -184,7 +184,7 @@
       const $ = s => document.querySelector(s);
       const params = new URLSearchParams(location.search);
 
-      let docId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+      let docId = params.get('id') || null;
       let doc = null;
       let correspondents = [];
       let corrCombo = null;
@@ -306,7 +306,7 @@
         // blank Studio". Without the id, step 2 → step 1 loses the document.
         $('#btn-back').href = '/studio?id=' + encodeURIComponent(docId);
 
-        flow.patch({ doc: { id: docId, title: title }, confirmed: true });
+        flow.patch({ doc: { id: docId, title: title }, confirmed: false });
       }
 
       function statusDot(status) {
@@ -535,6 +535,12 @@
         }
       };
 
+      // Step 2 is complete only when the user explicitly confirms the details.
+      // Merely opening or refreshing Review must never unlock Step 3.
+      $('#btn-next').addEventListener('click', () => {
+        flow.complete(2);
+      });
+
       /* --------------------------------------------------------- pick a doc */
       $('#btn-pick').onclick = async () => {
         const docs = await api.safe('/api/documents/?limit=40', []);
@@ -607,11 +613,6 @@
           options: correspondents.map(c => c.name).sort((a, b) => a.localeCompare(b)),
           allowNew: true,
         });
-
-        if (!docId) {
-          const docs = await api.safe('/api/documents/?limit=1', []);
-          if (Array.isArray(docs) && docs.length) docId = docs[0].id;
-        }
 
         if (!docId) {
           $('#d-name').textContent = 'Nothing to review yet';

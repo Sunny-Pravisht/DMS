@@ -151,7 +151,7 @@
 
       let list = [];
       let selected = null;
-      let wantDocId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+      let wantDocId = params.get('id') || null;
 
       if (params.get('filter') === 'overdue') $('#f-overdue').checked = true;
 
@@ -331,6 +331,7 @@
         // half-formed object throws deep inside the render and leaves a blank
         // panel with no explanation, so refuse it here.
         selected = (loaded && loaded.progress && Array.isArray(loaded.steps)) ? loaded : null;
+        if (selected && selected.status === 'approved') flow.complete(4);
         renderList();
         if (selected) renderDetail();
         else renderEmptyDetail('');
@@ -766,6 +767,7 @@
                 ? 'Now with ' + workflow.addressee(updated.current_step)
                 : ((workflow.STATUS[updated.status] || {}).label || ''));
             selected = updated;
+            if (updated.status === 'approved') flow.complete(4);
             await loadList(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
@@ -844,8 +846,15 @@
 
       /* --------------------------------------------------------------- boot */
       (async function () {
+        // Track is part of the current-document journey. Without an explicit
+        // document id, do not auto-select the first workflow from the
+        // repository; that made a fresh session appear to have an old document
+        // in progress. Existing/global workflows can still be opened by id.
+        if (!wantDocId) {
+          renderEmptyDetail('');
+          return;
+        }
         await loadList(false);
-        flow.advance(4);
       })();
     })();
   </script>

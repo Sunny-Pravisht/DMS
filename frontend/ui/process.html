@@ -24,7 +24,7 @@
 
         <!-- The stepper above already names this step; the heading and its
              paragraph said it twice. -->
-        <div class="t-eyebrow mb-3">Step 3 of 5 · Approval</div>
+        <div class="t-eyebrow mb-3">Step 3 of 5 · Set Up Approval</div>
 
         <!-- The document this is for -->
         <div class="card card--pad mb-3">
@@ -54,7 +54,7 @@
         <section class="section" style="margin-top:0">
           <div class="section__head">
             <span class="step-card__num">1</span>
-            <h2 class="t-h2">How do you want to build it?</h2>
+            <h2 class="t-h2">Choose how to set up approval</h2>
           </div>
 
           <div class="mode-choice">
@@ -102,7 +102,7 @@
           <div class="card mt-3" id="manual-panel">
             <div class="card__head">
               <span class="tile-icon"><i data-icon="sliders"></i></span>
-              <h3 class="t-h3">Starting point</h3>
+              <h3 class="t-h3">1. Select department</h3>
             </div>
             <div class="card__body">
               <label class="field" style="margin:0;max-width:420px">
@@ -116,10 +116,10 @@
         </section>
 
         <!-- --------------------------------------------- 2 · the chain ---- -->
-        <section class="section">
+        <section class="section hidden" id="chain-section">
           <div class="section__head">
             <span class="step-card__num">2</span>
-            <h2 class="t-h2">The approval chain</h2>
+            <h2 class="t-h2">2. Define approval steps</h2>
             <span class="spacer"></span>
             <span class="t-sm muted" id="step-count"></span>
             <button class="btn btn--sm btn--outline" id="btn-add-step"><i data-icon="plus"></i>Add a step</button>
@@ -131,10 +131,10 @@
         </section>
 
         <!-- --------------------------------- 3 · priority and timing ------ -->
-        <section class="section">
+        <section class="section hidden" id="timing-section">
           <div class="section__head">
             <span class="step-card__num">3</span>
-            <h2 class="t-h2">Priority and timing</h2>
+            <h2 class="t-h2">3. Set priority and timing</h2>
           </div>
           <div class="grid grid-2">
             <div class="card card--pad">
@@ -168,10 +168,10 @@
         </section>
 
         <!-- --------------------------------------------- 4 · confirm ------ -->
-        <section class="section">
+        <section class="section hidden" id="confirm-section">
           <div class="section__head">
             <span class="step-card__num">4</span>
-            <h2 class="t-h2">Review and confirm the approval route</h2>
+            <h2 class="t-h2">4. Review and confirm the approval route</h2>
           </div>
           <div class="card card--accent card--pad">
             <div class="row-top">
@@ -213,7 +213,7 @@
       const $ = s => document.querySelector(s);
       const params = new URLSearchParams(location.search);
 
-      let docId = params.get('id') || (flow.doc() && flow.doc().id) || null;
+      let docId = params.get('id') || null;
       let doc = null;
       let steps = [];
       let mode = 'manual';
@@ -355,6 +355,7 @@
             '<div class="btn-row"><button class="btn btn--primary btn--sm" data-add>' +
             icon('plus') + 'Add the first step</button></div></div></div>';
           renderSummary();
+          syncProcessUI();
           return;
         }
 
@@ -473,6 +474,7 @@
         }).join('');
 
         renderSummary();
+        syncProcessUI();
       }
 
       /** Who may be put on this step, given what the step demands. */
@@ -747,6 +749,19 @@
         return problems;
       }
 
+      function syncProcessUI() {
+        const readyToConfigure = !!docId && (mode === 'template' ? !!chosenTemplate : !!$('#m-dept').value);
+        ['#chain-section', '#timing-section', '#confirm-section'].forEach(sel => {
+          const el = $(sel);
+          if (el) el.classList.toggle('hidden', !readyToConfigure || !steps.length);
+        });
+
+        const blocking = validate().filter(p => !p.startsWith('No step captures'));
+        const start = $('#btn-start');
+        start.disabled = !readyToConfigure || !steps.length || blocking.length > 0;
+        start.title = start.disabled && blocking.length ? blocking[0] : '';
+      }
+
       function showProblems(list) {
         const box = $('#problems');
         if (!list.length) { box.classList.add('hidden'); return; }
@@ -792,7 +807,7 @@
           });
 
           flow.patch({ doc: { id: docId, title: (doc && doc.title) || '' }, workflowId: created.id });
-          flow.advance(4);
+          flow.complete(3);
           toast('Approval started',
             created.current_step
               ? 'Now with ' + workflow.addressee(created.current_step)
