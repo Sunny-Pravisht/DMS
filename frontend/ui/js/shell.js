@@ -130,6 +130,12 @@
     { id: 'publish', n: 5, label: 'Publish',           hint: 'Release the record',      href: '/publish', icon: 'send' },
   ];
 
+  // The sidebar should stay focused on the starting action, while the top
+  // journey header continues to show the full document workflow.
+  const WORKFLOW_SIDEBAR = [
+    { id: 'studio', n: 1, label: 'Create Document', hint: 'Start a document', href: '/studio', icon: 'compose' },
+  ];
+
   const STEP_COUNT = JOURNEY.length;
 
   /**
@@ -154,7 +160,7 @@
   ];
 
   const NAV_ADMIN = [
-    { label: 'Workflow', journey: true, items: JOURNEY },
+    { label: 'Workflow', journey: true, items: WORKFLOW_SIDEBAR },
     { label: 'Find & Do', items: FIND_AND_DO },
     // Settings is not listed. It is reached by pressing your own name at the
     // foot of this menu, which is where an account's own preferences belong

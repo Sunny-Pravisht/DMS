@@ -691,16 +691,12 @@
             '<span class="draft-row__meta">Step 3 · choose who signs it</span></span>' +
             icon('chevronRight') + '</button>' +
         '</div>' +
-      '</div>' +
-      '<div class="modal__foot"><div class="btn-row">' +
-        '<button class="btn btn--outline" data-cancel>Cancel</button>' +
-      '</div></div>';
+      '</div>';
 
     document.body.appendChild(el);
     DMS.openOverlay(el);
 
     const close = () => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); };
-    el.querySelector('[data-cancel]').onclick = close;
     el.querySelectorAll('[data-next]').forEach(b => {
       b.onclick = () => { close(); publish(b.dataset.next); };
     });
@@ -1361,7 +1357,7 @@
 
   /** Show or hide the editor-only buttons in the top bar. */
   function editorActions(on) {
-    ['#btn-preview', '#btn-draft', '#btn-publish', '#doc-state'].forEach(sel => {
+    ['#btn-preview', '#btn-draft', '#btn-publish', '#doc-state', '#btn-cancel-doc'].forEach(sel => {
       const el = $(sel);
       if (el) el.hidden = !on;
     });
@@ -1739,6 +1735,9 @@
   $('#btn-draft').onclick = () => saveDraft(false);
   $('#btn-publish').onclick = publishDialog;
   $('#btn-preview').onclick = previewPdf;
+  $('#btn-cancel-doc').onclick = () => {
+    window.location.href = '/home';
+  };
 
   // Layout
   window.addEventListener('resize', fitPaper);
