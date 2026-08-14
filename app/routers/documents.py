@@ -1023,10 +1023,13 @@ def create_and_add_tag_to_document(
             db.flush()
 
         if tag in document.tags:
-            already.append(tag)
-        else:
-            document.tags.append(tag)
-            added.append(tag)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Tag already associated with document: {tag.name}",
+            )
+
+        document.tags.append(tag)
+        added.append(tag)
 
     db.commit()
 
