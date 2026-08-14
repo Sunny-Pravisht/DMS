@@ -1036,8 +1036,13 @@ def create_and_add_tag_to_document(
     if already:
         parts.append(f"{', '.join(t.name for t in already)} was already there")
 
+    tag_ids = [t.id for t in added + already]
+    tag_id = tag_ids[0] if tag_ids else None
+
     return TagAddResponse(
         message=" · ".join(parts) or "Nothing to add",
+        tag_id=tag_id,
+        tag_ids=tag_ids,
         added=[TagSchema.model_validate(t) for t in added],
         already_present=[TagSchema.model_validate(t) for t in already],
         tags=[TagSchema.model_validate(t) for t in document.tags],

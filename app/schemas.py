@@ -87,11 +87,13 @@ class TagAddRequest(BaseModel):
 
 class TagAddResponse(BaseModel):
     message: str
-    added: List[Tag] = []
-    already_present: List[Tag] = []
+    tag_id: Optional[str] = None
+    tag_ids: List[str] = Field(default_factory=list)
+    added: List[Tag] = Field(default_factory=list)
+    already_present: List[Tag] = Field(default_factory=list)
     # The document's full tag list afterwards, so a caller can render the
     # result without a second round trip to find out what it now has.
-    tags: List[Tag] = []
+    tags: List[Tag] = Field(default_factory=list)
 
 # Document schemas
 class DocumentBase(BaseModel):
