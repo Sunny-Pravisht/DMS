@@ -639,6 +639,7 @@
       // Carry it into the four-step journey, so a written document and an
       // uploaded one arrive at Review, Process and Track the same way.
       flow.patch({ doc: { id: result.id, title: result.title }, confirmed: false });
+      flow.complete(1);
 
       // Keep the Studio's tile strip pointing at what was actually saved. When
       // this was a revision of an uploaded file, the tile must follow the new
@@ -690,16 +691,12 @@
             '<span class="draft-row__meta">Step 3 · choose who signs it</span></span>' +
             icon('chevronRight') + '</button>' +
         '</div>' +
-      '</div>' +
-      '<div class="modal__foot"><div class="btn-row">' +
-        '<button class="btn btn--outline" data-cancel>Cancel</button>' +
-      '</div></div>';
+      '</div>';
 
     document.body.appendChild(el);
     DMS.openOverlay(el);
 
     const close = () => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); };
-    el.querySelector('[data-cancel]').onclick = close;
     el.querySelectorAll('[data-next]').forEach(b => {
       b.onclick = () => { close(); publish(b.dataset.next); };
     });
@@ -742,6 +739,20 @@
   /* ------------------------------------------------------------------ boot */
 
   async function boot() {
+    // Wait until the shell knows the signed-in user before reading/writing the
+    // user-scoped workflow state. Without this, flow.clear() can run before
+    // currentUserId is known and the old document pointer survives.
+    if (DMS.ready) {
+      try { await DMS.ready; } catch (e) { /* page can still render */ }
+    }
+
+    // /studio without an id is always the clean start screen. Existing
+    // documents are opened only through /studio?id=<document_id>.
+    const isExistingDocument = new URLSearchParams(location.search).has('id');
+    if (!isExistingDocument) {
+      flow.clear();
+    }
+
     // Templates first: nothing else can render without a spec.
     const data = await api.safe('/api/studio/templates', { templates: [] });
     state.templates = data.templates || [];
@@ -753,11 +764,18 @@
     renderSignaturePreview();
     prefillSignatory();
 
-    const docId = params.get('id');
-    const draftId = params.get('draft');
-    const templateId = params.get('template');
+    const isNewDocument = params.get('new') === '1';
+    const docId = isNewDocument ? null : params.get('id');
+    const draftId = isNewDocument ? null : params.get('draft');
+    const templateId = isNewDocument ? null : params.get('template');
 
-    if (docId) await openDocument(docId);
+    // /studio?new=1 is an explicit request to start a completely new document.
+    // Never reopen the document from the previous workflow just because an old
+    // URL, browser history entry, or flow pointer is still present.
+    if (isNewDocument) {
+      flow.patch({ doc: null, confirmed: false });
+      await showStart();
+    } else if (docId) await openDocument(docId);
     else if (draftId) await openDraft(draftId);
     else if (templateId) await startFromTemplate(templateId);
     else await showStart();
@@ -968,9 +986,17 @@
     const docs = await Promise.all(remembered.map(e =>
       api.safe('/api/documents/' + encodeURIComponent(e.id), null)));
 
-    remembered.forEach((entry, n) => {
+    for (let n = 0; n < remembered.length; n += 1) {
+      const entry = remembered[n];
       const doc = docs[n];
-      if (!doc) { flow.forgetUpload(entry.id); return; }   // gone since
+      if (!doc) { flow.forgetUpload(entry.id); continue; }   // gone since
+
+      const workflow = await DMS.workflow.forDocument(doc.id);
+      if (workflow && workflow.status === 'published') {
+        flow.forgetUpload(entry.id);
+        continue;
+      }
+
       const key = 'r' + (++intakeSeq);
       intake.set(key, {
         key: key,
@@ -981,7 +1007,7 @@
         state: 'ready',
         fresh: false,
       });
-    });
+    }
 
     if (intake.size) renderIntake();
   }
@@ -1025,6 +1051,7 @@
         item.state = 'ready';
         // Carry the newest one into step 2 so Review opens on it.
         flow.patch({ doc: { id: doc.id, title: item.title }, confirmed: false });
+        flow.complete(1);
         // And keep it on this screen, so coming back from step 2 still shows
         // what was brought in.
         flow.rememberUpload({ id: doc.id, name: item.name, size: item.size });
@@ -1330,7 +1357,7 @@
 
   /** Show or hide the editor-only buttons in the top bar. */
   function editorActions(on) {
-    ['#btn-preview', '#btn-draft', '#btn-publish', '#doc-state'].forEach(sel => {
+    ['#btn-preview', '#btn-draft', '#btn-publish', '#doc-state', '#btn-cancel-doc'].forEach(sel => {
       const el = $(sel);
       if (el) el.hidden = !on;
     });
@@ -1708,6 +1735,9 @@
   $('#btn-draft').onclick = () => saveDraft(false);
   $('#btn-publish').onclick = publishDialog;
   $('#btn-preview').onclick = previewPdf;
+  $('#btn-cancel-doc').onclick = () => {
+    window.location.href = '/home';
+  };
 
   // Layout
   window.addEventListener('resize', fitPaper);

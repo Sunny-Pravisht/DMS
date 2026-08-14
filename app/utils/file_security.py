@@ -197,10 +197,22 @@ def validate_file_upload(
         logger.error(f"Error checking MIME type: {e}")
         raise FileSecurityError("Could not verify file type")
     
-    # Check for dangerous patterns
-    for pattern in DANGEROUS_PATTERNS:
-        if pattern in content[:1024]:  # Check first 1KB
-            raise FileSecurityError("File contains potentially dangerous content")
+    # Check for dangerous patterns only in text files. Skip binary formats
+    # (PDF, images, Office docs) as they can legitimately contain these bytes.
+    text_mime_types = {
+        'text/plain', 'text/csv', 'text/markdown',
+        'application/rtf'
+    }
+    
+    if detected_mime in text_mime_types:
+        # For text files, check for script tags and server-side code
+        text_patterns = [
+            b'<script', b'javascript:', b'onclick=', b'onerror=',
+            b'<?php', b'<%', b'<jsp:', b'#!/bin/'
+        ]
+        for pattern in text_patterns:
+            if pattern in content[:1024]:  # Check first 1KB
+                raise FileSecurityError("File contains potentially dangerous content")
     
     # Generate safe filename
     safe_filename = sanitize_filename(filename)

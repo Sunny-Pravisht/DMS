@@ -15,10 +15,7 @@
 
     <div class="main">
       <header class="topbar" id="topbar"></header>
-      <div id="topbar-actions" hidden>
-        <a class="btn btn--outline btn--sm" href="/studio#add"><i data-icon="upload"></i>Add a file</a>
-        <a class="btn btn--primary btn--sm" href="/studio"><i data-icon="compose"></i>Write a document</a>
-      </div>
+      <div id="topbar-actions" hidden></div>
 
       <main class="page">
         <!-- The top bar already says "All Documents". -->
@@ -78,9 +75,7 @@
                   </thead>
                   <tbody id="doc-rows">
                     <tr><td colspan="5" style="padding:0">
-                      <div class="skeleton" style="height:52px;border-radius:0"></div>
-                      <div class="skeleton" style="height:52px;border-radius:0;margin-top:1px"></div>
-                      <div class="skeleton" style="height:52px;border-radius:0;margin-top:1px"></div>
+                      <div style="height:180px;border-radius:0;background:transparent"></div>
                     </td></tr>
                   </tbody>
                 </table>
@@ -137,19 +132,9 @@
 
       function render() {
         if (!items.length) {
-          rows.innerHTML = '<tr><td colspan="5"><div class="empty">' +
-            '<span class="tile-icon tile-icon--grey">' + icon('documents') + '</span>' +
-            '<h3>' + (filter.q || filter.view || filter.corr || filter.type
-              ? 'Nothing matches' : 'No documents yet') + '</h3>' +
-            '<p>' + (filter.q || filter.view || filter.corr || filter.type
-              ? 'Try a different filter, or clear them.'
-              : 'Write one on a HARMAN or vendor letterhead, or bring in a file you already have.') +
-            '</p><div class="btn-row">' +
-              '<a class="btn btn--outline" href="/studio#add">' + icon('upload') + 'Add a file</a>' +
-              '<a class="btn btn--primary" href="/studio">' + icon('compose') + 'Write a document</a>' +
-            '</div></div></td></tr>';
+          rows.innerHTML = '<tr><td colspan="5" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
           grid.innerHTML = '';
-          count.textContent = 'No documents';
+          count.textContent = '';
           pageInfo.textContent = '';
           return;
         }

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,24 +11,24 @@
 <body data-page="publish" data-step="5" data-title="Publish">
   <div class="app">
     <aside class="sidebar" id="sidebar"></aside>
-
     <div class="main">
       <header class="topbar" id="topbar"></header>
       <div id="topbar-actions" hidden>
-        <a class="btn btn--outline btn--sm" href="/track"><i data-icon="approvals"></i>Back to tracking</a>
+        <a class="btn btn--outline btn--sm" id="back-track" href="/track"><i data-icon="approvals"></i>Back to tracking</a>
       </div>
 
       <main class="page">
         <div data-journey></div>
+        <div class="t-eyebrow mb-3">Step 5 of 5 · Publish</div>
 
-        <div class="t-eyebrow mb-3">Step 5 of 5 · Publishing</div>
+        <div class="card card--accent card--pad mb-3" id="document-context" hidden></div>
+        <div class="banner banner--warn mb-3 hidden" id="not-ready"></div>
 
         <div class="tabs" data-tabs="pub">
           <button data-tab="ready" class="is-active">Ready to publish<span class="tabs__count" id="c-ready">0</span></button>
           <button data-tab="done">Already published<span class="tabs__count" id="c-done">0</span></button>
         </div>
 
-        <!-- Ready -->
         <div class="tab-panel is-active" data-panel="ready" data-scope="pub">
           <div class="filter-bar mb-3">
             <label class="input-icon" style="flex:1;min-width:240px">
@@ -37,35 +36,23 @@
               <input class="input" id="q" type="search" placeholder="Search approved documents">
             </label>
             <span class="spacer"></span>
-            <button class="btn btn--sm btn--outline" id="btn-refresh">
-              <i data-icon="refresh"></i>Refresh</button>
+            <button class="btn btn--sm btn--outline" id="btn-refresh"><i data-icon="refresh"></i>Refresh</button>
           </div>
-          <div id="ready-list">
-            <div class="card card--pad"><div class="skeleton" style="height:120px"></div></div>
-          </div>
+          <div id="ready-list"></div>
         </div>
 
-        <!-- Published -->
         <div class="tab-panel" data-panel="done" data-scope="pub">
-          <div id="done-list">
-            <div class="card card--pad"><div class="skeleton" style="height:120px"></div></div>
-          </div>
+          <div id="done-list"></div>
         </div>
 
-        <!-- The end of the journey, which is also the start of the next one.
-             Without this the five steps stop dead and the only way to begin
-             again is the sidebar. -->
         <div class="next-bar">
           <div>
-            <div class="next-bar__text">That is the whole journey.</div>
-            <div class="t-xs muted-2">Published documents stay in the repository, searchable
-              and versioned, with their approval trail attached.</div>
+            <div class="next-bar__text">This document stays versioned after publishing.</div>
+            <div class="t-xs muted-2">The published record remains searchable with its approval trail attached.</div>
           </div>
           <div class="btn-row">
-            <a class="btn btn--outline" href="/documents">
-              <i data-icon="file"></i>See the repository</a>
-            <a class="btn btn--primary btn--lg" href="/studio">
-              <i data-icon="plus"></i>Start another document</a>
+            <a class="btn btn--outline" href="/documents"><i data-icon="file"></i>See the repository</a>
+            <a class="btn btn--primary btn--lg" href="/studio?new=1"><i data-icon="plus"></i>Start another document</a>
           </div>
         </div>
       </main>
@@ -75,58 +62,102 @@
   <script src="/static/ui/js/shell.js"></script>
   <script>
     (function () {
-      const { api, fmt, escapeHtml, toast, icon, flow, workflow, confirmDanger,
-              signatureMark } = DMS;
+      const { api, fmt, escapeHtml, toast, icon, flow, workflow, confirmDanger } = DMS;
       const $ = s => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+      const wantedDocId = params.get('id') || null;
+      let ready = [], published = [], selectedWorkflow = null;
 
-      let ready = [];
-      let published = [];
+      function trackHref(id) { return id ? '/track?id=' + encodeURIComponent(id) : '/track'; }
+      function documentTitle(wf) { return (wf && wf.document && (wf.document.title || wf.document.original_filename)) || 'Document'; }
 
-      // Arriving from step 4 with a particular document in mind. The queue is
-      // a list, so without this you land at the top and have to find yours
-      // again - the commonest way a five-step journey loses its thread.
-      let wantDocId = new URLSearchParams(location.search).get('id');
-
-      /* --------------------------------------------------------------- load */
       async function load() {
+        // The Publish screen is the final step of the current-document journey.
+        // When no document id is supplied, keep it clean instead of showing the
+        // repository's oldest/previous publishing queue. The repository remains
+        // available through the explicit "See the repository" action.
+        if (!wantedDocId) {
+          ready = [];
+          published = [];
+          $('#c-ready').textContent = '0';
+          $('#c-done').textContent = '0';
+          $('#document-context').hidden = false;
+          $('#document-context').innerHTML = '<div class="row-top"><span class="tile-icon tile-icon--solid">' + icon('file') + '</span><div><div class="t-h3">No document selected</div><div class="t-sm muted mt-1">Upload or create a document first. Publishing becomes available after all required approvals are complete.</div></div></div>';
+          $('#not-ready').classList.add('hidden');
+          renderReady();
+          renderPublished();
+          return;
+        }
+
         const q = $('#q').value.trim();
-        const data = await api.safe('/api/publishing/queue' + (q ? '?q=' + encodeURIComponent(q) : ''),
-          { ready: [], published: [] });
+        const data = await api.safe('/api/publishing/queue' + (q ? '?q=' + encodeURIComponent(q) : ''), { ready: [], published: [] });
         ready = data.ready || [];
         published = data.published || [];
-
         $('#c-ready').textContent = ready.length;
         $('#c-done').textContent = published.length;
 
+        selectedWorkflow = null;
+        const wfData = await api.safe('/api/workflow/by-document/' + encodeURIComponent(wantedDocId), { workflow: null });
+        selectedWorkflow = wfData && wfData.workflow ? wfData.workflow : null;
+        renderDocumentContext(selectedWorkflow);
+
         renderReady();
         renderPublished();
-        flow.advance(5);
         revealWanted();
       }
 
-      /** Scroll to the document we were sent here for, and mark which it is. */
-      function revealWanted() {
-        if (!wantDocId) return;
-        const match = ready.find(w => (w.document || {}).id === wantDocId);
-        wantDocId = null;
-        if (!match) return;
-        const card = $('[data-wf="' + CSS.escape(match.id) + '"]');
-        if (!card) return;
-        card.classList.add('is-target');
-        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      function renderDocumentContext(wf) {
+        const host = $('#document-context');
+        if (!wantedDocId) { host.hidden = true; return; }
+        host.hidden = false;
+        if (!wf) {
+          host.innerHTML = '<div class="row-top"><span class="tile-icon tile-icon--solid">' + icon('file') + '</span>' +
+            '<div><div class="t-h3">Document not found</div><div class="t-sm muted mt-1">This document does not have an active approval process.</div></div></div>';
+          $('#not-ready').classList.remove('hidden');
+          $('#not-ready').innerHTML = icon('alert') + '<div><strong>This document is not ready to publish.</strong><div class="t-sm mt-1">Set up and complete an approval process before releasing it.</div><div class="btn-row mt-2"><a class="btn btn--sm btn--outline" href="/process?id=' + encodeURIComponent(wantedDocId) + '">Set up approval</a></div></div>';
+          return;
+        }
+
+        const total = (wf.steps || []).length;
+        const done = (wf.steps || []).filter(s => s.status === 'approved').length;
+        const status = wf.status || 'active';
+        const statusLabel = (workflow.STATUS[status] || {}).label || status;
+        host.innerHTML = '<div class="row-top"><span class="tile-icon tile-icon--solid">' + icon(status === 'approved' || status === 'published' ? 'check' : 'workflow') + '</span>' +
+          '<div style="min-width:0"><div class="t-h3 truncate">' + escapeHtml(documentTitle(wf)) + '</div>' +
+          '<div class="t-xs muted mt-1">' + escapeHtml(wf.document && wf.document.doctype || 'Document') + ' · v' + escapeHtml(wf.document && wf.document.version || '1.0') + ' · ' + escapeHtml(statusLabel) + '</div></div>' +
+          '<span class="spacer"></span><span class="badge ' + (status === 'approved' || status === 'published' ? 'badge--accent' : '') + '">' + escapeHtml(statusLabel) + '</span></div>' +
+          '<div class="t-sm mt-3"><strong>Approval progress:</strong> ' + done + ' of ' + total + ' completed</div>';
+
+        const notReady = $('#not-ready');
+        if (status === 'approved') {
+          notReady.classList.add('hidden');
+        } else if (status === 'published') {
+          notReady.classList.add('hidden');
+        } else {
+          notReady.classList.remove('hidden');
+          const current = wf.current_step ? (workflow.addressee(wf.current_step, { short: true }) || 'the next approver') : 'the remaining approver(s)';
+          notReady.innerHTML = icon('clock') + '<div><strong>This document is not ready to publish.</strong><div class="t-sm mt-1">' + escapeHtml(done + ' of ' + total + ' approval steps are complete. Waiting on ' + current + '.') + '</div><div class="btn-row mt-2"><a class="btn btn--sm btn--outline" href="' + trackHref(wantedDocId) + '">Back to tracking</a></div></div>';
+        }
+
+        $('#back-track').href = trackHref(wantedDocId);
       }
 
-      /* -------------------------------------------------------------- ready */
+      function revealWanted() {
+        if (!wantedDocId) return;
+        const match = ready.find(w => (w.document || {}).id === wantedDocId);
+        if (!match) return;
+        const card = $('[data-wf="' + CSS.escape(match.id) + '"]');
+        if (card) { card.classList.add('is-target'); card.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      }
+
       function renderReady() {
         const host = $('#ready-list');
         if (!ready.length) {
           host.innerHTML = '<div class="card card--pad"><div class="empty" style="padding:46px">' +
             '<span class="tile-icon tile-icon--grey">' + icon('send') + '</span>' +
-            '<h3>Nothing is ready to publish</h3>' +
-            '<p>A document arrives here once every approver in its chain has acted. ' +
-            'Check what is still in flight on the tracking screen.</p>' +
-            '<div class="btn-row"><a class="btn btn--outline" href="/track">' +
-            'See what is in progress</a></div></div></div>';
+            '<h3>' + (wantedDocId ? 'Nothing is ready to publish for this document' : 'Nothing is ready to publish') + '</h3>' +
+            '<p>' + (wantedDocId ? 'Complete every required approval step first. The document will appear here when the approval status becomes Ready to publish.' : 'A document arrives here once every approver in its chain has acted. Check what is still in flight on the tracking screen.') + '</p>' +
+            '<div class="btn-row"><a class="btn btn--outline" href="' + trackHref(wantedDocId) + '">See approval status</a></div></div></div>';
           return;
         }
 
@@ -134,292 +165,92 @@
           const doc = w.document || {};
           const signed = (w.signatures || []).length;
           return '<div class="card mb-3" data-wf="' + escapeHtml(w.id) + '">' +
-            '<div class="card__head">' +
-              '<span class="tile-icon tile-icon--solid">' + icon('check') + '</span>' +
-              '<div style="min-width:0">' +
-                '<h3 class="t-h3 truncate">' + escapeHtml(doc.title || 'Untitled') + '</h3>' +
-                '<div class="t-xs muted">' +
-                  escapeHtml(doc.doctype || 'No type') +
-                  (doc.correspondent ? ' · ' + escapeHtml(doc.correspondent) : '') +
-                  ' · v' + escapeHtml(doc.version || '1.0') +
-                  ' · approved ' + fmt.ago(w.completed_at) + '</div>' +
-              '</div>' +
-              '<span class="spacer"></span>' +
-              workflow.priorityBadge(w.priority) +
-              '<span class="badge badge--accent">' + icon('check') + 'Approved</span>' +
-            '</div>' +
-
-            '<div class="card__body">' +
-              '<div class="grid grid-2" style="align-items:start">' +
-                // Who approved it, and how
-                '<div>' +
-                  '<div class="t-eyebrow mb-2">Approved by</div>' +
-                  '<div class="stack-sm">' + (w.steps || [])
-                    .filter(s => s.status === 'approved')
-                    .map(s => '<div class="row" style="gap:8px">' +
-                      icon(s.requires_signature ? 'stamp' : 'check') +
-                      '<span class="t-sm">' +
-                        escapeHtml((s.decided_by && s.decided_by.name) || 'Unknown') +
-                        (s.signature && s.signature.designation
-                          ? '<span class="muted-2">, ' + escapeHtml(s.signature.designation) + '</span>'
-                          : '') +
-                        ' <span class="muted-2">· ' + escapeHtml(s.name) + '</span></span>' +
-                      '<span class="spacer"></span>' +
-                      '<span class="t-xs muted-2">' + fmt.date(s.decided_at) + '</span>' +
-                      '</div>').join('') +
-                  '</div>' +
-
-                  // What actually goes onto the document when it is released.
-                  (signed
-                    ? '<div class="banner mt-3">' + icon('signature') +
-                      '<div><strong>' + signed +
-                      (signed === 1 ? ' signature' : ' signatures') +
-                      ' will be stamped on the document.</strong> Check the placement before ' +
-                      'you release it.</div></div>' +
-                      '<div class="btn-row mt-2">' +
-                        '<button class="btn btn--sm btn--outline" data-place="' +
-                          escapeHtml(w.id) + '">' + icon('signature') + 'Adjust placement</button>' +
-                        '<button class="btn btn--sm btn--ghost" data-preview-signed="' +
-                          escapeHtml(w.id) + '">' + icon('eye') + 'Preview signed</button>' +
-                      '</div>'
-                    : '<div class="t-xs muted-2 mt-2">No signatures were captured — every step ' +
-                      'on this approval was approval-only, so nothing is stamped on the ' +
-                      'document.</div>') +
-                '</div>' +
-
-                // Export choices, asked of the server so nothing is offered
-                // that would fail for this particular file.
-                '<div>' +
-                  '<div class="t-eyebrow mb-2">Export as</div>' +
-                  '<div class="export-grid" data-formats="' + escapeHtml(doc.id || '') + '">' +
-                    '<div class="skeleton" style="height:56px"></div>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="card__foot row">' +
-              '<a class="btn btn--sm btn--ghost" href="/track?id=' +
-                encodeURIComponent(w.document_id) + '">' + icon('approvals') + 'The approval trail</a>' +
-              '<a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" ' +
-                'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
-                icon('eye') + 'Read it</a>' +
-              '<span class="spacer"></span>' +
-              '<button class="btn btn--sm btn--outline" data-print="' +
-                escapeHtml(doc.id || '') + '">' + icon('file') + 'Print</button>' +
-              '<button class="btn btn--primary" data-publish="' + escapeHtml(w.id) + '">' +
-                icon('send') + 'Publish</button>' +
-            '</div></div>';
+            '<div class="card__head"><span class="tile-icon tile-icon--solid">' + icon('check') + '</span>' +
+            '<div style="min-width:0"><h3 class="t-h3 truncate">' + escapeHtml(doc.title || 'Untitled') + '</h3>' +
+            '<div class="t-xs muted">' + escapeHtml(doc.doctype || 'No type') + (doc.correspondent ? ' · ' + escapeHtml(doc.correspondent) : '') + ' · v' + escapeHtml(doc.version || '1.0') + ' · approved ' + fmt.ago(w.completed_at) + '</div></div>' +
+            '<span class="spacer"></span>' + workflow.priorityBadge(w.priority) + '<span class="badge badge--accent">' + icon('check') + 'Approved</span></div>' +
+            '<div class="card__body"><div class="grid grid-2" style="align-items:start"><div>' +
+            '<div class="t-eyebrow mb-2">Approval trail</div><div class="stack-sm">' + (w.steps || []).filter(s => s.status === 'approved').map(s =>
+              '<div class="row" style="gap:8px">' + icon(s.requires_signature ? 'stamp' : 'check') + '<span class="t-sm">' + escapeHtml((s.decided_by && s.decided_by.name) || 'Unknown') + (s.signature && s.signature.designation ? '<span class="muted-2">, ' + escapeHtml(s.signature.designation) + '</span>' : '') + ' <span class="muted-2">· ' + escapeHtml(s.name) + '</span></span><span class="spacer"></span><span class="t-xs muted-2">' + fmt.date(s.decided_at) + '</span></div>').join('') + '</div>' +
+            (signed ? '<div class="banner mt-3">' + icon('signature') + '<div><strong>' + signed + (signed === 1 ? ' signature' : ' signatures') + ' will be stamped on the document.</strong> Check the placement before you release it.</div></div><div class="btn-row mt-2"><button class="btn btn--sm btn--outline" data-place="' + escapeHtml(w.id) + '">' + icon('signature') + 'Adjust placement</button><button class="btn btn--sm btn--ghost" data-preview-signed="' + escapeHtml(w.id) + '">' + icon('eye') + 'Preview signed</button></div>' : '<div class="t-xs muted-2 mt-2">No signatures were captured — every step was approval-only.</div>') +
+            '</div><div><div class="t-eyebrow mb-2">Export as</div><div class="export-grid" data-formats="' + escapeHtml(doc.id || '') + '"><div class="skeleton" style="height:56px"></div></div></div></div></div>' +
+            '<div class="card__foot row"><a class="btn btn--sm btn--ghost" href="' + trackHref(w.document_id) + '">' + icon('approvals') + 'Approval trail</a><a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' + icon('eye') + 'Read it</a><span class="spacer"></span><button class="btn btn--sm btn--outline" data-print="' + escapeHtml(doc.id || '') + '">' + icon('file') + 'Print</button><button class="btn btn--primary" data-publish="' + escapeHtml(w.id) + '">' + icon('send') + 'Publish</button></div></div>';
         }).join('');
-
         host.querySelectorAll('[data-formats]').forEach(loadFormats);
       }
 
-      /**
-       * Ask the server which exports actually work for this document, and say
-       * why the others do not. A button that always fails is worse than a
-       * button that explains itself.
-       */
       async function loadFormats(host) {
         const docId = host.dataset.formats;
         if (!docId) { host.innerHTML = ''; return; }
         const data = await api.safe('/api/publishing/formats/' + docId, { formats: [] });
-
-        host.innerHTML = (data.formats || []).map(f =>
-          '<button class="export' + (f.primary ? ' export--primary' : '') + '"' +
-            (f.available ? '' : ' disabled') +
-            ' data-export="' + escapeHtml(f.id) + '" data-doc="' + escapeHtml(docId) + '">' +
-            '<span class="export__label">' + icon('download') + escapeHtml(f.label) + '</span>' +
-            '<span class="export__hint">' +
-              escapeHtml(f.available ? f.hint : f.reason) + '</span>' +
-          '</button>').join('');
+        host.innerHTML = (data.formats || []).map(f => '<button class="export' + (f.primary ? ' export--primary' : '') + '"' + (f.available ? '' : ' disabled') + ' data-export="' + escapeHtml(f.id) + '" data-doc="' + escapeHtml(docId) + '"><span class="export__label">' + icon('download') + escapeHtml(f.label) + '</span><span class="export__hint">' + escapeHtml(f.available ? f.hint : f.reason) + '</span></button>').join('');
       }
 
-      /* ---------------------------------------------------------- published */
       function renderPublished() {
         const host = $('#done-list');
         if (!published.length) {
-          host.innerHTML = '<div class="card card--pad"><div class="empty" style="padding:44px">' +
-            '<span class="tile-icon tile-icon--grey">' + icon('archive') + '</span>' +
-            '<h3>Nothing published yet</h3>' +
-            '<p>Published documents are listed here with who released them and when.</p>' +
-            '</div></div>';
+          host.innerHTML = '<div class="card card--pad"><div class="empty" style="padding:44px"><span class="tile-icon tile-icon--grey">' + icon('archive') + '</span><h3>Nothing published yet</h3><p>Published documents are listed here with who released them and when.</p></div></div>';
           return;
         }
-
-        // A framed table rather than one inside a card: the published record is
-        // the content of this tab, not a component sitting on it.
-        host.innerHTML = '<div class="table-wrap table-wrap--framed"><table class="table">' +
-          '<thead><tr><th>Document</th><th>Type</th><th>Version</th>' +
-          '<th>Approved by</th><th>Published</th><th>Released by</th>' +
-          '<th></th></tr></thead><tbody>' +
+        host.innerHTML = '<div class="table-wrap table-wrap--framed"><table class="table"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Approval trail</th><th>Published</th><th>Released by</th><th></th></tr></thead><tbody>' +
           published.map(w => {
             const doc = w.document || {};
-            // Who actually signed it off, which is the question asked of a
-            // published record far more often than who pressed publish.
-            const signers = (w.steps || [])
-              .filter(s => s.status === 'approved')
-              .flatMap(s => (s.approved_by || []).length
-                ? s.approved_by.map(p => p.name)
-                : [(s.decided_by && s.decided_by.name)])
-              .filter(Boolean);
+            const signers = (w.steps || []).filter(s => s.status === 'approved').flatMap(s => (s.approved_by || []).length ? s.approved_by.map(p => p.name) : [(s.decided_by && s.decided_by.name)]).filter(Boolean);
             const unique = signers.filter((n, i) => signers.indexOf(n) === i);
-
-            return '<tr>' +
-              '<td><div class="cell-title truncate" style="max-width:38ch">' +
-                escapeHtml(doc.title || 'Untitled') + '</div>' +
-                (doc.correspondent
-                  ? '<div class="cell-sub truncate" style="max-width:38ch">' +
-                    escapeHtml(doc.correspondent) + '</div>' : '') + '</td>' +
-              '<td>' + (doc.doctype
-                ? '<span class="badge">' + escapeHtml(doc.doctype) + '</span>'
-                : '<span class="muted-2">—</span>') + '</td>' +
-              '<td><span class="version__tag is-locked">' + icon('lock') + ' v' +
-                escapeHtml(doc.version || '1.0') + '</span></td>' +
-              '<td><div class="truncate" style="max-width:26ch">' +
-                (unique.length ? escapeHtml(unique.join(', '))
-                               : '<span class="muted-2">—</span>') + '</div>' +
-                (unique.length > 1
-                  ? '<div class="cell-sub">' + unique.length + ' approvers</div>' : '') +
-                '</td>' +
-              '<td>' + fmt.dateTime(w.published_at) + '</td>' +
-              '<td class="truncate" style="max-width:18ch">' +
-                escapeHtml((w.published_by && w.published_by.name) || 'Unknown') + '</td>' +
-              '<td class="actions"><span class="row-actions">' +
-                '<a class="icon-btn tip" data-tip="Read it" target="_blank" rel="noopener" ' +
-                  'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
-                  icon('eye') + '</a>' +
-                '<a class="icon-btn tip" data-tip="Download the PDF" ' +
-                  'href="/api/publishing/export/' + encodeURIComponent(doc.id || '') +
-                  '?format=pdf">' + icon('download') + '</a>' +
-                '<button class="icon-btn tip" data-tip="Withdraw the publication" ' +
-                  'data-unpublish="' + escapeHtml(w.id) + '">' + icon('refresh') + '</button>' +
-              '</span></td></tr>';
-          }).join('') +
-          '</tbody></table></div>';
+            return '<tr><td><div class="cell-title truncate" style="max-width:38ch">' + escapeHtml(doc.title || 'Untitled') + '</div>' + (doc.correspondent ? '<div class="cell-sub truncate" style="max-width:38ch">' + escapeHtml(doc.correspondent) + '</div>' : '') + '</td><td>' + (doc.doctype ? '<span class="badge">' + escapeHtml(doc.doctype) + '</span>' : '<span class="muted-2">—</span>') + '</td><td><span class="version__tag is-locked">' + icon('lock') + ' v' + escapeHtml(doc.version || '1.0') + '</span></td><td><div class="truncate" style="max-width:26ch">' + (unique.length ? escapeHtml(unique.join(', ')) : '<span class="muted-2">—</span>') + '</div></td><td>' + fmt.dateTime(w.published_at) + '</td><td class="truncate" style="max-width:18ch">' + escapeHtml((w.published_by && w.published_by.name) || 'Unknown') + '</td><td class="actions"><span class="row-actions"><a class="icon-btn tip" data-tip="Read it" target="_blank" rel="noopener" href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' + icon('eye') + '</a><a class="icon-btn tip" data-tip="Download the PDF" href="/api/publishing/export/' + encodeURIComponent(doc.id || '') + '?format=pdf">' + icon('download') + '</a><button class="icon-btn tip" data-tip="Withdraw the publication" data-unpublish="' + escapeHtml(w.id) + '">' + icon('refresh') + '</button></span></td></tr>';
+          }).join('') + '</tbody></table></div>';
       }
 
-      /* ------------------------------------------------------------ actions */
       document.addEventListener('click', async e => {
         const place = e.target.closest('[data-place]');
-        if (place) {
-          const saved = await DMS.placeSignatures(place.dataset.place);
-          if (saved) await load();
-          return;
-        }
-
+        if (place) { const saved = await DMS.placeSignatures(place.dataset.place); if (saved) await load(); return; }
         const previewSigned = e.target.closest('[data-preview-signed]');
-        if (previewSigned) {
-          window.open('/api/signatures/' +
-            encodeURIComponent(previewSigned.dataset.previewSigned) + '/preview',
-            '_blank', 'noopener');
-          return;
-        }
-
+        if (previewSigned) { window.open('/api/signatures/' + encodeURIComponent(previewSigned.dataset.previewSigned) + '/preview', '_blank', 'noopener'); return; }
         const pub = e.target.closest('[data-publish]');
         if (pub) {
           const w = ready.find(x => x.id === pub.dataset.publish);
           const doc = (w && w.document) || {};
           const count = ((w && w.signatures) || []).length;
-          const ok = await confirm2({
-            title: 'Publish this document?',
-            message: (count
-              ? count + (count === 1 ? ' signature is' : ' signatures are') +
-                ' stamped onto the document, and it is released as a new version. '
-              : 'The document is released. ') +
-              'The version that was approved is kept separately and never overwritten.',
-            confirmLabel: count ? 'Stamp and publish' : 'Publish',
-          });
+          const ok = await confirm2({ title: 'Publish this document?', message: (count ? count + (count === 1 ? ' signature is' : ' signatures are') + ' stamped onto the document, and it is released as a new version. ' : 'The document is released. ') + 'The approved version is kept separately and never overwritten.', confirmLabel: count ? 'Stamp and publish' : 'Publish' });
           if (!ok) return;
-
-          pub.disabled = true;
-          pub.innerHTML = icon('clock') + 'Publishing…';
-          try {
-            const result = await api.post('/api/publishing/' + pub.dataset.publish + '/publish', {});
+          pub.disabled = true; pub.innerHTML = icon('clock') + 'Publishing…';
+          try { const result = await api.post('/api/publishing/' + pub.dataset.publish + '/publish', {});
+            flow.complete(5);
+            if (doc.id) flow.forgetUpload(doc.id);
             toast('Published', result.message || ((doc.title || 'The document') + ' is released.'));
-            await load();
-          } catch (err) {
-            pub.disabled = false;
-            pub.innerHTML = icon('send') + 'Publish';
-            toast('Could not publish', String(err.message || err).slice(0, 200), 'danger');
-          }
+            location.href = '/publish?id=' + encodeURIComponent(doc.id || wantedDocId || ''); }
+          catch (err) { pub.disabled = false; pub.innerHTML = icon('send') + 'Publish'; toast('Could not publish', String(err.message || err).slice(0, 200), 'danger'); }
           return;
         }
-
         const un = e.target.closest('[data-unpublish]');
         if (un) {
-          const ok = await confirmDanger({
-            title: 'Withdraw this publication?',
-            message: 'The document stops being published. The approvals it already has are ' +
-                     'untouched, so it can be published again without going round the chain.',
-            confirmLabel: 'Withdraw',
-          });
+          const ok = await confirmDanger({ title: 'Withdraw this publication?', message: 'The document stops being published. Its approval trail remains intact.', confirmLabel: 'Withdraw' });
           if (!ok) return;
-          try {
-            await api.post('/api/publishing/' + un.dataset.unpublish + '/unpublish', {});
-            toast('Publication withdrawn');
-            await load();
-          } catch (err) {
-            toast('Could not withdraw', String(err.message || err).slice(0, 200), 'danger');
-          }
+          try { await api.post('/api/publishing/' + un.dataset.unpublish + '/unpublish', {}); toast('Publication withdrawn'); await load(); }
+          catch (err) { toast('Could not withdraw', String(err.message || err).slice(0, 200), 'danger'); }
           return;
         }
-
         const exp = e.target.closest('[data-export]');
-        if (exp && !exp.disabled) {
-          // A download, not a fetch: let the browser handle the file and the
-          // Content-Disposition the server already set.
-          window.location.href = '/api/publishing/export/' +
-            encodeURIComponent(exp.dataset.doc) + '?format=' + encodeURIComponent(exp.dataset.export);
-          toast('Preparing the ' + exp.dataset.export.toUpperCase());
-          return;
-        }
-
+        if (exp && !exp.disabled) { window.location.href = '/api/publishing/export/' + encodeURIComponent(exp.dataset.doc) + '?format=' + encodeURIComponent(exp.dataset.export); toast('Preparing the ' + exp.dataset.export.toUpperCase()); return; }
         const pr = e.target.closest('[data-print]');
-        if (pr) {
-          // Open the PDF and let the browser's own print dialog handle it,
-          // rather than printing the application page around it.
-          const win = window.open('/api/documents/' + encodeURIComponent(pr.dataset.print) +
-            '/file', '_blank', 'noopener');
-          if (!win) toast('Allow pop-ups to print', 'Your browser blocked the new tab.', 'danger');
-        }
+        if (pr) { const win = window.open('/api/documents/' + encodeURIComponent(pr.dataset.print) + '/file', '_blank', 'noopener'); if (!win) toast('Allow pop-ups to print', 'Your browser blocked the new tab.', 'danger'); }
       });
 
-      /** A neutral confirm, since publishing is not a destructive act. */
       function confirm2(opts) {
         return new Promise(resolve => {
-          const el = document.createElement('div');
-          el.className = 'modal';
-          el.innerHTML =
-            '<div class="modal__head"><div class="row-top">' +
-              '<span class="tile-icon tile-icon--solid">' + icon('send') + '</span>' +
-              '<div><h3 class="t-h2">' + escapeHtml(opts.title) + '</h3>' +
-              '<p class="t-sm muted mt-1">' + escapeHtml(opts.message) + '</p></div>' +
-            '</div></div>' +
-            '<div class="modal__foot"><div class="btn-row">' +
-              '<button class="btn btn--outline" data-no>Cancel</button>' +
-              '<button class="btn btn--primary" data-yes>' + icon('send') +
-                escapeHtml(opts.confirmLabel) + '</button>' +
-            '</div></div>';
-          document.body.appendChild(el);
-          DMS.openOverlay(el);
+          const el = document.createElement('div'); el.className = 'modal';
+          el.innerHTML = '<div class="modal__head"><div class="row-top"><span class="tile-icon tile-icon--solid">' + icon('send') + '</span><div><h3 class="t-h2">' + escapeHtml(opts.title) + '</h3><p class="t-sm muted mt-1">' + escapeHtml(opts.message) + '</p></div></div></div><div class="modal__foot"><div class="btn-row"><button class="btn btn--outline" data-no>Cancel</button><button class="btn btn--primary" data-yes>' + icon('send') + escapeHtml(opts.confirmLabel) + '</button></div></div>';
+          document.body.appendChild(el); DMS.openOverlay(el);
           const done = v => { DMS.closeOverlays(); setTimeout(() => el.remove(), 260); resolve(v); };
-          el.querySelector('[data-yes]').onclick = () => done(true);
-          el.querySelector('[data-no]').onclick = () => done(false);
+          el.querySelector('[data-yes]').onclick = () => done(true); el.querySelector('[data-no]').onclick = () => done(false);
         });
       }
 
-      /* ------------------------------------------------------------ filters */
       let debounce = null;
-      $('#q').addEventListener('input', () => {
-        clearTimeout(debounce);
-        debounce = setTimeout(load, 280);
-      });
+      $('#q').addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(load, 280); });
       $('#btn-refresh').onclick = load;
-
       load();
     })();
   </script>
 </body>
-
 </html>
