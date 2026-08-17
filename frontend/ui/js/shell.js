@@ -155,7 +155,7 @@
     // never a fixed number, because a badge that lies is worse than none.
     { id: 'tasks', label: 'My Tasks', icon: 'approvals', href: '/tasks' },
     { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
-    { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents' },
+    { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents?personal=1' },
     { id: 'search', label: 'Search', icon: 'search', href: '/search' },
     { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
   ];
@@ -197,7 +197,7 @@
     {
       label: 'Find', items: [
         { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
-        { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents' },
+        { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents?personal=1' },
         { id: 'search', label: 'Search', icon: 'search', href: '/search' },
         { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
       ]
@@ -833,10 +833,15 @@
 
   function renderSidebar(active) {
     const reached = flow.reached();
+    const personalFolderPage =
+      window.location.pathname === '/documents' &&
+      new URLSearchParams(window.location.search).get('personal') === '1';
 
     const groups = NAV.map(group => {
       const items = group.items.map(item => {
-        const isActive = item.id === active;
+        const isActive = personalFolderPage
+          ? item.id === 'my-folder'
+          : item.id === active;
         const count = item.count
           ? '<span class="nav-link__count' + (item.alert ? ' is-alert' : '') +
             '" data-nav-count="' + item.id + '">' + item.count + '</span>'

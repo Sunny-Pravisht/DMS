@@ -7,6 +7,174 @@
   <title>Documents · DMS</title>
   <link rel="icon" type="image/png" href="/static/ui/assets/brand/harman-mark-64.png">
   <link rel="stylesheet" href="/static/ui/css/dms.css">
+  <style>
+    /* Keep the personal-folder UI only on the dedicated My Folder page.
+       The normal /documents repository must show the original repository
+       layout without the My Folders / Upload from my PC panel. */
+    body:not(.personal-documents-page) .grid-aside-left > aside.stack > .personal-folder-card {
+      display: none !important;
+    }
+
+    /* Personal My Folder keeps only the folder/upload area.
+       Hide repository-only filters and views from the personal page. */
+    body.personal-documents-page #btn-clear-folder,
+    body.personal-documents-page #views,
+    body.personal-documents-page #by-corr,
+    body.personal-documents-page .filter-bar,
+    body.personal-documents-page #active-filters {
+      display: none !important;
+    }
+
+    body.personal-documents-page .grid-aside-left > aside.stack > .card:nth-child(2),
+    body.personal-documents-page .grid-aside-left > aside.stack > .card:nth-child(3) {
+      display: none !important;
+    }
+
+    /* Make My Folder a simple dedicated page. */
+    body.personal-documents-page .grid-aside-left > aside.stack {
+      align-self: start;
+    }
+
+    /* Clean personal-folder workspace.  There is no synthetic "My Folder"
+       folder: the page contains only folders the user actually created. */
+    body.personal-documents-page .personal-folder-card {
+      border: 1px solid #bfe4f5;
+      box-shadow: 0 8px 24px rgba(8, 78, 113, .06);
+      overflow: hidden;
+    }
+    body.personal-documents-page .personal-folder-card .card__head {
+      padding: 18px 20px;
+      background: linear-gradient(180deg, #f2fbff 0%, #e8f7fc 100%);
+    }
+    body.personal-documents-page .personal-folder-actions {
+      padding: 14px 16px 10px;
+      background: #fff;
+    }
+    body.personal-documents-page .personal-folder-upload {
+      min-height: 42px;
+      font-weight: 700;
+      border-radius: 9px;
+      box-shadow: 0 3px 10px rgba(0, 105, 160, .14);
+    }
+    body.personal-documents-page .personal-folder-help {
+      padding: 0 16px 12px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    body.personal-documents-page #user-folders {
+      padding: 0 8px 8px;
+      margin: 0;
+    }
+    body.personal-documents-page #user-folders .list-item {
+      margin: 2px 0;
+      border-radius: 8px;
+      min-height: 46px;
+    }
+    body.personal-documents-page #user-folders .list-item.is-active {
+      background: #d9f2fb;
+      color: #006fa6;
+      font-weight: 700;
+    }
+    body.personal-documents-page .personal-empty-folders {
+      margin: 8px 0 4px;
+      padding: 18px 12px;
+      text-align: center;
+      border: 1px dashed #b8dce9;
+      border-radius: 9px;
+      background: #f8fdff;
+    }
+    /* Local action icons: do not depend on shell.js icon-name mappings. */
+    .dms-action-icon {
+      width: 18px; height: 18px; display: block;
+      stroke: currentColor; fill: none; stroke-width: 1.9;
+      stroke-linecap: round; stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .icon-btn.dms-visible-action {
+      width: 34px; height: 34px; min-width: 34px;
+      display: inline-flex !important; align-items: center; justify-content: center;
+      padding: 0 !important; border: 1px solid #cfe2eb; border-radius: 7px;
+      background: #fff; color: #0877aa; cursor: pointer;
+      opacity: 1 !important; visibility: visible !important;
+      box-sizing: border-box;
+    }
+    .icon-btn.dms-visible-action:hover { background: #eef9fd; border-color: #0877aa; }
+    .icon-btn.dms-visible-action.is-danger { color: #d83b3b; border-color: #f0caca; }
+    .icon-btn.dms-visible-action.is-danger:hover { background: #fff2f2; border-color: #d83b3b; }
+    .icon-btn.dms-visible-action.dms-view-action { color:#0877aa; }
+    .icon-btn.dms-visible-action.dms-move-action { color:#6b4bb5; }
+    .icon-btn.dms-visible-action.dms-view-action:hover { background:#eef9fd; border-color:#0877aa; }
+    .icon-btn.dms-visible-action.dms-move-action:hover { background:#f5f0ff; border-color:#8a69c7; }
+
+    .move-modal-backdrop {
+      position:fixed; inset:0; z-index:10000; display:none; align-items:center; justify-content:center;
+      padding:20px; background:rgba(3,31,48,.52); backdrop-filter:blur(3px);
+    }
+    .move-modal-backdrop.is-open { display:flex; }
+    .move-modal { width:min(480px,100%); background:#fff; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.24); overflow:hidden; }
+    .move-modal__head { padding:20px 22px 14px; background:linear-gradient(180deg,#f2fbff 0%,#fff 100%); border-bottom:1px solid #e3edf2; }
+    .move-modal__body { padding:20px 22px; }
+    .move-modal__foot { display:flex; justify-content:flex-end; gap:10px; padding:14px 22px 18px; border-top:1px solid #e7eef2; }
+    .move-modal__select { width:100%; min-height:44px; margin-top:8px; padding:10px 12px; border:1px solid #b8d5e2; border-radius:8px; background:#fff; font:inherit; outline:none; }
+    .move-modal__select:focus { border-color:#0877aa; box-shadow:0 0 0 3px rgba(8,119,170,.12); }
+    .move-modal__document { margin-top:8px; padding:10px 12px; border-radius:8px; background:#f5fbfe; color:#34515f; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dms-folder-row { display:flex; align-items:center; width:100%; gap:8px; }
+    .dms-folder-select {
+      flex:1; min-width:0; display:flex; align-items:center; gap:10px;
+      border:0; background:transparent; padding:0; margin:0;
+      text-align:left; color:inherit; font:inherit; cursor:pointer;
+    }
+    .dms-folder-actions {
+      display:flex; align-items:center; gap:5px; margin-left:auto;
+      flex-shrink:0; opacity:1 !important; visibility:visible !important;
+    }
+    .dms-upload-status {
+      display:inline-flex; align-items:center; gap:7px; margin-left:8px;
+      color:#0877aa; font-size:12px; font-weight:600;
+    }
+    .dms-upload-spinner {
+      width:12px; height:12px; border:2px solid #cde8f2; border-top-color:#0877aa;
+      border-radius:50%; animation:dmsSpin .7s linear infinite;
+    }
+    @keyframes dmsSpin { to { transform:rotate(360deg); } }
+
+    .folder-modal-backdrop {
+      position: fixed; inset: 0; z-index: 9999;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      background: rgba(3, 31, 48, .52);
+      backdrop-filter: blur(3px);
+    }
+    .folder-modal-backdrop.is-open { display: flex; }
+    .folder-modal {
+      width: min(460px, 100%);
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.24);
+      overflow: hidden;
+      animation: folderModalIn .16s ease-out;
+    }
+    .folder-modal__head {
+      padding: 20px 22px 14px;
+      background: linear-gradient(180deg, #f2fbff 0%, #fff 100%);
+      border-bottom: 1px solid #e3edf2;
+    }
+    .folder-modal__body { padding: 20px 22px; }
+    .folder-modal__foot {
+      display:flex; justify-content:flex-end; gap:10px;
+      padding: 14px 22px 18px;
+      border-top: 1px solid #e7eef2;
+    }
+    .folder-modal__input {
+      width:100%; box-sizing:border-box; margin-top:8px;
+      min-height:44px; padding:10px 12px;
+      border:1px solid #b8d5e2; border-radius:8px;
+      outline:none; font:inherit;
+    }
+    .folder-modal__input:focus {
+      border-color:#0877aa; box-shadow:0 0 0 3px rgba(8,119,170,.12);
+    }
+    @keyframes folderModalIn { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+  </style>
 </head>
 
 <body data-page="documents" data-title="All Documents">
@@ -23,7 +191,7 @@
           <!-- Filters. Every entry here is counted from the repository, so a
                view with nothing in it says zero rather than a plausible number. -->
           <aside class="stack">
-            <div class="card">
+            <div class="card personal-folder-card">
               <div class="card__head">
                 <h3 class="t-h3">My Folders</h3>
                 <span class="spacer"></span>
@@ -31,19 +199,14 @@
                   <i data-icon="plus"></i>
                 </button>
               </div>
-              <div class="mt-2">
-                <div class="row wrap gap-sm">
-                  <button class="btn btn--primary btn--sm btn--block" id="btn-upload-docs">
-                    <i data-icon="upload"></i>Upload from my PC
-                  </button>
-                  <button class="btn btn--ghost btn--sm btn--block" id="btn-clear-folder" type="button">
-                    All documents
-                  </button>
-                </div>
-                <div class="t-sm muted mt-1" id="folder-upload-target">No folder selected</div>
-                <input type="file" id="documents-upload-input" multiple hidden
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.tiff,.bmp,.txt">
+              <div class="personal-folder-actions">
+                <button class="btn btn--primary btn--block personal-folder-upload" id="btn-upload-docs" type="button">
+                  <i data-icon="upload"></i> Upload document
+                </button>
               </div>
+              <div class="personal-folder-help muted" id="folder-upload-target">Select a folder to upload documents into it.</div>
+              <input type="file" id="documents-upload-input" multiple hidden
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.tiff,.bmp,.txt">
               <ul class="list" id="user-folders">
                 <li><div class="list-item"><div class="skeleton" style="height:24px;width:100%"></div></div></li>
               </ul>
@@ -124,6 +287,45 @@
     </div>
   </div>
 
+  <div class="move-modal-backdrop" id="move-modal" aria-hidden="true">
+    <div class="move-modal" role="dialog" aria-modal="true" aria-labelledby="move-modal-title">
+      <div class="move-modal__head">
+        <div class="t-h3" id="move-modal-title">Move document</div>
+        <div class="t-sm muted mt-1">Choose the destination folder.</div>
+      </div>
+      <div class="move-modal__body">
+        <div class="t-sm muted">Document</div>
+        <div class="move-modal__document" id="move-document-name"></div>
+        <label class="t-sm" style="display:block;margin-top:18px" for="move-folder-select">Destination folder</label>
+        <select class="move-modal__select" id="move-folder-select"></select>
+        <div class="t-xs muted mt-1">The document will be moved immediately.</div>
+      </div>
+      <div class="move-modal__foot">
+        <button class="btn btn--sm btn--outline" id="move-modal-cancel" type="button">Cancel</button>
+        <button class="btn btn--sm btn--primary" id="move-modal-confirm" type="button">Move document</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="folder-modal-backdrop" id="folder-modal" aria-hidden="true">
+    <div class="folder-modal" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
+      <div class="folder-modal__head">
+        <div class="t-h3" id="folder-modal-title">Create folder</div>
+        <div class="t-sm muted mt-1">Create a private folder for your personal documents.</div>
+      </div>
+      <div class="folder-modal__body">
+        <label class="t-sm" for="folder-name-input">Folder name</label>
+        <input class="folder-modal__input" id="folder-name-input" type="text" maxlength="80"
+               placeholder="e.g. Financial, Certificates, Personal IDs" autocomplete="off">
+        <div class="t-xs muted mt-1" id="folder-name-error" hidden>Please enter a folder name.</div>
+      </div>
+      <div class="folder-modal__foot">
+        <button class="btn btn--sm btn--outline" id="folder-modal-cancel" type="button">Cancel</button>
+        <button class="btn btn--sm btn--primary" id="folder-modal-create" type="button">Create folder</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/ui/js/shell.js"></script>
   <script>
     (function () {
@@ -133,13 +335,57 @@
       const grid = $('#doc-grid');
       const count = $('#result-count');
       const pageInfo = $('#page-info');
-      const LIMIT = 20;
+      const LIMIT = 6;
 
       let skip = 0, items = [], all = [], flows = {};
-      let filter = { view: '', corr: '', type: '', q: '', folder: '' };
+      let matchedTotal = 0;
       const urlParams = new URLSearchParams(window.location.search);
+      const personalMode = urlParams.get('personal') === '1';
+      if (personalMode) {
+        document.body.classList.add('personal-documents-page');
+      }
+      let filter = { view: 'all', corr: '', type: '', q: '', folder: '' };
       filter.folder = urlParams.get('folder') || '';
       const folderNameMap = {};
+      let personalFolderId = '';
+      let pendingUploads = [];
+
+      // Folder IDs created/selected from the personal page are kept locally
+      // so they never leak back into the repository's All Documents view.
+      const PERSONAL_FOLDER_STORAGE_KEY = 'dms_personal_folder_ids_v1';
+
+      function getPersonalFolderIds() {
+        try {
+          const value = JSON.parse(localStorage.getItem(PERSONAL_FOLDER_STORAGE_KEY) || '[]');
+          return new Set(Array.isArray(value) ? value.map(String) : []);
+        } catch (_) {
+          return new Set();
+        }
+      }
+
+      function rememberPersonalFolder(id) {
+        if (!id) return;
+        const ids = getPersonalFolderIds();
+        ids.add(String(id));
+        localStorage.setItem(PERSONAL_FOLDER_STORAGE_KEY, JSON.stringify([...ids]));
+      }
+
+      function documentFolderId(d) {
+        return d.folder_id ??
+          d.folderId ??
+          (d.folder && (d.folder.id ?? d.folder.folder_id));
+      }
+
+      function actionSvg(name) {
+        const paths = {
+          edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
+          download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+          delete: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 14h10l1-14"/><path d="M9 7V4h6v3"/>',
+          view: '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/>',
+          move: '<path d="M3 7h7l2 2h9v10H3z"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/>'
+        };
+        return '<svg class="dms-action-icon" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || '') + '</svg>';
+      }
 
       /**
        * A document's status is the status of its approval, when it has one.
@@ -163,8 +409,10 @@
         if (!items.length) {
           rows.innerHTML = '<tr><td colspan="5" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
           grid.innerHTML = '';
-          count.textContent = '';
-          pageInfo.textContent = '';
+          count.textContent = '0 documents';
+          pageInfo.textContent = 'Showing 0 to 0';
+          $('#prev').disabled = true;
+          $('#next').disabled = true;
           return;
         }
 
@@ -181,12 +429,16 @@
               escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
             '<td>' + statusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
-              '<button class="icon-btn tip" data-tip="Edit in the Studio" data-act="edit">' +
-                icon('compose') + '</button>' +
-              '<button class="icon-btn tip" data-tip="Download" data-act="download">' +
-                icon('download') + '</button>' +
-              '<button class="icon-btn is-danger tip" data-tip="Delete" data-act="delete">' +
-                icon('trash') + '</button>' +
+              '<button type="button" class="icon-btn tip dms-visible-action dms-view-action" data-tip="View document" data-act="view" aria-label="View document">' +
+                actionSvg('view') + '</button>' +
+              '<button type="button" class="icon-btn tip dms-visible-action dms-move-action" data-tip="Move to another folder" data-act="move" aria-label="Move document">' +
+                actionSvg('move') + '</button>' +
+              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Edit in the Studio" data-act="edit" aria-label="Edit document">' +
+                actionSvg('edit') + '</button>' +
+              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Download" data-act="download" aria-label="Download document">' +
+                actionSvg('download') + '</button>' +
+              '<button type="button" class="icon-btn is-danger tip dms-visible-action" data-tip="Delete" data-act="delete" aria-label="Delete document">' +
+                actionSvg('delete') + '</button>' +
             '</span></td></tr>';
         }).join('');
 
@@ -200,9 +452,8 @@
             '</div></article>';
         }).join('');
 
-        count.textContent = items.length + (items.length === 1 ? ' document' : ' documents') +
-          (all.length > items.length ? ' of ' + all.length : '');
-        pageInfo.textContent = 'Showing ' + (skip + 1) + ' to ' + (skip + items.length);
+        count.textContent = matchedTotal + (matchedTotal === 1 ? ' document' : ' documents');
+        pageInfo.textContent = 'Showing ' + (skip + 1) + ' to ' + (skip + items.length) + ' of ' + matchedTotal;
         renderActiveFilters();
       }
 
@@ -213,73 +464,440 @@
        * view counts in the sidebar are the real number of matching documents
        * rather than an estimate that disagrees with the list beside it.
        */
-      async function load() {
+      async function load(options = {}) {
         const params = new URLSearchParams();
         params.set('limit', '500');
         if (filter.folder) params.set('folder_id', filter.folder);
         const data = await api.safe('/api/documents/?' + params.toString(), []);
         all = Array.isArray(data) ? data : (data.items || []);
 
-        // The approval state of each document, so the Status column and the
-        // views are talking about the same thing.
-        const live = await api.safe('/api/workflow/?limit=200', { workflows: [] });
-        flows = {};
-        (live.workflows || []).forEach(w => { flows[w.document_id] = w; });
+        // Strict separation:
+        // - All Documents excludes every folder used by My Folder.
+        // - My Folder shows only the currently selected personal folder.
+        const personalIds = getPersonalFolderIds();
 
+        if (!personalMode && personalIds.size) {
+          all = all.filter(d => {
+            const folderId = documentFolderId(d);
+            return !folderId || !personalIds.has(String(folderId));
+          });
+        }
+
+        if (personalMode) {
+          if (personalFolderId) {
+            const selectedId = String(personalFolderId);
+            all = all.filter(d => {
+              const folderId = documentFolderId(d);
+              return folderId != null && String(folderId) === selectedId;
+            });
+          } else {
+            // The My Folder landing page must never expose repository documents.
+            all = [];
+          }
+        }
+
+        // Reconcile optimistic upload rows as soon as the backend document
+        // becomes visible. The file watcher may take a few seconds.
+        if (pendingUploads.length) {
+          const foundNames = new Set(all.map(d => String(d.original_filename || d.filename || d.title || '').toLowerCase()));
+          pendingUploads = pendingUploads.filter(p => !foundNames.has(String(p.name).toLowerCase()));
+        }
+
+        // Render documents immediately. Workflow information is optional and
+        // must never prevent the document list from appearing.
+        flows = {};
         applyFilter();
         renderViews();
         renderSuppliers();
-        loadFolders();
+        renderPendingUploads();
+
+        // Load workflow status separately. If the endpoint is unavailable,
+        // documents remain visible with the fallback status badge.
+        try {
+          const live = await api.safe('/api/workflow/?limit=200', { workflows: [] });
+          flows = {};
+          (live && Array.isArray(live.workflows) ? live.workflows : []).forEach(w => {
+            if (w && w.document_id) flows[w.document_id] = w;
+          });
+          applyFilter();
+          renderViews();
+        } catch (workflowError) {
+          console.warn('Workflow status unavailable; documents remain visible.', workflowError);
+        }
+
+        if (!personalMode) {
+          await loadFolders();
+        }
       }
 
-      /** Load and render user folders */
+      /** Load folders with strict separation between repository and My Folder. */
       async function loadFolders() {
         try {
           const data = await api.safe('/api/documents/folders', { folders: [] });
-          const folders = data.folders || [];
-          folders.forEach(f => { folderNameMap[f.id] = f.name; });
-          $('#user-folders').innerHTML = folders.length
-            ? folders.map(f => '<li><a class="list-item' + (filter.folder === f.id ? ' is-active' : '') + '" href="#" data-folder-id="' + escapeHtml(f.id) + '">' + icon('folder') +
-              '<span class="list-item__body"><span class="list-item__title truncate">' +
-                escapeHtml(f.name) + '</span></span></a></li>').join('')
-            : '<li><div class="list-item"><span class="t-sm muted-2">No folders yet. Create one to organize your documents.</span></div></li>';
+          const allFolders = Array.isArray(data.folders) ? data.folders : [];
 
-          const targetLabel = filter.folder ? ('Upload to: ' + (folderNameMap[filter.folder] || 'Selected folder')) : 'No folder selected';
+          // PERSONAL MODE:
+          // Resolve the existing My Folder BEFORE filtering anything.
+          // The old code removed "My Folder" first and then tried to find it,
+          // which caused a new empty folder to be created repeatedly.
+          if (personalMode) {
+            // Only show folders explicitly created/remembered from My Folder.
+            // Do NOT create or display a synthetic "My Folder" folder.
+            const personalIds = getPersonalFolderIds();
+            const personalFolders = allFolders.filter(f => personalIds.has(String(f.id)));
+
+            personalFolders.forEach(f => {
+              folderNameMap[f.id] = f.name;
+            });
+
+            const requestedFolderId = urlParams.get('folder');
+            if (requestedFolderId && personalIds.has(String(requestedFolderId))) {
+              personalFolderId = String(requestedFolderId);
+              filter.folder = personalFolderId;
+            } else if (filter.folder && personalIds.has(String(filter.folder))) {
+              personalFolderId = String(filter.folder);
+            } else {
+              personalFolderId = '';
+              filter.folder = '';
+            }
+
+            const title = document.querySelector('.topbar__title');
+            if (title) title.textContent = 'My Folder';
+            document.title = 'My Folder · DMS';
+
+            $('#user-folders').innerHTML = personalFolders.length
+              ? personalFolders.map(f =>
+                  '<li><div class="list-item' +
+                  (String(filter.folder || '') === String(f.id || '') ? ' is-active' : '') +
+                  '" data-folder-row="' + escapeHtml(f.id) + '">' +
+                  '<div class="dms-folder-row">' +
+                    '<button type="button" class="dms-folder-select" data-folder-id="' + escapeHtml(f.id) + '">' +
+                      icon('folder') +
+                      '<span class="list-item__body"><span class="list-item__title truncate">' +
+                      escapeHtml(f.name || 'Unnamed folder') +
+                      '</span></span>' +
+                    '</button>' +
+                    '<span class="dms-folder-actions">' +
+                      '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
+                      '<button type="button" class="icon-btn is-danger dms-visible-action tip" data-folder-action="delete" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Delete folder" aria-label="Delete folder">' + actionSvg('delete') + '</button>' +
+                    '</span>' +
+                  '</div></div></li>'
+                ).join('')
+              : '<li><div class="personal-empty-folders">' +
+                icon('folder') +
+                '<div class="t-sm" style="margin-top:8px">No personal folders yet</div>' +
+                '<div class="t-xs muted mt-1">Click <b>+</b> above to create your first folder.</div>' +
+                '</div></li>';
+
+            const target = $('#folder-upload-target');
+            if (target) {
+              target.textContent = filter.folder
+                ? 'Upload to: ' + (folderNameMap[filter.folder] || 'Selected folder')
+                : 'Select a folder to upload documents into it.';
+            }
+
+            return;
+          }
+
+          // NORMAL / ALL DOCUMENTS MODE:
+          // Preserve the repository folder list, but never show My Folder.
+          const folders = allFolders.filter(f =>
+            String(f.name || '').trim().toLowerCase() !== 'my folder'
+          );
+
+          folders.forEach(f => {
+            folderNameMap[f.id] = f.name;
+          });
+
+          $('#user-folders').innerHTML = folders.length
+            ? folders.map(f => '<li><div class="list-item' +
+              (filter.folder === f.id ? ' is-active' : '') +
+              '" data-folder-row="' + escapeHtml(f.id) + '">' +
+              '<div class="dms-folder-row">' +
+                '<button type="button" class="dms-folder-select" data-folder-id="' + escapeHtml(f.id) + '">' +
+                  icon('folder') +
+                  '<span class="list-item__body"><span class="list-item__title truncate">' +
+                  escapeHtml(f.name) + '</span></span>' +
+                '</button>' +
+                '<span class="dms-folder-actions">' +
+                  '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
+                  '<button type="button" class="icon-btn is-danger dms-visible-action tip" data-folder-action="delete" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Delete folder" aria-label="Delete folder">' + actionSvg('delete') + '</button>' +
+                '</span>' +
+              '</div></div></li>').join('')
+            : '<li><div class="list-item"><span class="t-sm muted-2">' +
+              'No folders yet. Create one to organize your documents.</span></div></li>';
+
+          const targetLabel = filter.folder
+            ? ('Upload to: ' + (folderNameMap[filter.folder] || 'Selected folder'))
+            : 'No folder selected';
           $('#folder-upload-target').textContent = targetLabel;
         } catch (err) {
           console.error('Could not load folders:', err);
         }
       }
 
-      $('#user-folders').addEventListener('click', e => {
-        const link = e.target.closest('a[data-folder-id]');
+      $('#user-folders').addEventListener('click', async e => {
+        const action = e.target.closest('[data-folder-action]');
+        if (action) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const folderId = action.dataset.folderId;
+          const actionType = action.dataset.folderAction;
+          if (!folderId) return;
+
+          if (actionType === 'rename') {
+            openFolderModal('rename', folderId);
+            return;
+          }
+
+          if (actionType === 'delete') {
+            const name = folderNameMap[folderId] || 'this folder';
+            const ok = await confirmDanger({
+              title: 'Delete folder?',
+              message: 'Delete “' + name + '”? This action only works for an empty folder. Move or delete the documents inside it first.',
+              confirmLabel: 'Delete folder'
+            });
+            if (!ok) return;
+
+            try {
+              await api.del('/api/documents/folders/' + encodeURIComponent(folderId));
+              getPersonalFolderIds().delete(String(folderId));
+              const ids = getPersonalFolderIds();
+              localStorage.setItem(PERSONAL_FOLDER_STORAGE_KEY, JSON.stringify([...ids]));
+              if (String(filter.folder) === String(folderId)) {
+                filter.folder = '';
+                personalFolderId = '';
+                const url = new URL(window.location.href);
+                url.searchParams.delete('folder');
+                window.history.replaceState({}, '', url);
+                skip = 0;
+              }
+              await loadFolders();
+              await load();
+              toast('Folder deleted', name);
+            } catch (err) {
+              toast('Folder cannot be deleted', String(err.message || err).replace(/^.*message[\"']?:\s*/i, '').slice(0, 220), 'danger');
+            }
+            return;
+          }
+        }
+
+        const link = e.target.closest('[data-folder-id]');
         if (!link) return;
         e.preventDefault();
         const folderId = link.dataset.folderId;
-        const nextFolder = filter.folder === folderId ? '' : folderId;
+        const nextFolder = String(filter.folder) === String(folderId) ? '' : folderId;
+        if (personalMode && nextFolder) {
+          personalFolderId = nextFolder;
+        }
         filter.folder = nextFolder;
+
+        // Update the selected folder immediately. The folder markup uses a
+        // data-folder-row wrapper + button, not an <a>, so the old selector
+        // never updated the visible active state.
+        $('#user-folders').querySelectorAll('[data-folder-row]').forEach(row => {
+          row.classList.toggle(
+            'is-active',
+            String(row.dataset.folderRow) === String(filter.folder)
+          );
+        });
+
+        const selectedName = folderNameMap[filter.folder] ||
+          (link.querySelector('.list-item__title') && link.querySelector('.list-item__title').textContent.trim()) ||
+          'Selected folder';
+        const target = $('#folder-upload-target');
+        if (target) target.textContent = nextFolder
+          ? 'Upload to: ' + selectedName
+          : 'Select a folder to upload documents into it.';
+
         const url = new URL(window.location.href);
+        url.searchParams.set('personal', '1');
         if (nextFolder) url.searchParams.set('folder', nextFolder); else url.searchParams.delete('folder');
         window.history.replaceState({}, '', url);
-        load();
+        skip = 0;
+
+        // Re-render from the same folder id used by the URL/document query.
+        // This keeps the highlight, upload target and document list in sync.
+        await loadFolders();
+        await load();
       });
 
-      // New folder button
-      $('#btn-new-folder').addEventListener('click', async e => {
-        e.preventDefault();
-        const name = prompt('Folder name:');
-        if (!name || !name.trim()) return;
+      // Create a personal folder with a proper modal instead of browser prompt().
+      const folderModal = $('#folder-modal');
+      const folderNameInput = $('#folder-name-input');
+      const folderNameError = $('#folder-name-error');
+
+      let folderModalMode = 'create';
+      let folderModalFolderId = '';
+      let moveDocumentId = '';
+
+      function openMoveModal(documentId, documentName) {
+        moveDocumentId = documentId || '';
+        const modal = $('#move-modal');
+        const select = $('#move-folder-select');
+        if (!modal || !select || !moveDocumentId) return;
+        $('#move-document-name').textContent = documentName || 'Untitled document';
+        const folders = Object.entries(folderNameMap).map(([id,name]) => ({id,name})).filter(f => f.id);
+        folders.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+        select.innerHTML = folders.length ? folders.map(f => '<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name || 'Unnamed folder')+'</option>').join('') : '<option value="">No folders available</option>';
+        const current = all.find(d => String(d.id) === String(moveDocumentId));
+        const currentFolder = current ? String(documentFolderId(current) || '') : '';
+        const next = folders.find(f => String(f.id) !== currentFolder);
+        if (next) select.value = next.id;
+        $('#move-modal-confirm').disabled = !folders.length;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden','false');
+      }
+
+      function closeMoveModal() {
+        const modal = $('#move-modal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden','true');
+        moveDocumentId = '';
+      }
+
+      async function updateDocumentFolder(documentId, folderId) {
+        const payload = { folder_id: folderId || null };
+        if (typeof api.put === 'function') return api.put('/api/documents/' + encodeURIComponent(documentId), payload);
+        let csrf = '';
         try {
-          const folder = await api.post('/api/documents/folders', { name: name.trim() });
-          toast('Folder created', folder.folder.name);
-          loadFolders();
+          const r = await fetch('/api/csrf-token', {credentials:'same-origin'});
+          if (r.ok) { const d = await r.json(); csrf = d.token || d.csrf_token || d.csrfToken || ''; }
+        } catch (_) {}
+        const r = await fetch('/api/documents/' + encodeURIComponent(documentId), {
+          method:'PUT', credentials:'same-origin',
+          headers:Object.assign({'Content-Type':'application/json'}, csrf ? {'X-CSRF-Token':csrf} : {}),
+          body:JSON.stringify(payload)
+        });
+        if (!r.ok) { let m='Unable to move document'; try { const d=await r.json(); m=d.detail||d.message||d.error||m; } catch(_){} throw new Error(m); }
+        return r.json();
+      }
+
+      $('#move-modal-cancel').addEventListener('click', closeMoveModal);
+      $('#move-modal').addEventListener('click', e => { if (e.target === $('#move-modal')) closeMoveModal(); });
+      $('#move-modal-confirm').addEventListener('click', async () => {
+        const destinationId = $('#move-folder-select').value;
+        if (!moveDocumentId || !destinationId) { toast('Choose a destination folder','Select a folder first.','danger'); return; }
+        const current = all.find(d => String(d.id) === String(moveDocumentId));
+        const currentFolder = current ? String(documentFolderId(current) || '') : '';
+        if (String(destinationId) === currentFolder) { toast('Document is already in this folder'); closeMoveModal(); return; }
+        const btn = $('#move-modal-confirm'); btn.disabled=true; btn.textContent='Moving…';
+        try {
+          await updateDocumentFolder(moveDocumentId,destinationId);
+          toast('Document moved', folderNameMap[destinationId] || 'Selected folder');
+          closeMoveModal();
+          await load();
+          await loadFolders();
+        } catch(err) {
+          toast('Could not move document', String(err.message || err).slice(0,220), 'danger');
+        } finally { btn.disabled=false; btn.textContent='Move document'; }
+      });
+
+
+      function openFolderModal(mode = 'create', folderId = '') {
+        folderModalMode = mode;
+        folderModalFolderId = folderId || '';
+        folderNameInput.value = mode === 'rename' ? (folderNameMap[folderId] || '') : '';
+        folderNameError.hidden = true;
+        $('#folder-modal-title').textContent = mode === 'rename' ? 'Rename folder' : 'Create folder';
+        $('#folder-modal-create').textContent = mode === 'rename' ? 'Save changes' : 'Create folder';
+        folderModal.classList.add('is-open');
+        folderModal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => folderNameInput.focus(), 30);
+      }
+
+      function closeFolderModal() {
+        folderModal.classList.remove('is-open');
+        folderModal.setAttribute('aria-hidden', 'true');
+      }
+
+      $('#btn-new-folder').addEventListener('click', e => {
+        e.preventDefault();
+        if (personalMode) openFolderModal();
+      });
+
+      $('#folder-modal-cancel').addEventListener('click', closeFolderModal);
+      folderModal.addEventListener('click', e => {
+        if (e.target === folderModal) closeFolderModal();
+      });
+      folderNameInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeFolderModal(); closeMoveModal(); }
+        if (e.key === 'Enter') $('#folder-modal-create').click();
+      });
+
+      $('#folder-modal-create').addEventListener('click', async () => {
+        const trimmed = folderNameInput.value.trim();
+        if (!trimmed) {
+          folderNameError.textContent = 'Please enter a folder name.';
+          folderNameError.hidden = false;
+          folderNameInput.focus();
+          return;
+        }
+
+        const createBtn = $('#folder-modal-create');
+        createBtn.disabled = true;
+        createBtn.textContent = folderModalMode === 'rename' ? 'Saving…' : 'Creating…';
+
+        try {
+          if (folderModalMode === 'rename') {
+            const response = await api.put('/api/documents/folders/' + encodeURIComponent(folderModalFolderId), { name: trimmed });
+            const updated = (response && response.folder) || (response && response.data && response.data.folder) || (response && response.data) || response;
+            folderNameMap[folderModalFolderId] = (updated && updated.name) || trimmed;
+            closeFolderModal();
+            await loadFolders();
+            toast('Folder renamed', folderNameMap[folderModalFolderId]);
+          } else {
+            const existing = Array.from($('#user-folders').querySelectorAll('[data-folder-id] .list-item__title'))
+              .map(el => el.textContent.trim().toLowerCase());
+            if (existing.includes(trimmed.toLowerCase())) {
+              folderNameError.textContent = 'A folder with this name already exists.';
+              folderNameError.hidden = false;
+              folderNameInput.focus();
+              return;
+            }
+
+            const response = await api.post('/api/documents/folders', { name: trimmed });
+            const created = (response && response.folder) ||
+              (response && response.data && response.data.folder) ||
+              (response && response.data) || response;
+            if (!created || !created.id) throw new Error('Folder was not returned by the server');
+
+            rememberPersonalFolder(created.id);
+            folderNameMap[created.id] = created.name || trimmed;
+            personalFolderId = String(created.id);
+            filter.folder = String(created.id);
+            skip = 0;
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('personal', '1');
+            url.searchParams.set('folder', String(created.id));
+            window.history.replaceState({}, '', url);
+
+            closeFolderModal();
+            await loadFolders();
+            await load();
+            toast('Folder created', created.name || trimmed);
+          }
         } catch (err) {
-          toast('Could not create folder', String(err.message || err).slice(0, 200), 'danger');
+          console.error('Folder operation failed:', err);
+          folderNameError.textContent = String(err.message || err).slice(0, 180);
+          folderNameError.hidden = false;
+        } finally {
+          createBtn.disabled = false;
+          createBtn.textContent = folderModalMode === 'rename' ? 'Save changes' : 'Create folder';
         }
       });
 
       function matches(d) {
-        if (filter.folder && d.folder_id !== filter.folder) return false;
+        if (filter.folder) {
+          const docFolderId =
+            d.folder_id ??
+            d.folderId ??
+            (d.folder && (d.folder.id ?? d.folder.folder_id));
+          if (docFolderId == null || String(docFolderId) !== String(filter.folder)) return false;
+        }
         if (filter.type && (!d.doctype || d.doctype.id !== filter.type)) return false;
         if (filter.corr && (!d.correspondent || d.correspondent.id !== filter.corr)) return false;
 
@@ -297,6 +915,10 @@
           case 'active':    return wf && ['active', 'changes_requested'].includes(wf.status);
           case 'approved':  return wf && wf.status === 'approved';
           case 'published': return wf && wf.status === 'published';
+          case 'approved_or_published':
+            return wf && ['approved', 'published'].includes(wf.status);
+          case 'all':
+            return true;
           case 'composed':  return d.origin === 'composed';
           default:          return true;
         }
@@ -304,6 +926,7 @@
 
       function applyFilter() {
         const matched = all.filter(matches);
+        matchedTotal = matched.length;
         skip = Math.min(skip, Math.max(0, matched.length - 1));
         items = matched.slice(skip, skip + LIMIT);
         render();
@@ -314,7 +937,7 @@
       /** Views, each with the count of documents that genuinely match it. */
       function renderViews() {
         const views = [
-          { id: '',          label: 'All documents',        icon: 'documents' },
+          { id: 'all', label: 'All documents', icon: 'documents' },
           { id: 'none',      label: 'Not in an approval',   icon: 'file' },
           { id: 'active',    label: 'Approval in progress', icon: 'clock' },
           { id: 'approved',  label: 'Approved',             icon: 'check' },
@@ -346,6 +969,10 @@
           case 'active':    return wf && ['active', 'changes_requested'].includes(wf.status);
           case 'approved':  return wf && wf.status === 'approved';
           case 'published': return wf && wf.status === 'published';
+          case 'approved_or_published':
+            return wf && ['approved', 'published'].includes(wf.status);
+          case 'all':
+            return true;
           case 'composed':  return d.origin === 'composed';
           default:          return true;
         }
@@ -382,7 +1009,7 @@
         if (filter.view) {
           chips.push(['view', { none: 'Not in an approval', active: 'Approval in progress',
             approved: 'Approved', published: 'Published',
-            composed: 'Written here' }[filter.view]]);
+            all: 'All documents', approved_or_published: 'All documents', composed: 'Written here' }[filter.view]]);
         }
         if (filter.corr) {
           const c = all.find(d => d.correspondent && d.correspondent.id === filter.corr);
@@ -405,6 +1032,18 @@
         if (!tr) return;
         const id = tr.dataset.id;
         const act = e.target.closest('[data-act]');
+        if (act && act.dataset.act === 'view') {
+          e.stopPropagation();
+          window.location.href = '/documents/view?id=' + encodeURIComponent(id);
+          return;
+        }
+        if (act && act.dataset.act === 'move') {
+          e.stopPropagation();
+          const doc = all.find(d => String(d.id) === String(id));
+          const name = doc ? (doc.title || doc.original_filename || doc.filename || 'Untitled document') : 'Untitled document';
+          openMoveModal(id, name);
+          return;
+        }
         if (act && act.dataset.act === 'edit') {
           e.stopPropagation();
           window.location.href = '/studio?id=' + encodeURIComponent(id);
@@ -448,8 +1087,18 @@
       });
 
       // Paging
-      $('#prev').onclick = () => { skip = Math.max(0, skip - LIMIT); applyFilter(); };
-      $('#next').onclick = () => { skip += LIMIT; applyFilter(); };
+      $('#prev').onclick = () => {
+        if (skip <= 0) return;
+        skip = Math.max(0, skip - LIMIT);
+        applyFilter();
+      };
+
+      $('#next').onclick = () => {
+        const matched = all.filter(matches);
+        if (skip + LIMIT >= matched.length) return;
+        skip += LIMIT;
+        applyFilter();
+      };
 
       // Filters
       $('#views').addEventListener('click', e => {
@@ -528,63 +1177,114 @@
       async function uploadFiles(files) {
         const selected = Array.from(files || []).filter(Boolean);
         if (!selected.length) return;
+        if (personalMode && !filter.folder) {
+          toast('Select a folder first', 'Choose a personal folder before uploading a document.', 'danger');
+          return;
+        }
 
         let uploaded = 0;
         for (const file of selected) {
           const form = new FormData();
           form.append('file', file);
-          if (filter.folder) {
-            form.append('folder_id', filter.folder);
-          }
+          if (filter.folder) form.append('folder_id', filter.folder);
           try {
             const res = await api.upload('/api/documents/upload', form, () => {});
-            uploaded += 1;
             if (res && res.status === 'duplicate') {
               toast('Already in the repository', file.name, 'danger');
-            } else {
-              toast('Upload started', file.name);
+              continue;
             }
+            uploaded += 1;
+            pendingUploads.push({
+              name: file.name,
+              folderId: filter.folder ? String(filter.folder) : '',
+              startedAt: Date.now()
+            });
+            toast(personalMode ? 'Upload started' : 'Upload started', file.name);
           } catch (err) {
-            toast('Upload failed', file.name + ': ' + String(err.message || err).slice(0, 120), 'danger');
+            toast('Upload failed', file.name + ': ' + String(err.message || err).slice(0, 160), 'danger');
           }
         }
 
         if (uploaded > 0) {
-          setTimeout(() => load(), 1500);
+          // Immediately show an upload/processing row instead of leaving the
+          // table blank while the background file watcher creates the document.
+          renderPendingUploads();
+          pollForUploadedDocuments();
+        }
+      }
+
+      function renderPendingUploads() {
+        if (!pendingUploads.length) return;
+        const visible = pendingUploads.filter(p => !p.folderId || String(p.folderId) === String(filter.folder));
+        if (!visible.length) return;
+        const existingHtml = rows.innerHTML;
+        const pendingHtml = visible.map(p =>
+          '<tr class="dms-pending-row">' +
+            '<td><div class="cell-title truncate" style="max-width:44ch">' + escapeHtml(p.name) + '</div>' +
+              '<div class="cell-sub">Uploading · waiting for document processing</div></td>' +
+            '<td><span class="badge">Pending</span></td>' +
+            '<td class="muted-2">—</td>' +
+            '<td><span class="badge"><span class="dms-upload-spinner"></span>Processing</span></td>' +
+            '<td></td>' +
+          '</tr>'
+        ).join('');
+        if (existingHtml && !existingHtml.includes('dms-pending-row')) rows.insertAdjacentHTML('afterbegin', pendingHtml);
+      }
+
+      async function pollForUploadedDocuments() {
+        const started = Date.now();
+        const timeout = 20000;
+        while (pendingUploads.length && Date.now() - started < timeout) {
+          await new Promise(resolve => setTimeout(resolve, 1200));
+          try {
+            await load({ preserveWhileLoading: true });
+          } catch (_) {}
+          if (!pendingUploads.length) break;
+        }
+        if (pendingUploads.length) {
+          // One final refresh; if processing is still running, leave the
+          // pending row visible rather than making the table look empty.
+          try { await load({ preserveWhileLoading: true }); } catch (_) {}
+          pendingUploads = [];
         }
       }
 
       $('#btn-upload-docs').addEventListener('click', () => {
+        if (personalMode && !filter.folder) {
+          toast('Select a folder first', 'Choose a personal folder before uploading a document.', 'danger');
+          return;
+        }
         $('#documents-upload-input').click();
       });
 
-      $('#btn-clear-folder').addEventListener('click', () => {
-        filter.folder = '';
-        const url = new URL(window.location.href);
-        url.searchParams.delete('folder');
-        window.history.replaceState({}, '', url);
-        load();
-      });
+      const clearFolderButton = $('#btn-clear-folder');
+      if (clearFolderButton) {
+        clearFolderButton.addEventListener('click', () => {
+          if (personalMode) return;
+          filter.folder = '';
+          const url = new URL(window.location.href);
+          url.searchParams.delete('folder');
+          window.history.replaceState({}, '', url);
+          load();
+        });
+      }
 
       $('#documents-upload-input').addEventListener('change', async e => {
         await uploadFiles(e.target.files);
         e.target.value = '';
       });
 
-      $('#btn-new-folder').addEventListener('click', async e => {
-        e.preventDefault();
-        const name = prompt('Folder name:');
-        if (!name || !name.trim()) return;
-        try {
-          const folder = await api.post('/api/documents/folders', { name: name.trim() });
-          toast('Folder created', folder.folder.name);
-          loadFolders();
-        } catch (err) {
-          toast('Could not create folder', String(err.message || err).slice(0, 200), 'danger');
+      // Important: in personal mode the folder must be resolved first.
+      // Otherwise the first request would load every repository document.
+      (async function initDocumentsPage() {
+        if (personalMode) {
+          await loadFolders();
         }
-      });
-
-      load();
+        await load();
+        if (!personalMode) {
+          await loadFolders();
+        }
+      })();
     })();
   </script>
 </body>

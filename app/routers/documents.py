@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional
 import os
 from pathlib import Path
@@ -18,7 +18,13 @@ from ..schemas import (
 )
 from ..services.document_processor import DocumentProcessor
 from ..services.folder_setup import get_folder_info
-from ..services.folder_service import create_folder, list_user_folders
+from ..services.folder_service import (
+    create_folder,
+    list_user_folders,
+    get_user_folder,
+    rename_folder,
+    delete_folder,
+)
 from ..services import thumbnails
 from ..services.auth_service import get_current_user_flexible, require_permission_flexible
 from ..config import get_settings
@@ -31,6 +37,20 @@ from datetime import datetime
 
 router = APIRouter()
 
+
+def _get_owned_document(db: Session, document_id: str, current_user: User) -> Document:
+    """Return a document the current user is allowed to manage."""
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Personal-folder documents are owned through their folder.
+    if document.folder_id:
+        folder = get_user_folder(db, current_user.id, document.folder_id)
+        if not folder:
+            raise HTTPException(status_code=403, detail="You do not have access to this document")
+
+    return document
 
 @router.get("/folders")
 def get_user_folders(
@@ -47,18 +67,79 @@ def create_user_folder(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.create")),
 ):
-    """Create a folder for the signed-in user's own document workspace."""
+    """Create a folder owned by the signed-in user."""
     name = str(payload.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Folder name is required")
-    folder = create_folder(
-        db,
-        current_user.id,
-        name,
-        parent_id=payload.get("parent_id"),
-        description=payload.get("description"),
-    )
-    return {"folder": {"id": folder.id, "name": folder.name, "parent_id": folder.parent_id}}
+
+    try:
+        folder = create_folder(
+            db,
+            current_user.id,
+            name,
+            parent_id=payload.get("parent_id"),
+            description=payload.get("description"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "folder": {
+            "id": folder.id,
+            "name": folder.name,
+            "parent_id": folder.parent_id,
+        }
+    }
+
+
+
+@router.put("/folders/{folder_id}")
+def update_user_folder(
+    folder_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.update")),
+):
+    """Rename/update a folder owned by the signed-in user."""
+    try:
+        folder = rename_folder(
+            db, current_user.id, folder_id,
+            payload.get("name"), payload.get("description")
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status = 409 if "already exists" in message.lower() else 400
+        if message == "Folder not found":
+            status = 404
+        raise HTTPException(status_code=status, detail=message)
+
+    return {
+        "folder": {
+            "id": folder.id,
+            "name": folder.name,
+            "description": folder.description,
+            "parent_id": folder.parent_id,
+            "created_at": folder.created_at,
+            "updated_at": folder.updated_at,
+        }
+    }
+
+
+@router.delete("/folders/{folder_id}")
+def delete_user_folder(
+    folder_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.delete")),
+):
+    """Delete an owned folder only when empty."""
+    try:
+        delete_folder(db, current_user.id, folder_id)
+    except ValueError as exc:
+        message = str(exc)
+        status = 404 if message == "Folder not found" else 400
+        raise HTTPException(status_code=status, detail=message)
+
+    return {"status": "success", "folder_id": folder_id}
 
 
 # Note: Services will be initialized with database session in each endpoint
@@ -115,10 +196,22 @@ def get_documents(
     db: Session = Depends(get_db)
 ):
     """Get all documents with optional filtering"""
-    query = db.query(Document)
+    query = (
+        db.query(Document)
+        .outerjoin(DocumentFolder, Document.folder_id == DocumentFolder.id)
+        .filter(
+            or_(
+                Document.folder_id.is_(None),
+                DocumentFolder.user_id == current_user.id,
+            )
+        )
+    )
 
     resolved_folder_id = folder_id or folder
     if resolved_folder_id:
+        owned_folder = get_user_folder(db, current_user.id, resolved_folder_id)
+        if not owned_folder:
+            raise HTTPException(status_code=404, detail="Folder not found")
         query = query.filter(Document.folder_id == resolved_folder_id)
     
     if correspondent_id:
@@ -197,6 +290,12 @@ def get_document(
     
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.folder_id and not get_user_folder(
+        db, current_user.id, document.folder_id
+    ):
+        raise HTTPException(status_code=403, detail="You do not have access to this document")
+
     return document
 
 @router.post("/{document_id}/view")
@@ -219,6 +318,44 @@ def track_document_view(
     return {
         "view_count": document.view_count,
         "last_viewed": document.last_viewed
+    }
+
+
+@router.put("/{document_id}/move")
+def move_document(
+    document_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.update")),
+):
+    """
+    Move a personal document to another folder owned by the current user.
+
+    Payload:
+      {"folder_id": "<folder-id>"}
+      {"folder_id": null}  # move out of a personal folder
+    """
+    document = _get_owned_document(db, document_id, current_user)
+    target_folder_id = payload.get("folder_id")
+
+    if target_folder_id:
+        target_folder = get_user_folder(db, current_user.id, target_folder_id)
+        if not target_folder:
+            raise HTTPException(status_code=404, detail="Target folder not found")
+
+        # Prevent placing a document into a folder it already belongs to.
+        document.folder_id = target_folder.id
+    else:
+        document.folder_id = None
+
+    db.commit()
+    db.refresh(document)
+
+    return {
+        "status": "success",
+        "message": "Document moved successfully",
+        "document_id": document.id,
+        "folder_id": document.folder_id,
     }
 
 @router.put("/{document_id}", response_model=DocumentSchema)
@@ -262,10 +399,8 @@ def delete_document(
     current_user: User = Depends(require_permission_flexible("documents.delete"))
 ):
     """Delete a document"""
-    document = db.query(Document).filter(Document.id == document_id).first()
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
+    document = _get_owned_document(db, document_id, current_user)
+
     # Delete physical file
     try:
         file_path = Path(document.file_path)
