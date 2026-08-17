@@ -72,6 +72,25 @@ class TagWithCount(Tag):
     document_count: int = 0
 
 
+class DocumentFolderBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    parent_id: Optional[str] = None
+
+
+class DocumentFolderCreate(DocumentFolderBase):
+    pass
+
+
+class DocumentFolder(DocumentFolderBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
 class TagAddRequest(BaseModel):
     """
     Tags to put on a document.
@@ -105,6 +124,7 @@ class DocumentBase(BaseModel):
     notes: Optional[str] = None
     correspondent_id: Optional[str] = None
     doctype_id: Optional[str] = None
+    folder_id: Optional[str] = None
 
 class DocumentCreate(DocumentBase):
     filename: str
@@ -123,6 +143,7 @@ class DocumentUpdate(BaseModel):
     notes: Optional[str] = None
     correspondent_id: Optional[str] = None
     doctype_id: Optional[str] = None
+    folder_id: Optional[str] = None
     tag_ids: Optional[List[str]] = None
 
 class Document(DocumentBase):

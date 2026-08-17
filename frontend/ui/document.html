@@ -305,6 +305,10 @@
             step.order + ' of ' + wf.progress.total + '. ' +
             escapeHtml(step.blocked_reason || '') + '</div>' +
             '<span class="spacer"></span>' +
+            (isAdmin()
+              ? '<button class="btn btn--sm btn--outline" data-escalate-step="' +
+                  escapeHtml(step.id) + '">' + icon('zap') + 'Escalate</button>'
+              : '') +
             '<a class="btn btn--sm btn--outline" href="/track?id=' + encodeURIComponent(id) + '">' +
             'Track it</a></div>';
         } else if (wf.status === 'approved') {
@@ -431,7 +435,14 @@
                     escapeHtml(v.file_url) + '">View</a>' +
                   (v.is_current ? '' :
                     '<button class="btn btn--sm btn--outline" data-restore="' +
-                      escapeHtml(v.id) + '" data-v="' + escapeHtml(v.version) + '">Restore</button>') +
+                      escapeHtml(v.id) + '" data-v="' + escapeHtml(v.version) + '">Restore</button>' +
+                    '<button class="btn btn--sm btn--outline" data-checkout="' +
+                      escapeHtml(v.id) + '" data-v="' + escapeHtml(v.version) + '">' +
+                      icon('eye') + 'Checkout</button>') +
+                  (versions.length > 1 && i > 0 ?
+                    '<button class="btn btn--sm btn--ghost" data-compare="' +
+                      escapeHtml(v.id) + '" data-v="' + escapeHtml(v.version) + '">' +
+                      icon('layers') + 'Compare</button>' : '') +
                 '</div>' +
               '</div></div>').join('') +
           '</div>' +
@@ -460,6 +471,59 @@
           loadVersions();
         } catch (err) {
           toast('Could not restore it', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
+      document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-checkout]');
+        if (!btn) return;
+        try {
+          const r = await api.post('/api/documents/' + id + '/versions/' +
+            btn.dataset.checkout + '/checkout', {});
+          toast('Checked out', 'Version ' + btn.dataset.v + ' is now the working copy');
+          doc = await api.safe('/api/documents/' + id, doc);
+          paintHeader();
+          loadVersions();
+        } catch (err) {
+          toast('Could not check out that version', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
+      document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-compare]');
+        if (!btn) return;
+        const versions = ((await api.safe('/api/documents/' + id + '/versions', {})) || {}).versions || [];
+        const currentVersion = versions.find(v => v.is_current);
+        if (!currentVersion) {
+          toast('Could not compare', 'Current version not found', 'danger');
+          return;
+        }
+        try {
+          const comparison = await api.get('/api/documents/' + id + '/versions/' +
+            currentVersion.id + '/compare/' + btn.dataset.compare);
+          toast('Comparison ready', 
+            'Current (' + currentVersion.version + ') vs ' + btn.dataset.v + ': ' +
+            (comparison.differences || 'No major differences found'));
+        } catch (err) {
+          toast('Could not compare', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
+      document.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-escalate-step]');
+        if (!btn || !wf) return;
+        const reason = prompt('Reason for escalation (optional):', '');
+        if (reason === null) return;  // User cancelled
+        try {
+          const updated = await api.post('/api/workflow/' + wf.id + '/escalate', {
+            step_id: btn.dataset.escalateStep,
+            reason: reason || 'Escalated by administrator',
+          });
+          toast('Escalated', 'Step moved to alternate assignee');
+          wf = updated;
+          paintApproval();
+        } catch (err) {
+          toast('Could not escalate', String(err.message || err).slice(0, 200), 'danger');
         }
       });
 

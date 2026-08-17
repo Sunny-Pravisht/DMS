@@ -24,6 +24,32 @@
                view with nothing in it says zero rather than a plausible number. -->
           <aside class="stack">
             <div class="card">
+              <div class="card__head">
+                <h3 class="t-h3">My Folders</h3>
+                <span class="spacer"></span>
+                <button class="btn btn--sm btn--ghost" id="btn-new-folder" title="Create a new folder">
+                  <i data-icon="plus"></i>
+                </button>
+              </div>
+              <div class="mt-2">
+                <div class="row wrap gap-sm">
+                  <button class="btn btn--primary btn--sm btn--block" id="btn-upload-docs">
+                    <i data-icon="upload"></i>Upload from my PC
+                  </button>
+                  <button class="btn btn--ghost btn--sm btn--block" id="btn-clear-folder" type="button">
+                    All documents
+                  </button>
+                </div>
+                <div class="t-sm muted mt-1" id="folder-upload-target">No folder selected</div>
+                <input type="file" id="documents-upload-input" multiple hidden
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.tiff,.bmp,.txt">
+              </div>
+              <ul class="list" id="user-folders">
+                <li><div class="list-item"><div class="skeleton" style="height:24px;width:100%"></div></div></li>
+              </ul>
+            </div>
+
+            <div class="card">
               <div class="card__head"><h3 class="t-h3">Views</h3></div>
               <ul class="list" id="views">
                 <li><div class="list-item"><div class="skeleton" style="height:24px;width:100%"></div></div></li>
@@ -110,7 +136,10 @@
       const LIMIT = 20;
 
       let skip = 0, items = [], all = [], flows = {};
-      let filter = { view: '', corr: '', type: '', q: '' };
+      let filter = { view: '', corr: '', type: '', q: '', folder: '' };
+      const urlParams = new URLSearchParams(window.location.search);
+      filter.folder = urlParams.get('folder') || '';
+      const folderNameMap = {};
 
       /**
        * A document's status is the status of its approval, when it has one.
@@ -185,7 +214,10 @@
        * rather than an estimate that disagrees with the list beside it.
        */
       async function load() {
-        const data = await api.safe('/api/documents/?limit=500', []);
+        const params = new URLSearchParams();
+        params.set('limit', '500');
+        if (filter.folder) params.set('folder_id', filter.folder);
+        const data = await api.safe('/api/documents/?' + params.toString(), []);
         all = Array.isArray(data) ? data : (data.items || []);
 
         // The approval state of each document, so the Status column and the
@@ -197,9 +229,57 @@
         applyFilter();
         renderViews();
         renderSuppliers();
+        loadFolders();
       }
 
+      /** Load and render user folders */
+      async function loadFolders() {
+        try {
+          const data = await api.safe('/api/documents/folders', { folders: [] });
+          const folders = data.folders || [];
+          folders.forEach(f => { folderNameMap[f.id] = f.name; });
+          $('#user-folders').innerHTML = folders.length
+            ? folders.map(f => '<li><a class="list-item' + (filter.folder === f.id ? ' is-active' : '') + '" href="#" data-folder-id="' + escapeHtml(f.id) + '">' + icon('folder') +
+              '<span class="list-item__body"><span class="list-item__title truncate">' +
+                escapeHtml(f.name) + '</span></span></a></li>').join('')
+            : '<li><div class="list-item"><span class="t-sm muted-2">No folders yet. Create one to organize your documents.</span></div></li>';
+
+          const targetLabel = filter.folder ? ('Upload to: ' + (folderNameMap[filter.folder] || 'Selected folder')) : 'No folder selected';
+          $('#folder-upload-target').textContent = targetLabel;
+        } catch (err) {
+          console.error('Could not load folders:', err);
+        }
+      }
+
+      $('#user-folders').addEventListener('click', e => {
+        const link = e.target.closest('a[data-folder-id]');
+        if (!link) return;
+        e.preventDefault();
+        const folderId = link.dataset.folderId;
+        const nextFolder = filter.folder === folderId ? '' : folderId;
+        filter.folder = nextFolder;
+        const url = new URL(window.location.href);
+        if (nextFolder) url.searchParams.set('folder', nextFolder); else url.searchParams.delete('folder');
+        window.history.replaceState({}, '', url);
+        load();
+      });
+
+      // New folder button
+      $('#btn-new-folder').addEventListener('click', async e => {
+        e.preventDefault();
+        const name = prompt('Folder name:');
+        if (!name || !name.trim()) return;
+        try {
+          const folder = await api.post('/api/documents/folders', { name: name.trim() });
+          toast('Folder created', folder.folder.name);
+          loadFolders();
+        } catch (err) {
+          toast('Could not create folder', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
+
       function matches(d) {
+        if (filter.folder && d.folder_id !== filter.folder) return false;
         if (filter.type && (!d.doctype || d.doctype.id !== filter.type)) return false;
         if (filter.corr && (!d.correspondent || d.correspondent.id !== filter.corr)) return false;
 
@@ -296,6 +376,9 @@
 
       function renderActiveFilters() {
         const chips = [];
+        if (filter.folder) {
+          chips.push(['folder', 'Folder: ' + (folderNameMap[filter.folder] || 'Selected folder')]);
+        }
         if (filter.view) {
           chips.push(['view', { none: 'Not in an approval', active: 'Approval in progress',
             approved: 'Approved', published: 'Published',
@@ -395,6 +478,12 @@
         if (btn.dataset.clear === 'q') $('#q').value = '';
         if (btn.dataset.clear === 'corr') $('#f-corr').value = '';
         if (btn.dataset.clear === 'type') $('#f-type').value = '';
+        if (btn.dataset.clear === 'folder') {
+          filter.folder = '';
+          const url = new URL(window.location.href);
+          url.searchParams.delete('folder');
+          window.history.replaceState({}, '', url);
+        }
         skip = 0;
         applyFilter();
         renderViews();
@@ -434,6 +523,66 @@
         fill($('#f-type'), types);
         fill($('#f-corr'), corrs);
       })();
+
+      // New folder button
+      async function uploadFiles(files) {
+        const selected = Array.from(files || []).filter(Boolean);
+        if (!selected.length) return;
+
+        let uploaded = 0;
+        for (const file of selected) {
+          const form = new FormData();
+          form.append('file', file);
+          if (filter.folder) {
+            form.append('folder_id', filter.folder);
+          }
+          try {
+            const res = await api.upload('/api/documents/upload', form, () => {});
+            uploaded += 1;
+            if (res && res.status === 'duplicate') {
+              toast('Already in the repository', file.name, 'danger');
+            } else {
+              toast('Upload started', file.name);
+            }
+          } catch (err) {
+            toast('Upload failed', file.name + ': ' + String(err.message || err).slice(0, 120), 'danger');
+          }
+        }
+
+        if (uploaded > 0) {
+          setTimeout(() => load(), 1500);
+        }
+      }
+
+      $('#btn-upload-docs').addEventListener('click', () => {
+        $('#documents-upload-input').click();
+      });
+
+      $('#btn-clear-folder').addEventListener('click', () => {
+        filter.folder = '';
+        const url = new URL(window.location.href);
+        url.searchParams.delete('folder');
+        window.history.replaceState({}, '', url);
+        load();
+      });
+
+      $('#documents-upload-input').addEventListener('change', async e => {
+        await uploadFiles(e.target.files);
+        e.target.value = '';
+      });
+
+      $('#btn-new-folder').addEventListener('click', async e => {
+        e.preventDefault();
+        const name = prompt('Folder name:');
+        if (!name || !name.trim()) return;
+        try {
+          const folder = await api.post('/api/documents/folders', { name: name.trim() });
+          toast('Folder created', folder.folder.name);
+          loadFolders();
+        } catch (err) {
+          toast('Could not create folder', String(err.message || err).slice(0, 200), 'danger');
+        }
+      });
 
       load();
     })();

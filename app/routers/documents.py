@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -10,7 +10,7 @@ import mimetypes
 from loguru import logger
 
 from ..database import get_db
-from ..models import Document, ProcessingLog, Tag, User
+from ..models import Document, DocumentFolder, ProcessingLog, Tag, User
 from ..schemas import (
     Document as DocumentSchema, DocumentUpdate, DocumentProcessingStatus,
     FileUploadResponse, StagingFile, DocumentApprovalRequest, DocumentApprovalResponse,
@@ -18,6 +18,7 @@ from ..schemas import (
 )
 from ..services.document_processor import DocumentProcessor
 from ..services.folder_setup import get_folder_info
+from ..services.folder_service import create_folder, list_user_folders
 from ..services import thumbnails
 from ..services.auth_service import get_current_user_flexible, require_permission_flexible
 from ..config import get_settings
@@ -29,6 +30,36 @@ from ..utils.file_security import (
 from datetime import datetime
 
 router = APIRouter()
+
+
+@router.get("/folders")
+def get_user_folders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.read")),
+):
+    """Return personal folders the signed-in user owns."""
+    return {"folders": list_user_folders(db, current_user.id)}
+
+
+@router.post("/folders")
+def create_user_folder(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.create")),
+):
+    """Create a folder for the signed-in user's own document workspace."""
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Folder name is required")
+    folder = create_folder(
+        db,
+        current_user.id,
+        name,
+        parent_id=payload.get("parent_id"),
+        description=payload.get("description"),
+    )
+    return {"folder": {"id": folder.id, "name": folder.name, "parent_id": folder.parent_id}}
+
 
 # Note: Services will be initialized with database session in each endpoint
 
@@ -74,6 +105,8 @@ def get_documents(
     limit: int = 20,
     correspondent_id: Optional[str] = None,
     doctype_id: Optional[str] = None,
+    folder_id: Optional[str] = None,
+    folder: Optional[str] = None,
     is_tax_relevant: Optional[bool] = None,
     date_range: Optional[str] = None,
     date_from: Optional[str] = None,
@@ -83,6 +116,10 @@ def get_documents(
 ):
     """Get all documents with optional filtering"""
     query = db.query(Document)
+
+    resolved_folder_id = folder_id or folder
+    if resolved_folder_id:
+        query = query.filter(Document.folder_id == resolved_folder_id)
     
     if correspondent_id:
         query = query.filter(Document.correspondent_id == correspondent_id)
@@ -348,10 +385,11 @@ def download_document(
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    folder_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_flexible)
 ):
-    """Upload a new document to staging folder with security validation"""
+    """Upload a new document to staging folder with security validation."""
     
     # Check if user has permission (admin or documents.create)
     if not current_user.is_admin and not current_user.has_permission("documents.create"):
@@ -359,6 +397,15 @@ async def upload_document(
             status_code=403,
             detail="You don't have permission to upload documents"
         )
+
+    if folder_id:
+        folder = (
+            db.query(DocumentFolder)
+            .filter(DocumentFolder.id == folder_id, DocumentFolder.user_id == current_user.id)
+            .first()
+        )
+        if not folder:
+            raise HTTPException(status_code=400, detail="Selected folder was not found")
     
     # Get settings with database session
     settings = get_settings(db)
@@ -417,6 +464,13 @@ async def upload_document(
         # Save file with secure permissions
         with open(staging_path, "wb") as buffer:
             buffer.write(content)
+
+        if folder_id:
+            meta_path = staging_path.with_name(f"{staging_path.name}.folder.json")
+            meta_path.write_text(
+                __import__("json").dumps({"folder_id": folder_id}, indent=2),
+                encoding="utf-8",
+            )
 
         # Set secure file permissions. Uploaded documents frequently contain
         # sensitive personal data (invoices, contracts, tax documents, etc.).
@@ -858,6 +912,53 @@ def restore_version(
         "message": f"Restored v{snapshot.version} as v{document.version}",
         "version": document.version,
         "id": created.id if created else None,
+    }
+
+
+@router.get("/{document_id}/versions/{version_id}/compare/{other_version_id}")
+def compare_document_versions(
+    document_id: str,
+    version_id: str,
+    other_version_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.read")),
+):
+    """Compare two historical versions of the same document."""
+    from ..services import version_service
+
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        return version_service.compare_versions(db, document_id, version_id, other_version_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{document_id}/versions/{version_id}/checkout")
+def checkout_document_version(
+    document_id: str,
+    version_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.update")),
+):
+    """Check out a historical version as the current working file."""
+    from ..services import version_service
+
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        snapshot = version_service.checkout_version(db, document, version_id, actor=current_user)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "message": f"Checked out v{snapshot.version}",
+        "version": snapshot.version,
+        "id": snapshot.id,
     }
 
 

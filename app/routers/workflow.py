@@ -77,6 +77,10 @@ class ResubmitPayload(BaseModel):
     note: str = ""
 
 
+class EscalationPayload(BaseModel):
+    reason: str = "Approver unavailable"
+
+
 # ------------------------------------------------------------ serialisation
 
 
@@ -482,6 +486,32 @@ def remind(
     except wf.WorkflowError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"message": f"Reminder sent to {who}", "notified": who}
+
+
+@router.post("/{workflow_id}/escalate")
+def escalate(
+    workflow_id: str,
+    payload: EscalationPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission_flexible("documents.update")),
+):
+    """Reassign a current approval step when the default approver is unavailable."""
+    workflow = wf.load(db, workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Approval process not found")
+
+    step = wf.current_step(workflow)
+    if not step:
+        raise HTTPException(status_code=400, detail="There is no step waiting for escalation.")
+
+    escalated = wf.escalate_current_step(db, workflow, current_user, reason=payload.reason)
+    if not escalated:
+        raise HTTPException(status_code=400, detail="No alternate approver was available for escalation.")
+    return {
+        "message": "Approval step escalated",
+        "step": _step_json(escalated, current_user),
+        "workflow": _workflow_json(wf.load(db, workflow.id), current_user),
+    }
 
 
 @router.post("/{workflow_id}/cancel")

@@ -116,6 +116,72 @@ def history(db: Session, document_id: str) -> list[DocumentVersion]:
     )
 
 
+def compare_versions(db: Session, document_id: str, left_id: str, right_id: str) -> dict:
+    """Compare two snapshots and return a diff summary for the UI."""
+    left = get(db, document_id, left_id)
+    right = get(db, document_id, right_id)
+    if not left or not right:
+        raise ValueError("Both versions must belong to the document.")
+
+    left_path = Path(left.file_path)
+    right_path = Path(right.file_path)
+
+    def _read(path: Path) -> str:
+        if not path.exists():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    left_text = _read(left_path)
+    right_text = _read(right_path)
+    different = left_text != right_text
+    return {
+        "document_id": document_id,
+        "left_version": left.version,
+        "right_version": right.version,
+        "different": different,
+        "left_size": left.file_size,
+        "right_size": right.file_size,
+        "left_mime_type": left.mime_type,
+        "right_mime_type": right.mime_type,
+        "left_excerpt": left_text[:400],
+        "right_excerpt": right_text[:400],
+    }
+
+
+def checkout_version(db: Session, document: Document, version_id: str,
+                    *, actor: Optional[User] = None) -> DocumentVersion:
+    """Check out a historical version as the current working copy."""
+    snapshot = get(db, document.id, version_id)
+    if not snapshot:
+        raise FileNotFoundError("Version not found")
+
+    source = Path(snapshot.file_path)
+    if not source.exists():
+        raise FileNotFoundError("That version's file is no longer in storage.")
+
+    target = Path(document.file_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+    document.file_size = source.stat().st_size
+    document.mime_type = snapshot.mime_type or document.mime_type
+    document.source_html = snapshot.source_html or document.source_html
+    document.template_id = snapshot.template_id or document.template_id
+    document.version = snapshot.version
+    document.updated_at = datetime.utcnow()
+    db.commit()
+    return capture(
+        db,
+        document,
+        author=actor,
+        note=f"Checked out v{snapshot.version}",
+        version=snapshot.version,
+    )
+
+
 def get(db: Session, document_id: str, version_id: str) -> Optional[DocumentVersion]:
     return (
         db.query(DocumentVersion)
