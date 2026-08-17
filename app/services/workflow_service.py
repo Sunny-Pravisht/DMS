@@ -170,7 +170,15 @@ def _build_step(db: Session, workflow: ApprovalWorkflow, index: int, raw: dict) 
     # Named people, when the author chose specific individuals.
     ids = raw.get("assignee_ids") or []
     if ids:
-        people = db.query(User).filter(User.id.in_(ids), User.is_active.is_(True)).all()
+        people = db.query(User).filter(
+            User.id.in_(ids),
+            User.is_active.is_(True)
+        ).all()
+
+        # Preserve the exact order supplied in assignee_ids.
+        people_by_id = {person.id: person for person in people}
+        people = [people_by_id[user_id] for user_id in ids if user_id in people_by_id]
+
         _reject_unsignable(people, step)
         step.assignees = people
 
