@@ -294,6 +294,41 @@ def test_full_document_pipeline(authed):
     assert payload[0]["summary"] == AI_METADATA["summary"]
 
 
+def test_upload_to_folder_is_storage_only(authed):
+    client = authed.client
+
+    folder = client.post(
+        "/api/documents/folders",
+        json={"name": "My Folder"},
+        headers=csrf(client),
+    )
+    assert folder.status_code == 200, folder.text
+    folder_id = folder.json()["folder"]["id"]
+
+    upload = client.post(
+        "/api/documents/upload",
+        files={"file": ("folder_invoice.txt", INVOICE_TEXT.encode("utf-8"), "text/plain")},
+        data={"folder_id": folder_id, "process": "false"},
+        headers=csrf(client),
+    )
+    assert upload.status_code == 200, upload.text
+    payload = upload.json()
+    assert payload["status"] == "uploaded"
+    assert payload["document_id"]
+    assert payload["folder"] == "My Folder"
+
+    with authed.session_factory() as db:
+        from app.models import Document
+
+        document = db.query(Document).filter(Document.id == payload["document_id"]).one()
+        assert document.folder_id == folder_id
+        assert document.file_path and document.file_path.startswith(str(authed.data_dir / "storage"))
+        assert document.ocr_status == "pending"
+        assert document.ai_status == "pending"
+        assert document.vector_status == "pending"
+        assert document.full_text is None
+
+
 def test_duplicate_upload_is_detected(authed):
     client = authed.client
     for _ in range(2):
@@ -309,6 +344,34 @@ def test_duplicate_upload_is_detected(authed):
         from app.models import Document
 
         assert db.query(Document).count() == 1
+
+
+def test_storage_only_text_upload_opens_in_studio_with_file_text(authed):
+    client = authed.client
+
+    folder = client.post(
+        "/api/documents/folders",
+        json={"name": "My Folder"},
+        headers=csrf(client),
+    )
+    assert folder.status_code == 200, folder.text
+    folder_id = folder.json()["folder"]["id"]
+
+    upload = client.post(
+        "/api/documents/upload",
+        files={"file": ("plain_text_note.txt", b"Alpha\nBeta\nGamma\n", "text/plain")},
+        data={"folder_id": folder_id, "process": "false"},
+        headers=csrf(client),
+    )
+    assert upload.status_code == 200, upload.text
+    document_id = upload.json()["document_id"]
+
+    source = client.get(f"/api/studio/source/{document_id}", headers=csrf(client))
+    assert source.status_code == 200, source.text
+    payload = source.json()
+    assert "Alpha" in payload["html"]
+    assert "Beta" in payload["html"]
+    assert "Gamma" in payload["html"]
 
 
 def test_extraction_prompt_targets_the_configured_groq_model(authed):

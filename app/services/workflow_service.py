@@ -637,23 +637,45 @@ def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
     if not step:
         return None
 
-    # Get all assignees for this step
-    assignees = list(step.assignees or [])
-    
-    # Find an alternate from the existing assignees
+    assignees = sorted(
+        list(step.assignees or []),
+        key=lambda u: (u.full_name or u.username or "").lower(),
+    )
     alternate = None
+
     if len(assignees) > 1:
-        # If there are multiple assignees, pick the next one after the current or just any other
-        # For simplicity, pick the last one in the list (assuming first one was the primary)
-        alternate = assignees[-1]
-    elif not assignees:
-        # No assignees yet, find from available approvers
+        alternate = assignees[1]
+    elif assignees:
+        primary_id = assignees[0].id
+        if step.department:
+            candidates = (
+                db.query(User)
+                .filter(
+                    User.is_active.is_(True),
+                    User.department == step.department,
+                    User.id != primary_id,
+                )
+                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
+                .order_by(User.full_name, User.username)
+                .all()
+            )
+        else:
+            candidates = (
+                db.query(User)
+                .filter(User.is_active.is_(True), User.id != primary_id)
+                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
+                .order_by(User.full_name, User.username)
+                .all()
+            )
+        if candidates:
+            alternate = candidates[0]
+    else:
         if step.department:
             candidates = (
                 db.query(User)
                 .filter(User.is_active.is_(True), User.department == step.department)
                 .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name)
+                .order_by(User.full_name, User.username)
                 .all()
             )
         else:
@@ -661,7 +683,7 @@ def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
                 db.query(User)
                 .filter(User.is_active.is_(True))
                 .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name)
+                .order_by(User.full_name, User.username)
                 .all()
             )
         if candidates:
@@ -671,10 +693,11 @@ def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
         return None
 
     step.assignees = [alternate]
+    step.reason = (reason or "Approver unavailable").strip()[:500] or None
     step.due_date = _due(datetime.utcnow(), step.sla_hours or 24)
     step.updated_at = datetime.utcnow() if hasattr(step, 'updated_at') else None
     _event(db, workflow, step, actor, "escalated",
-           f"Escalation: {reason or 'Approver unavailable'} · reassigned to {alternate.full_name or alternate.username}")
+           f"Escalation: {step.reason} · reassigned to {alternate.full_name or alternate.username}")
     db.commit()
     db.refresh(step)
     return step

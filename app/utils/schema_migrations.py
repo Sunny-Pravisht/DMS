@@ -59,7 +59,7 @@ ADDITIONS: dict[str, dict[str, str]] = {
 
 
 def apply_migrations(engine: Engine) -> list[str]:
-    """Add any missing columns. Returns what it changed, for the startup log."""
+    """Add any missing columns and remove stale unique constraints that block My Folder uploads."""
     applied: list[str] = []
     inspector = inspect(engine)
 
@@ -88,5 +88,19 @@ def apply_migrations(engine: Engine) -> list[str]:
                 # A parallel worker may have won the race. Anything else is
                 # worth seeing in the log but is not worth refusing to start.
                 logger.warning(f"Schema migration skipped for {table}.{column}: {exc}")
+
+    if "documents" in existing_tables:
+        try:
+            indexes = inspector.get_indexes("documents")
+            for index in indexes:
+                columns = index.get("column_names") or []
+                name = index.get("name")
+                if columns == ["file_hash"] and index.get("unique"):
+                    with engine.begin() as conn:
+                        conn.execute(text(f"DROP INDEX IF EXISTS {name}"))
+                    applied.append(f"documents.file_hash_unique_index_removed")
+                    logger.info(f"Schema migration: dropped unique index {name} on documents.file_hash")
+        except Exception as exc:
+            logger.warning(f"Could not reconcile file_hash index on documents: {exc}")
 
     return applied

@@ -521,17 +521,25 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     folder_id: Optional[str] = Form(None),
+    process: Optional[str] = Form("true"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_flexible)
 ):
-    """Upload a new document to staging folder with security validation."""
-    
-    # Check if user has permission (admin or documents.create)
+    """Upload a document, optionally storing it directly without running OCR/AI processing.
+
+    By default, uploads still follow the legacy staging + processing path used by the
+    Studio. My Folder uploads pass `process=false`, which creates the Document row in
+    storage immediately and leaves OCR/AI/vector statuses pending so the document can be
+    opened in Studio when the user chooses to process it later.
+    """
+
     if not current_user.is_admin and not current_user.has_permission("documents.create"):
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to upload documents"
         )
+
+    should_process = str(process or "true").strip().lower() not in {"0", "false", "no", "skip"}
 
     if folder_id:
         folder = (
@@ -541,112 +549,144 @@ async def upload_document(
         )
         if not folder:
             raise HTTPException(status_code=400, detail="Selected folder was not found")
-    
-    # Get settings with database session
+
     settings = get_settings(db)
-    
-    # Read file content
     content = await file.read()
-    
+
     try:
-        # Validate file upload with security checks
         safe_filename, mime_type = validate_file_upload(
             filename=file.filename,
             content=content,
             user=current_user,
             max_size=settings.max_file_size_bytes
         )
-        
-        # The processor already refuses to file the same bytes twice: it
-        # quarantines the copy and creates no Document row. Detecting that here
-        # instead means the person who just dropped the file is told what
-        # happened, and taken to the copy they already have, rather than
-        # watching an upload succeed and then produce nothing.
+
         import hashlib
         digest = hashlib.sha256(content).hexdigest()
-        twin = db.query(Document).filter(Document.file_hash == digest).first()
-        if twin and twin.file_path and Path(twin.file_path).exists():
-            return FileUploadResponse(
-                message=f"This file is already in the repository as “{twin.title or twin.original_filename}”.",
-                status="duplicate",
-                document_id=twin.id,
-                filename=twin.original_filename,
-            )
 
-        # Create secure file path
-        staging_base = Path(settings.staging_folder)
-        
-        # Ensure staging directory exists
-        try:
+        if should_process:
+            twin = db.query(Document).filter(Document.file_hash == digest).first()
+            if twin and twin.file_path and Path(twin.file_path).exists():
+                return FileUploadResponse(
+                    message=f"This file is already in the repository as “{twin.title or twin.original_filename}”.",
+                    status="duplicate",
+                    document_id=twin.id,
+                    filename=twin.original_filename,
+                    folder=(twin.folder.name if twin.folder else None),
+                )
+
+        if should_process:
+            staging_base = Path(settings.staging_folder)
             staging_base.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            raise Exception(f"Failed to create staging directory {staging_base}: {str(e)}")
-        
-        # Check if staging directory is writable
-        if not os.access(staging_base, os.W_OK):
-            raise Exception(f"Staging directory {staging_base} is not writable")
-            
-        staging_path = secure_file_path(staging_base, safe_filename)
-        
-        # Handle duplicate filenames
-        counter = 1
-        original_stem = staging_path.stem
-        while staging_path.exists():
-            new_filename = f"{original_stem}_{counter}{staging_path.suffix}"
-            staging_path = secure_file_path(staging_base, new_filename)
-            counter += 1
-        
-        # Save file with secure permissions
-        with open(staging_path, "wb") as buffer:
-            buffer.write(content)
+            if not os.access(staging_base, os.W_OK):
+                raise Exception(f"Staging directory {staging_base} is not writable")
 
-        if folder_id:
-            meta_path = staging_path.with_name(f"{staging_path.name}.folder.json")
-            meta_path.write_text(
-                __import__("json").dumps({"folder_id": folder_id}, indent=2),
-                encoding="utf-8",
+            staging_path = secure_file_path(staging_base, safe_filename)
+            counter = 1
+            original_stem = staging_path.stem
+            while staging_path.exists():
+                new_filename = f"{original_stem}_{counter}{staging_path.suffix}"
+                staging_path = secure_file_path(staging_base, new_filename)
+                counter += 1
+
+            with open(staging_path, "wb") as buffer:
+                buffer.write(content)
+
+            if folder_id:
+                meta_path = staging_path.with_name(f"{staging_path.name}.folder.json")
+                meta_path.write_text(__import__("json").dumps({"folder_id": folder_id}, indent=2), encoding="utf-8")
+
+            set_secure_permissions(staging_path, is_private=True)
+
+            from ..services.audit_service import log_audit_event
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                action="document.upload",
+                resource_type="document",
+                resource_id=None,
+                details={
+                    "filename": safe_filename,
+                    "original_filename": file.filename,
+                    "mime_type": mime_type,
+                    "size": len(content),
+                    "staging_path": str(staging_path),
+                    "process": True,
+                }
             )
 
-        # Set secure file permissions. Uploaded documents frequently contain
-        # sensitive personal data (invoices, contracts, tax documents, etc.).
-        # We default to owner-only (0600) instead of world-readable (0644) so
-        # that other local users on the host can't read uploaded documents
-        # by browsing the filesystem.
-        set_secure_permissions(staging_path, is_private=True)
-        
-        # Log upload event
+            return FileUploadResponse(
+                message=f"File uploaded successfully to staging: {staging_path.name}",
+                status="uploaded",
+                filename=staging_path.name,
+            )
+
+        storage_base = Path(settings.storage_folder)
+        storage_base.mkdir(parents=True, exist_ok=True)
+        if not os.access(storage_base, os.W_OK):
+            raise Exception(f"Storage directory {storage_base} is not writable")
+
+        safe_doc_name = safe_filename
+        counter = 1
+        original_stem = Path(safe_doc_name).stem
+        suffix = Path(safe_doc_name).suffix
+        storage_path = secure_file_path(storage_base, safe_doc_name)
+        while storage_path.exists():
+            storage_path = secure_file_path(storage_base, f"{original_stem}_{counter}{suffix}")
+            counter += 1
+
+        with open(storage_path, "wb") as buffer:
+            buffer.write(content)
+        set_secure_permissions(storage_path, is_private=True)
+
+        document = Document(
+            filename=storage_path.name,
+            original_filename=file.filename or safe_filename,
+            file_hash=digest,
+            file_path=str(storage_path),
+            file_size=len(content),
+            mime_type=mime_type,
+            title=(file.filename or safe_filename).strip() or safe_filename,
+            folder_id=folder_id,
+            ocr_status="pending",
+            ai_status="pending",
+            vector_status="pending",
+        )
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
         from ..services.audit_service import log_audit_event
         log_audit_event(
             db=db,
             user_id=current_user.id,
             action="document.upload",
             resource_type="document",
-            resource_id=None,
+            resource_id=document.id,
             details={
                 "filename": safe_filename,
                 "original_filename": file.filename,
                 "mime_type": mime_type,
                 "size": len(content),
-                "staging_path": str(staging_path)
+                "storage_path": str(storage_path),
+                "folder_id": folder_id,
+                "process": False,
             }
         )
-        
-        # No sweep is kicked off here. The watcher's on_created handler already
-        # has this file, and a second worker racing it produces a rolled-back
-        # transaction ("expected to update 1 row(s); 0 were matched") when both
-        # finish the same document.
+
         return FileUploadResponse(
-            message=f"File uploaded successfully to staging: {staging_path.name}",
+            message="File saved to My Folder and ready to open in Studio.",
             status="uploaded",
-            filename=staging_path.name,
+            document_id=document.id,
+            filename=document.original_filename,
+            folder=(folder.name if folder else "My Folder"),
         )
-        
+
     except FileTypeNotAllowedError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except FileSecurityError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Log the full error for debugging
         import traceback
         error_details = traceback.format_exc()
         print(f"Upload error: {str(e)}")

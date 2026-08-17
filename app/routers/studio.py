@@ -377,7 +377,9 @@ def get_editable_source(
     A document written here comes back exactly as it was written. One that
     arrived as a scan or a PDF has no editable source, so its extracted text is
     offered instead - flagged honestly, because turning OCR output into a body
-    is a conversion, not a round trip.
+    is a conversion, not a round trip. Storage-only My Folder uploads are a small
+    exception: when the backing file is itself plain text, the Studio can safely
+    open that text without triggering the OCR/AI pipeline.
     """
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
@@ -396,14 +398,26 @@ def get_editable_source(
         }
 
     text = (document.full_text or document.summary or "").strip()
+    if not text:
+        file_path = Path(document.file_path) if document.file_path else None
+        if file_path and file_path.exists():
+            mime = (document.mime_type or "").lower()
+            suffix = file_path.suffix.lower()
+            if mime.startswith("text/") or suffix in {".txt", ".md", ".markdown", ".csv", ".log"}:
+                try:
+                    text = file_path.read_text(encoding="utf-8", errors="replace").strip()
+                except Exception:
+                    text = ""
+
     html = _text_to_html(text) if text else "<p></p>"
+    lossless = bool(document.source_html)
 
     return {
         "document_id": document.id,
         "title": document.title or document.original_filename,
         "template_id": doc_templates.DEFAULT_TEMPLATE_ID,
         "html": html,
-        "lossless": False,
+        "lossless": lossless,
         "origin": document.origin or "uploaded",
         "version": document.version or "1.0",
         "meta": _document_meta(document),
@@ -411,7 +425,7 @@ def get_editable_source(
             "This document arrived as a file, so there is no editable original. "
             "The text read from it has been laid out for you to edit. Saving "
             "creates a new version and leaves the original file untouched."
-        ),
+        ) if not lossless else None,
     }
 
 

@@ -1187,6 +1187,9 @@
           const form = new FormData();
           form.append('file', file);
           if (filter.folder) form.append('folder_id', filter.folder);
+          if (personalMode || filter.folder) {
+            form.append('process', 'false');
+          }
           try {
             const res = await api.upload('/api/documents/upload', form, () => {});
             if (res && res.status === 'duplicate') {
@@ -1194,11 +1197,21 @@
               continue;
             }
             uploaded += 1;
-            pendingUploads.push({
-              name: file.name,
-              folderId: filter.folder ? String(filter.folder) : '',
-              startedAt: Date.now()
-            });
+            const pendingKey = String(file.name || '').toLowerCase() +
+              '|' + String(filter.folder || '');
+
+            const alreadyPending = pendingUploads.some(p =>
+              String(p.name || '').toLowerCase() + '|' +
+              String(p.folderId || '') === pendingKey
+            );
+
+            if (!alreadyPending) {
+              pendingUploads.push({
+                name: file.name,
+                folderId: filter.folder ? String(filter.folder) : '',
+                startedAt: Date.now()
+              });
+            }
             toast(personalMode ? 'Upload started' : 'Upload started', file.name);
           } catch (err) {
             toast('Upload failed', file.name + ': ' + String(err.message || err).slice(0, 160), 'danger');
@@ -1232,21 +1245,81 @@
       }
 
       async function pollForUploadedDocuments() {
+        /*
+         * IMPORTANT:
+         * Do not call load() repeatedly while an upload is being processed.
+         *
+         * The old implementation refreshed the whole table every 1.2 seconds.
+         * That caused the document table to be destroyed/rebuilt repeatedly,
+         * which is why the screen appeared to blink after uploading.
+         *
+         * Instead:
+         *   1. Keep the optimistic "Processing" row on screen.
+         *   2. Poll the API silently.
+         *   3. Refresh the real table only after the uploaded document appears.
+         */
         const started = Date.now();
-        const timeout = 20000;
+        const timeout = 30000;
+
         while (pendingUploads.length && Date.now() - started < timeout) {
-          await new Promise(resolve => setTimeout(resolve, 1200));
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          const currentPending = pendingUploads.slice();
+          if (!currentPending.length) break;
+
           try {
-            await load({ preserveWhileLoading: true });
-          } catch (_) {}
-          if (!pendingUploads.length) break;
+            const params = new URLSearchParams();
+            params.set('limit', '500');
+            if (filter.folder) params.set('folder_id', filter.folder);
+
+            const data = await api.safe(
+              '/api/documents/?' + params.toString(),
+              []
+            );
+
+            const serverDocs = Array.isArray(data)
+              ? data
+              : (data.items || []);
+
+            const serverNames = new Set(
+              serverDocs.map(d =>
+                String(
+                  d.original_filename ||
+                  d.filename ||
+                  d.title ||
+                  ''
+                ).toLowerCase()
+              )
+            );
+
+            const found = currentPending.some(p =>
+              serverNames.has(String(p.name || '').toLowerCase())
+            );
+
+            if (found) {
+              // The real document now exists. Remove only the matching
+              // optimistic rows, then perform ONE normal refresh.
+              pendingUploads = pendingUploads.filter(p =>
+                !serverNames.has(String(p.name || '').toLowerCase())
+              );
+
+              renderPendingUploads();
+              await load();
+              return;
+            }
+          } catch (err) {
+            // Keep the optimistic processing row visible. A temporary API
+            // failure must never blank the document table.
+            console.warn('Upload status check failed; keeping pending row.', err);
+          }
         }
-        if (pendingUploads.length) {
-          // One final refresh; if processing is still running, leave the
-          // pending row visible rather than making the table look empty.
-          try { await load({ preserveWhileLoading: true }); } catch (_) {}
-          pendingUploads = [];
-        }
+
+        /*
+         * Processing can legitimately take longer than the polling window.
+         * Keep the processing row visible instead of clearing it and making
+         * the user think the upload disappeared.
+         */
+        renderPendingUploads();
       }
 
       $('#btn-upload-docs').addEventListener('click', () => {

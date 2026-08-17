@@ -249,6 +249,7 @@ class FileUploadResponse(BaseModel):
     # Document row is created later by the watcher and takes this as its
     # original_filename, which is how a caller finds the record it just made.
     filename: Optional[str] = None
+    folder: Optional[str] = None
     
 class StagingFile(BaseModel):
     filename: str

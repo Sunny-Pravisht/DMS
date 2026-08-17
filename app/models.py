@@ -90,7 +90,7 @@ class Document(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     filename = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
-    file_hash = Column(String, unique=True, nullable=False, index=True)
+    file_hash = Column(String, nullable=False, index=True)
     file_path = Column(String, nullable=False)  # Path in storage
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=False)
