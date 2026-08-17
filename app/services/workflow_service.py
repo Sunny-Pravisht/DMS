@@ -622,6 +622,56 @@ def remind(db: Session, workflow: ApprovalWorkflow, actor: User) -> str:
     return who
 
 
+def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
+                         reason: str = "Approver unavailable") -> Optional[ApprovalStep]:
+    """Escalate a pending step when the primary approver is unavailable."""
+    step = current_step(workflow)
+    if not step:
+        return None
+
+    # Get all assignees for this step
+    assignees = list(step.assignees or [])
+    
+    # Find an alternate from the existing assignees
+    alternate = None
+    if len(assignees) > 1:
+        # If there are multiple assignees, pick the next one after the current or just any other
+        # For simplicity, pick the last one in the list (assuming first one was the primary)
+        alternate = assignees[-1]
+    elif not assignees:
+        # No assignees yet, find from available approvers
+        if step.department:
+            candidates = (
+                db.query(User)
+                .filter(User.is_active.is_(True), User.department == step.department)
+                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
+                .order_by(User.full_name)
+                .all()
+            )
+        else:
+            candidates = (
+                db.query(User)
+                .filter(User.is_active.is_(True))
+                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
+                .order_by(User.full_name)
+                .all()
+            )
+        if candidates:
+            alternate = candidates[0]
+
+    if not alternate:
+        return None
+
+    step.assignees = [alternate]
+    step.due_date = _due(datetime.utcnow(), step.sla_hours or 24)
+    step.updated_at = datetime.utcnow() if hasattr(step, 'updated_at') else None
+    _event(db, workflow, step, actor, "escalated",
+           f"Escalation: {reason or 'Approver unavailable'} · reassigned to {alternate.full_name or alternate.username}")
+    db.commit()
+    db.refresh(step)
+    return step
+
+
 # ------------------------------------------------------------------ helpers
 
 

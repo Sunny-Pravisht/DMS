@@ -25,6 +25,7 @@ ADDITIONS: dict[str, dict[str, str]] = {
         "version": "VARCHAR DEFAULT '1.0'",
         "revision_of": "VARCHAR",
         "created_by": "VARCHAR",
+        "folder_id": "VARCHAR",
     },
     "signatures": {
         "designation": "VARCHAR",

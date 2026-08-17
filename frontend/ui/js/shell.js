@@ -155,6 +155,7 @@
     // never a fixed number, because a badge that lies is worse than none.
     { id: 'tasks', label: 'My Tasks', icon: 'approvals', href: '/tasks' },
     { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
+    { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents' },
     { id: 'search', label: 'Search', icon: 'search', href: '/search' },
     { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
   ];
@@ -196,6 +197,7 @@
     {
       label: 'Find', items: [
         { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
+        { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents' },
         { id: 'search', label: 'Search', icon: 'search', href: '/search' },
         { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
       ]

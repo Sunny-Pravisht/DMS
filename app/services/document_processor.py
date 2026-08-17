@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import shutil
 from pathlib import Path
@@ -146,7 +147,8 @@ class DocumentProcessor:
             mime_type = self._get_mime_type(file_path)
             
             # Step 4: Create document record (without final file path)
-            document = self._create_document_record(file_path, file_info, file_hash, mime_type, db)
+            folder_id = self._read_folder_metadata(file_path)
+            document = self._create_document_record(file_path, file_info, file_hash, mime_type, db, folder_id)
             
             # Step 5: Extract text using OCR (while file is still in staging)
             try:
@@ -202,6 +204,7 @@ class DocumentProcessor:
             db.refresh(document)
             storage_path = self._move_to_storage(file_path, document.id, document)
             document.file_path = str(storage_path)
+            self._remove_folder_metadata(file_path)
             db.commit()
             
             # Step 8: Generate and store embeddings
@@ -270,8 +273,30 @@ class DocumentProcessor:
         guessed, _ = mimetypes.guess_type(str(file_path))
         return guessed or 'application/octet-stream'
     
+    def _read_folder_metadata(self, file_path: Path) -> Optional[str]:
+        """Return the selected personal folder for a just-uploaded file, if any."""
+        metadata_file = file_path.with_name(f"{file_path.name}.folder.json")
+        if not metadata_file.exists():
+            return None
+        try:
+            payload = json.loads(metadata_file.read_text(encoding="utf-8"))
+            folder_id = payload.get("folder_id") if isinstance(payload, dict) else None
+            return str(folder_id) if folder_id else None
+        except Exception:
+            logger.warning(f"Could not parse folder metadata for {file_path.name}")
+            return None
+
+    def _remove_folder_metadata(self, file_path: Path):
+        metadata_file = file_path.with_name(f"{file_path.name}.folder.json")
+        if metadata_file.exists():
+            try:
+                metadata_file.unlink()
+            except Exception:
+                logger.warning(f"Could not remove folder metadata for {file_path.name}")
+
     def _create_document_record(self, file_path: Path, file_info: dict, 
-                               file_hash: str, mime_type: str, db: Session) -> Document:
+                               file_hash: str, mime_type: str, db: Session,
+                               folder_id: Optional[str] = None) -> Document:
         """Create initial document record in database"""
         document = Document(
             filename=file_path.name,
@@ -279,7 +304,8 @@ class DocumentProcessor:
             file_hash=file_hash,
             file_path="",  # Will be set after moving to storage
             file_size=file_info["size"],
-            mime_type=mime_type
+            mime_type=mime_type,
+            folder_id=folder_id,
         )
         
         db.add(document)

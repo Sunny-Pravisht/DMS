@@ -59,6 +59,31 @@ class Tag(Base):
     # Relationships
     documents = relationship("Document", secondary=document_tags, back_populates="tags")
 
+class DocumentFolder(Base):
+    __tablename__ = "document_folders"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    parent_id = Column(String, ForeignKey("document_folders.id"), nullable=True)
+    name = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    owner = relationship("User", foreign_keys=[user_id])
+    parent = relationship(
+        "DocumentFolder",
+        remote_side="DocumentFolder.id",
+        back_populates="children",
+    )
+    children = relationship(
+        "DocumentFolder",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+    )
+    documents = relationship("Document", back_populates="folder")
+
+
 class Document(Base):
     __tablename__ = "documents"
     
@@ -98,6 +123,7 @@ class Document(Base):
     # Foreign keys
     correspondent_id = Column(String, ForeignKey("correspondents.id"), nullable=True)
     doctype_id = Column(String, ForeignKey("doctypes.id"), nullable=True)
+    folder_id = Column(String, ForeignKey("document_folders.id"), nullable=True, index=True)
     
     # System metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -117,6 +143,7 @@ class Document(Base):
     # Relationships
     correspondent = relationship("Correspondent", back_populates="documents")
     doctype = relationship("DocType", back_populates="documents")
+    folder = relationship("DocumentFolder", back_populates="documents")
     tags = relationship("Tag", secondary=document_tags, back_populates="documents")
     approved_by_user = relationship("User", foreign_keys=[approved_by])
     
@@ -418,6 +445,7 @@ class DocumentVersion(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     document = relationship("Document", foreign_keys=[document_id])
+    author = relationship("User", foreign_keys=[created_by])
     author = relationship("User", foreign_keys=[created_by])
 
 
