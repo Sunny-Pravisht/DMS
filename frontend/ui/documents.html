@@ -252,18 +252,16 @@
 
               <div class="table-wrap">
                 <table class="table table--clickable" id="doc-table">
-                  <colgroup><col><col><col><col><col class="w-tight"></colgroup>
+                  <colgroup><col><col><col class="w-tight"></colgroup>
                   <thead>
                     <tr>
                       <th>Document</th>
-                      <th>Type</th>
-                      <th>Supplier</th>
                       <th>Status</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody id="doc-rows">
-                    <tr><td colspan="5" style="padding:0">
+                    <tr><td colspan="3" style="padding:0">
                       <div style="height:180px;border-radius:0;background:transparent"></div>
                     </td></tr>
                   </tbody>
@@ -398,8 +396,18 @@
         if (d.ocr_status === 'failed' || d.ai_status === 'failed') {
           return '<span class="badge badge--danger">' + icon('alert') + 'Processing failed</span>';
         }
-        if (['processing', 'pending'].includes(d.ocr_status) ||
-            ['processing', 'pending'].includes(d.ai_status)) {
+        // My Folder uploads are stored immediately with all processing stages
+        // pending. They are not queued jobs: the user can open them in Studio
+        // whenever they choose. A real pipeline document has no final file path
+        // until it has finished moving out of staging.
+        const isStoredUnprocessed = Boolean(d.file_path) &&
+          d.ocr_status === 'pending' &&
+          d.ai_status === 'pending' &&
+          d.vector_status === 'pending';
+        if (isStoredUnprocessed) {
+          return '<span class="badge">Ready to open</span>';
+        }
+        if (d.ocr_status === 'processing' || d.ai_status === 'processing') {
           return '<span class="badge"><span class="dot dot--accent dot--pulse"></span>Processing</span>';
         }
         return '<span class="badge">No approval yet</span>';
@@ -407,7 +415,7 @@
 
       function render() {
         if (!items.length) {
-          rows.innerHTML = '<tr><td colspan="5" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
+          rows.innerHTML = '<tr><td colspan="3" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
           grid.innerHTML = '';
           count.textContent = '0 documents';
           pageInfo.textContent = 'Showing 0 to 0';
@@ -423,10 +431,6 @@
               '<div class="cell-sub">v' + escapeHtml(d.version || '1.0') + ' · ' +
               fmt.bytes(d.file_size) + ' · ' + fmt.ago(d.created_at) +
               (d.origin === 'composed' ? ' · written here' : '') + '</div></td>' +
-            '<td>' + (d.doctype ? '<span class="badge">' + escapeHtml(d.doctype.name) + '</span>'
-                                : '<span class="muted-2">Not set</span>') + '</td>' +
-            '<td class="truncate" style="max-width:26ch">' +
-              escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
             '<td>' + statusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
               '<button type="button" class="icon-btn tip dms-visible-action dms-view-action" data-tip="View document" data-act="view" aria-label="View document">' +
@@ -550,7 +554,10 @@
               folderNameMap[f.id] = f.name;
             });
 
-            const requestedFolderId = urlParams.get('folder');
+            // Read the current URL, not the value captured when the page first
+            // loaded. Otherwise every redraw restores the old folder after the
+            // user clicks a different one.
+            const requestedFolderId = new URLSearchParams(window.location.search).get('folder');
             if (requestedFolderId && personalIds.has(String(requestedFolderId))) {
               personalFolderId = String(requestedFolderId);
               filter.folder = personalFolderId;
@@ -717,9 +724,9 @@
         window.history.replaceState({}, '', url);
         skip = 0;
 
-        // Re-render from the same folder id used by the URL/document query.
-        // This keeps the highlight, upload target and document list in sync.
-        await loadFolders();
+        // The selected row and upload label above are already updated in
+        // place. Rebuilding the sidebar here makes it blink and can interrupt
+        // a second folder click while the document list is loading.
         await load();
       });
 
@@ -1183,6 +1190,7 @@
         }
 
         let uploaded = 0;
+        let storedImmediately = false;
         for (const file of selected) {
           const form = new FormData();
           form.append('file', file);
@@ -1197,6 +1205,15 @@
               continue;
             }
             uploaded += 1;
+
+            // My Folder uploads return a document ID because they have already
+            // been saved. Do not add an optimistic "Processing" row for them.
+            if (res && res.document_id) {
+              storedImmediately = true;
+              toast('Upload complete', file.name + ' is ready to open.');
+              continue;
+            }
+
             const pendingKey = String(file.name || '').toLowerCase() +
               '|' + String(filter.folder || '');
 
@@ -1219,6 +1236,11 @@
         }
 
         if (uploaded > 0) {
+          if (storedImmediately) await load();
+
+          // Only staging uploads need the temporary row and polling. My Folder
+          // uploads were already rendered above as "Ready to open".
+          if (!pendingUploads.length) return;
           // Immediately show an upload/processing row instead of leaving the
           // table blank while the background file watcher creates the document.
           renderPendingUploads();
@@ -1235,8 +1257,6 @@
           '<tr class="dms-pending-row">' +
             '<td><div class="cell-title truncate" style="max-width:44ch">' + escapeHtml(p.name) + '</div>' +
               '<div class="cell-sub">Uploading · waiting for document processing</div></td>' +
-            '<td><span class="badge">Pending</span></td>' +
-            '<td class="muted-2">—</td>' +
             '<td><span class="badge"><span class="dms-upload-spinner"></span>Processing</span></td>' +
             '<td></td>' +
           '</tr>'

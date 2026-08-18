@@ -243,7 +243,9 @@ UI_PAGES = {
     # Find & do
     "/tasks": "tasks.html",
     "/documents": "documents.html",
-    "/documents/detail": "document.html",
+    # The former detail screen was retired. Reuse the working full document
+    # viewer so existing detail links never fall through to the API-only root.
+    "/documents/detail": "viewer.html",
     "/documents/view": "viewer.html",    # the whole document, full screen
     "/search": "search.html",
     "/assistant": "assistant.html",

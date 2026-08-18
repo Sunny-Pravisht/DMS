@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import base64
+from html import escape
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -398,6 +400,7 @@ def get_editable_source(
         }
 
     text = (document.full_text or document.summary or "").strip()
+    image_html = ""
     if not text:
         file_path = Path(document.file_path) if document.file_path else None
         if file_path and file_path.exists():
@@ -409,7 +412,23 @@ def get_editable_source(
                 except Exception:
                     text = ""
 
-    html = _text_to_html(text) if text else "<p></p>"
+            # A photo or scanned image has no editable text until OCR has run.
+            # Opening it as an empty page makes Studio look broken and prevents
+            # people from adding a signature, notes, or a template around the
+            # image. Inline the original so it is visible in the editor and is
+            # retained when the user saves the next PDF version.
+            elif mime.startswith("image/"):
+                try:
+                    encoded = base64.b64encode(file_path.read_bytes()).decode("ascii")
+                    alt = escape(document.title or document.original_filename or "Uploaded image")
+                    image_html = (
+                        '<p><img src="data:' + escape(mime, quote=True) + ';base64,' + encoded +
+                        '" alt="' + alt + '" data-size="large"></p><p><br></p>'
+                    )
+                except OSError:
+                    image_html = ""
+
+    html = _text_to_html(text) if text else (image_html or "<p></p>")
     lossless = bool(document.source_html)
 
     return {
@@ -422,6 +441,10 @@ def get_editable_source(
         "version": document.version or "1.0",
         "meta": _document_meta(document),
         "notice": (
+            "This image has been placed on the page for you. Add text, a "
+            "template, or a signature, then save to create a new version and "
+            "leave the original file untouched."
+            if image_html else
             "This document arrived as a file, so there is no editable original. "
             "The text read from it has been laid out for you to edit. Saving "
             "creates a new version and leaves the original file untouched."

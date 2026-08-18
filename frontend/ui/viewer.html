@@ -62,7 +62,9 @@
 
       $('#v-download').href = '/api/documents/' + encodeURIComponent(id) + '/download';
       $('#v-detail').href = '/documents/detail?id=' + encodeURIComponent(id);
-      $('#back').href = '/documents/detail?id=' + encodeURIComponent(id);
+      // A detail route is another view of this same viewer. Returning there
+      // made the back button loop (and previously hit a missing HTML file).
+      $('#back').href = '/documents';
 
       (async function () {
         const info = await DMSViewer.mount($('#viewer'), id, { full: true });
