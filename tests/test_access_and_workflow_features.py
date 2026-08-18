@@ -9,7 +9,7 @@ from app.models import ApprovalStep, ApprovalWorkflow, Document, DocumentFolder,
 from app.services import workflow_service as wf
 from app.services.folder_service import create_folder, list_user_folders
 from app.services.role_service import apply_role
-from app.services.version_service import capture, checkout_version, compare_versions
+from app.services.version_service import capture, checkout_version, compare_versions, lock_current
 
 
 def _make_engine():
@@ -113,6 +113,12 @@ def test_version_compare_and_checkout_restore_latest():
         assert comparison["left_version"] == "1.0"
         assert comparison["right_version"] == "1.1"
 
+        # Publishing must lock the approved bytes without replacing them with
+        # the signature-stamped rendition. The version label remains unchanged.
+        locked = lock_current(db, doc, note="Published", update_file=False)
+        assert locked.id == v2.id
+        assert locked.version == "1.1"
+        assert locked.file_path == v2.file_path
         restored = checkout_version(db, doc, v1.id, actor=user)
         assert restored.version == "1.0"
         assert doc.version.startswith("1.")

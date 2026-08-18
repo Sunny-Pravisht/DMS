@@ -163,17 +163,17 @@ def get_filter_options(current_user: User = Depends(require_permission_flexible(
         {"key": "last_year", "label": "Last Year"},
         {"key": "last_2_years", "label": "Last 2 Years"}
     ]
-    
+
     reminder_options = [
         {"key": "has", "label": "With Reminder"},
         {"key": "overdue", "label": "Overdue"},
         {"key": "none", "label": "Without Reminder"}
     ]
-    
+
     # Sort all options alphabetically by label
     date_ranges_sorted = sorted(date_ranges, key=lambda x: x["label"])
     reminder_options_sorted = sorted(reminder_options, key=lambda x: x["label"])
-    
+
     return {
         "date_ranges": date_ranges_sorted,
         "reminder_options": reminder_options_sorted
@@ -213,16 +213,16 @@ def get_documents(
         if not owned_folder:
             raise HTTPException(status_code=404, detail="Folder not found")
         query = query.filter(Document.folder_id == resolved_folder_id)
-    
+
     if correspondent_id:
         query = query.filter(Document.correspondent_id == correspondent_id)
-    
+
     if doctype_id:
         query = query.filter(Document.doctype_id == doctype_id)
-    
+
     if is_tax_relevant is not None:
         query = query.filter(Document.is_tax_relevant == is_tax_relevant)
-    
+
     # Date range filtering - predefined ranges take precedence
     if date_range:
         from ..services.search_service import SearchService
@@ -239,7 +239,7 @@ def get_documents(
                 query = query.filter(Document.document_date >= date_from_parsed)
             except ValueError:
                 pass  # Invalid date format, ignore filter
-        
+
         if date_to:
             try:
                 from datetime import datetime
@@ -247,7 +247,7 @@ def get_documents(
                 query = query.filter(Document.document_date <= date_to_parsed)
             except ValueError:
                 pass  # Invalid date format, ignore filter
-    
+
     # Reminder filtering
     if reminder_filter == "has":
         query = query.filter(Document.reminder_date.isnot(None))
@@ -257,7 +257,7 @@ def get_documents(
             Document.reminder_date.isnot(None),
             Document.reminder_date < datetime.utcnow()
         )
-    
+
     # Newest first. Without an explicit order SQLite returns rows in rowid
     # order, so every "limit" was silently answering with the OLDEST N - which
     # is why "Recent documents" listed the first files ever added, and why a
@@ -272,13 +272,13 @@ def get_documents(
 
 @router.get("/{document_id}", response_model=DocumentSchema)
 def get_document(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
     """Get a specific document by ID"""
     from sqlalchemy.orm import joinedload
-    
+
     document = db.query(Document)\
         .options(
             joinedload(Document.correspondent),
@@ -287,7 +287,7 @@ def get_document(
         )\
         .filter(Document.id == document_id)\
         .first()
-    
+
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -300,7 +300,7 @@ def get_document(
 
 @router.post("/{document_id}/view")
 def track_document_view(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -308,13 +308,13 @@ def track_document_view(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Increment view count and update last viewed timestamp
     document.view_count = (document.view_count or 0) + 1
     document.last_viewed = datetime.utcnow()
-    
+
     db.commit()
-    
+
     return {
         "view_count": document.view_count,
         "last_viewed": document.last_viewed
@@ -369,10 +369,10 @@ def update_document(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Update fields
     update_data = document_update.dict(exclude_unset=True)
-    
+
     # Handle tags separately
     if 'tag_ids' in update_data:
         tag_ids = update_data.pop('tag_ids')
@@ -383,18 +383,18 @@ def update_document(
                 from ..models import Tag
                 tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
                 document.tags.extend(tags)
-    
+
     # Update other fields
     for field, value in update_data.items():
         setattr(document, field, value)
-    
+
     db.commit()
     db.refresh(document)
     return document
 
 @router.delete("/{document_id}")
 def delete_document(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.delete"))
 ):
@@ -413,7 +413,7 @@ def delete_document(
         print(f"Error deleting physical file: {e}")
         # Log error but don't fail the deletion
         pass
-    
+
     # Delete from vector database
     try:
         from ..services.vector_db_service import VectorDBService
@@ -424,7 +424,7 @@ def delete_document(
         print(f"Error deleting from vector database: {e}")
         # Log error but don't fail the deletion
         pass
-    
+
     # Delete related processing logs
     try:
         processing_logs = db.query(ProcessingLog).filter(ProcessingLog.document_id == document_id).all()
@@ -433,24 +433,24 @@ def delete_document(
         print(f"Deleted {len(processing_logs)} processing log entries")
     except Exception as e:
         print(f"Error deleting processing logs: {e}")
-    
+
     # Delete document-tag associations
     try:
         document.tags.clear()
         print("Cleared tag associations")
     except Exception as e:
         print(f"Error clearing tag associations: {e}")
-    
+
     # Delete from database
     db.delete(document)
     db.commit()
-    
+
     print(f"Successfully deleted document: {document_id}")
     return {"message": "Document deleted successfully"}
 
 @router.get("/{document_id}/download")
 def download_document(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -458,19 +458,19 @@ def download_document(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check document access permissions
     if not check_document_access(document, current_user, 'read'):
         raise HTTPException(status_code=403, detail="Access denied to this document")
-    
+
     file_path = Path(document.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Document file not found")
-    
+
     # Verify file permissions
     if not check_file_permissions(file_path, current_user):
         raise HTTPException(status_code=403, detail="Access denied to file")
-    
+
     # Validate file path to prevent directory traversal.
     #
     # Both sides are resolved before comparing. They were not, and the two are
@@ -490,7 +490,7 @@ def download_document(
             f"Refused download of {document_id}: {file_path} is outside {storage_base}"
         )
         raise HTTPException(status_code=403, detail="Invalid file path")
-    
+
     # Log access event
     from ..services.audit_service import log_audit_event
     log_audit_event(
@@ -504,12 +504,12 @@ def download_document(
             "file_path": str(file_path)
         }
     )
-    
+
     # Determine media type
     media_type, _ = mimetypes.guess_type(str(file_path))
     if not media_type:
         media_type = "application/octet-stream"
-    
+
     return FileResponse(
         path=str(file_path),
         filename=document.original_filename,
@@ -701,10 +701,10 @@ def get_staging_files(
     """Get list of files in staging folder"""
     settings = get_settings(db)
     staging_path = Path(settings.staging_folder)
-    
+
     if not staging_path.exists():
         return []
-    
+
     files = []
     for file_path in staging_path.iterdir():
         if file_path.is_file():
@@ -715,7 +715,7 @@ def get_staging_files(
                 created_at=stat.st_ctime,
                 status="pending"  # This would need to be tracked in a separate system
             ))
-    
+
     return files
 
 @router.post("/process-staging")
@@ -726,15 +726,15 @@ async def process_staging_files(
 ):
     """Manually trigger processing of all files in staging"""
     from ..services.file_watcher import FileWatcher
-    
+
     file_watcher = FileWatcher()
     background_tasks.add_task(file_watcher.scan_and_process)
-    
+
     return {"message": "Started processing staging files"}
 
 @router.get("/{document_id}/status", response_model=DocumentProcessingStatus)
 def get_processing_status(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -742,7 +742,7 @@ def get_processing_status(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     return DocumentProcessingStatus(
         document_id=document.id,
         filename=document.filename,
@@ -752,7 +752,7 @@ def get_processing_status(
 
 @router.get("/{document_id}/logs")
 def get_processing_logs(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -760,12 +760,12 @@ def get_processing_logs(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     logs = (db.query(ProcessingLog)
            .filter(ProcessingLog.document_id == document_id)
            .order_by(ProcessingLog.created_at.desc())
            .all())
-    
+
     return logs
 
 
@@ -780,11 +780,11 @@ async def reprocess_document(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     file_path = Path(document.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Document file not found")
-    
+
     # Reset processing status
     document.ocr_status = "pending"
     document.ai_status = "pending"
@@ -824,9 +824,9 @@ def get_document_stats(
     pending_ocr = db.query(Document).filter(Document.ocr_status == "pending").count()
     pending_ai = db.query(Document).filter(Document.ai_status == "pending").count()
     tax_relevant = db.query(Document).filter(Document.is_tax_relevant).count()
-    
+
     folder_info = get_folder_info(db)
-    
+
     return {
         "total_documents": total_documents,
         "pending_ocr": pending_ocr,
@@ -837,7 +837,7 @@ def get_document_stats(
 
 @router.get("/{document_id}/file")
 async def get_document_file(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -990,6 +990,16 @@ def list_versions(
         )
         versions = [created] if created else []
 
+    # A document can have one current snapshot in its own history, while a
+    # revision also includes ancestor snapshots. Marking only the database flag
+    # is not enough for older data or mixed revision histories; the live
+    # document's version is the authoritative current label for this response.
+    current_snapshot = next(
+        (v for v in versions if v.document_id == document.id and
+         v.version == (document.version or "1.0")),
+        None,
+    )
+
     return {
         "document_id": document_id,
         "current": document.version or "1.0",
@@ -1000,7 +1010,7 @@ def list_versions(
                 "note": v.note,
                 "file_size": v.file_size,
                 "mime_type": v.mime_type,
-                "is_current": bool(v.is_current),
+                "is_current": bool(v.id == (current_snapshot.id if current_snapshot else None)),
                 "is_locked": bool(v.is_locked),
                 "editable": bool(v.source_html),
                 "created_at": v.created_at,
@@ -1234,20 +1244,20 @@ def remove_tag_from_document(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check if tag exists
     tag = db.query(Tag).filter(Tag.id == tag_id).first()
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
-    
+
     # Check if tag is associated with document
     if tag not in document.tags:
         raise HTTPException(status_code=404, detail="Tag not associated with document")
-    
+
     # Remove tag from document using SQLAlchemy relationship
     document.tags.remove(tag)
     db.commit()
-    
+
     return {"message": "Tag removed from document"}
 
 @router.post("/{document_id}/tags", response_model=TagAddResponse)
@@ -1336,14 +1346,14 @@ def cleanup_orphaned_documents(
     documents = db.query(Document).all()
     orphaned_count = 0
     cleaned_documents = []
-    
+
     for document in documents:
         if document.file_path:
             file_path = Path(document.file_path)
             if not file_path.exists():
                 # This is an orphaned document
                 orphaned_count += 1
-                
+
                 # Store info before deletion
                 cleaned_documents.append({
                     "id": document.id,
@@ -1351,7 +1361,7 @@ def cleanup_orphaned_documents(
                     "file_path": document.file_path,
                     "hash": document.file_hash
                 })
-                
+
                 # Delete from vector database
                 try:
                     from ..services.vector_db_service import VectorDBService
@@ -1359,7 +1369,7 @@ def cleanup_orphaned_documents(
                     vector_db.delete_document(document.id)
                 except Exception as e:
                     print(f"Error deleting from vector database: {e}")
-                
+
                 # Delete related processing logs
                 try:
                     processing_logs = db.query(ProcessingLog).filter(ProcessingLog.document_id == document.id).all()
@@ -1367,18 +1377,18 @@ def cleanup_orphaned_documents(
                         db.delete(log)
                 except Exception as e:
                     print(f"Error deleting processing logs: {e}")
-                
+
                 # Clear tag associations
                 try:
                     document.tags.clear()
                 except Exception as e:
                     print(f"Error clearing tag associations: {e}")
-                
+
                 # Delete the document
                 db.delete(document)
-    
+
     db.commit()
-    
+
     return {
         "message": f"Cleaned up {orphaned_count} orphaned document entries",
         "cleaned_documents": cleaned_documents,
@@ -1387,7 +1397,7 @@ def cleanup_orphaned_documents(
 
 @router.post("/{document_id}/reprocess-ai")
 async def reprocess_ai_only(
-    document_id: str, 
+    document_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.update"))
@@ -1395,14 +1405,14 @@ async def reprocess_ai_only(
     """Retry only AI processing for a document with failed AI but successful OCR"""
     from ..services.document_processor import DocumentProcessor
     from ..models import ProcessingLog
-    
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     if document.ocr_status != "completed":
         raise HTTPException(status_code=400, detail="OCR must be completed before retrying AI processing")
-    
+
     try:
         # Get file path for reprocessing
         file_path = Path(document.file_path)
@@ -1448,18 +1458,18 @@ async def reprocess_ai_only(
 
 @router.post("/{document_id}/reprocess-ocr")
 def reprocess_ocr_only(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.update"))
 ):
     """Retry only OCR processing for a document"""
     from ..services.document_processor import DocumentProcessor
     from ..models import ProcessingLog
-    
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     try:
         file_path = Path(document.file_path)
         if not file_path.exists():
@@ -1516,21 +1526,21 @@ def reprocess_ocr_only(
 
 @router.post("/{document_id}/reprocess-vector")
 def reprocess_vector_only(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.update"))
 ):
     """Retry only vectorization for a document"""
     from ..services.document_processor import DocumentProcessor
     from ..models import ProcessingLog
-    
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     if not document.full_text:
         raise HTTPException(status_code=400, detail="Document must have OCR text before vectorization")
-    
+
     try:
         # Reset vector status only
         document.vector_status = "processing"
@@ -1569,7 +1579,7 @@ def reprocess_vector_only(
 # Document Relations endpoints
 @router.get("/{document_id}/relations")
 def get_document_relations(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -1577,7 +1587,7 @@ def get_document_relations(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Get both parent and child relations
     return {
         "document_id": document_id,
@@ -1614,15 +1624,15 @@ def add_document_relation(
     """Add a relation between two documents"""
     if document_id == related_document_id:
         raise HTTPException(status_code=400, detail="Cannot relate a document to itself")
-    
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     related_document = db.query(Document).filter(Document.id == related_document_id).first()
     if not related_document:
         raise HTTPException(status_code=404, detail="Related document not found")
-    
+
     # Add relation based on type
     if relation_type == "child":
         if related_document not in document.children:
@@ -1630,9 +1640,9 @@ def add_document_relation(
     else:  # parent
         if document not in related_document.children:
             related_document.children.append(document)
-    
+
     db.commit()
-    
+
     return {"message": "Relation added successfully"}
 
 @router.delete("/{document_id}/relations/{related_document_id}")
@@ -1646,19 +1656,19 @@ def remove_document_relation(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     related_document = db.query(Document).filter(Document.id == related_document_id).first()
     if not related_document:
         raise HTTPException(status_code=404, detail="Related document not found")
-    
+
     # Remove from both directions
     if related_document in document.children:
         document.children.remove(related_document)
     if document in related_document.children:
         related_document.children.remove(document)
-    
+
     db.commit()
-    
+
     return {"message": "Relation removed successfully"}
 
 @router.get("/{document_id}/similar")
@@ -1672,16 +1682,16 @@ def find_similar_documents(
     """Find similar documents using vector similarity search"""
     from ..services.vector_db_service import VectorDBService
     from ..services.ai_service import AIService
-    
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Check if document has embeddings - if not, try to proceed anyway
     if document.vector_status != "completed":
         print(f"Warning: Document {document_id} has vector_status: {document.vector_status}")
         # Don't fail, just proceed with search - the vector DB might still have embeddings
-    
+
     try:
         # Initialize services with better error handling
         try:
@@ -1689,18 +1699,18 @@ def find_similar_documents(
         except Exception as e:
             print(f"Error initializing VectorDBService: {e}")
             raise HTTPException(status_code=500, detail="Vector database service not available")
-        
+
         try:
             ai_service = AIService(db_session=db)
         except Exception as e:
             print(f"Error initializing AIService: {e}")
             raise HTTPException(status_code=500, detail="AI service not configured or not available")
-        
+
         # Create search text from document
         search_text = f"{document.title or ''} {document.summary or ''}"
         if not search_text.strip() and document.full_text:
             search_text = document.full_text[:1000]
-        
+
         if not search_text.strip():
             print(f"No search text available for document {document_id}")
             return {
@@ -1709,14 +1719,14 @@ def find_similar_documents(
                 "count": 0,
                 "message": "No text content available for similarity search"
             }
-        
+
         # Generate embeddings for search
         try:
             search_embeddings = ai_service.generate_embeddings(search_text)
         except Exception as e:
             print(f"Error generating embeddings: {e}")
             raise HTTPException(status_code=500, detail="Failed to generate embeddings for similarity search")
-        
+
         # Search for similar documents
         try:
             results = vector_db.search_similar(
@@ -1726,7 +1736,7 @@ def find_similar_documents(
         except Exception as e:
             print(f"Error searching similar documents: {e}")
             raise HTTPException(status_code=500, detail="Failed to search vector database")
-        
+
         # Filter out the document itself and apply threshold
         similar_docs = []
         for result in results:
@@ -1743,13 +1753,13 @@ def find_similar_documents(
                         "similarity_score": result.get('score', 0),
                         "summary": sim_doc.summary
                     })
-        
+
         return {
             "document_id": document_id,
             "similar_documents": similar_docs,
             "count": len(similar_docs)
         }
-        
+
     except HTTPException:
         # Re-raise HTTP exceptions as they are already properly formatted
         raise
@@ -1771,12 +1781,12 @@ def update_document_notes(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     notes = notes_data.get("notes", "")
     document.notes = notes
     db.commit()
     db.refresh(document)
-    
+
     return {
         "message": "Notes updated successfully",
         "notes": document.notes
@@ -1784,7 +1794,7 @@ def update_document_notes(
 
 @router.get("/{document_id}/notes")
 def get_document_notes(
-    document_id: str, 
+    document_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
@@ -1792,7 +1802,7 @@ def get_document_notes(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     return {
         "document_id": document_id,
         "notes": document.notes or ""
@@ -1809,15 +1819,15 @@ def approve_document(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Update approval status
     document.is_approved = approval_request.approved
     document.approved_by = current_user.id if approval_request.approved else None
     document.approved_at = datetime.utcnow() if approval_request.approved else None
-    
+
     db.commit()
     db.refresh(document)
-    
+
     return DocumentApprovalResponse(
         success=True,
         message="Document approved successfully" if approval_request.approved else "Document approval removed",
@@ -1837,11 +1847,11 @@ def get_document_approval_status(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     approved_by_user = None
     if document.approved_by:
         approved_by_user = db.query(User).filter(User.id == document.approved_by).first()
-    
+
     return {
         "document_id": document_id,
         "is_approved": document.is_approved,

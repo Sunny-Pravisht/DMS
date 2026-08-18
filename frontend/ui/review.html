@@ -183,6 +183,9 @@
       const $ = s => document.querySelector(s);
       const params = new URLSearchParams(location.search);
 
+      // The shell resolves the signed-in user asynchronously. Do not read
+      // flow.doc() before that happens: it is user-scoped and would look empty,
+      // causing Review to request no document and appear not to work.
       let docId = params.get('id') || null;
       let doc = null;
       let correspondents = [];
@@ -190,7 +193,6 @@
 
       /* ---------------------------------------------------------- edit mode */
       $('#btn-edit').onclick = () => toggleEdit(true);
-      $('#btn-cancel-edit').onclick = () => toggleEdit(false);
 
       function toggleEdit(on) {
         $('#view-mode').classList.toggle('hidden', on);
@@ -573,6 +575,7 @@
           b.onclick = () => {
             close();
             docId = b.dataset.pick;
+            flow.patch({ doc: { id: docId, title: b.textContent.trim() }, confirmed: false });
             history.replaceState({}, '', '/review?id=' + encodeURIComponent(docId));
             reload();
           };
@@ -581,10 +584,23 @@
 
       /* --------------------------------------------------------------- boot */
       async function reload() {
-        doc = await api.safe('/api/documents/' + docId, null);
+        if (!docId) {
+          const recent = flow.recentUploads();
+          if (recent.length) docId = recent[0].id;
+        }
+        if (!docId) {
+          $('#d-name').textContent = 'Nothing to review yet';
+          $('#d-meta').textContent = 'Return to Document Studio and add a file first.';
+          return;
+        }
+
+        doc = await api.safe('/api/documents/' + encodeURIComponent(docId), null);
         if (!doc) {
           $('#d-name').textContent = 'Document unavailable';
-          $('#d-meta').textContent = 'It may have been deleted.';
+          $('#d-meta').textContent = 'The document could not be loaded. It may still be uploading or may have been deleted.';
+          $('#viewer').innerHTML = '<div class="viewer__fallback"><h3 class="t-h3">Could not load this document</h3>' +
+            '<p class="t-sm muted mt-2">Go back to Document Studio and try Review again after the upload finishes.</p>' +
+            '<div class="btn-row mt-3" style="justify-content:center"><a class="btn btn--primary btn--sm" href="/studio">Back to Document Studio</a></div></div>';
           return;
         }
         paint();
@@ -594,6 +610,14 @@
       }
 
       (async function () {
+        if (DMS.ready) {
+          try { await DMS.ready; } catch (e) { /* API calls below show the real error */ }
+        }
+        if (!docId) {
+          const selected = flow.doc();
+          docId = selected && selected.id;
+        }
+
         const [types, corrs] = await Promise.all([
           api.safe('/api/doctypes/', []),
           api.safe('/api/correspondents/', []),

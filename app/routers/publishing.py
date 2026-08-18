@@ -109,17 +109,20 @@ def publish(
     stamped = 0
 
     if document:
-        # Lock the version that was approved, before anything is added to it.
-        # This is the artefact the approvers actually saw and agreed to.
+        # Freeze the bytes and version that approvers reviewed before applying
+        # publication-only signature stamps. Updating this snapshot after
+        # stamping replaces the approved content with the published rendition;
+        # because both snapshots then share the same source HTML, comparison
+        # incorrectly reports that nothing changed.
         version_service.lock_current(
             db, document,
-            note=f"Approved v{document.version or '1.0'} · "
-                 f"{len([s for s in workflow.steps if s.status == wf.APPROVED])} approver(s)",
+            note=(f"Approved v{document.version or '1.0'} · "
+                  f"{len([s for s in workflow.steps if s.status == wf.APPROVED])} approver(s)"),
+            update_file=False,
         )
 
-        # Then stamp the signatures on and file that as the published version.
-        # Two versions, two different things: what was approved, and what went
-        # out. Collapsing them would lose the ability to prove either.
+        # Stamp the signatures on if any and update only the live published file.
+        # The document version established before publication is not bumped.
         stamped = _apply_signatures(db, workflow, document, current_user)
 
     try:
@@ -186,14 +189,9 @@ def _apply_signatures(db: Session, workflow, document: Document, actor: User) ->
     document.filename = signed_path.name
     document.file_size = len(signed)
     document.file_hash = calculate_file_hash(signed_path)
-    document.version = version_service.next_version(document.version)
+    # The version established at the initial stage is preserved (do not bump at publish time)
     db.commit()
 
-    version_service.capture(
-        db, document, author=actor, version=document.version, lock=True,
-        note=f"Published with {len(blocks)} approval "
-             f"signature{'' if len(blocks) == 1 else 's'} stamped on",
-    )
     return len(blocks)
 
 

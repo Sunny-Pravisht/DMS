@@ -1152,7 +1152,12 @@
     $('#intake-next').hidden = !first;
     if (first) {
       $('#intake-next-name').textContent = first.title || first.name;
-      $('#btn-intake-next').href = '/review?id=' + encodeURIComponent(first.docId);
+      const reviewUrl = '/review?id=' + encodeURIComponent(first.docId);
+      $('#btn-intake-next').href = reviewUrl;
+      // Keep the selected document in the URL immediately. This avoids losing
+      // it if the browser follows the link while the shell is still finishing
+      // its user/session initialization.
+      $('#btn-intake-next').dataset.reviewUrl = reviewUrl;
     }
   }
 

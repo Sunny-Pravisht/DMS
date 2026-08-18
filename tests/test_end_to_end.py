@@ -535,6 +535,59 @@ def test_document_download_and_view_tracking(ingested):
     assert view.json()["view_count"] == 1
 
 
+def test_document_versions_can_compare_and_checkout(ingested):
+    """Version history keeps snapshots readable and makes checkout current."""
+    client = ingested.client
+    document_id = client.get("/api/documents/").json()[0]["id"]
+
+    # The first history request captures the current file as v1.0.
+    initial = client.get(f"/api/documents/{document_id}/versions")
+    assert initial.status_code == 200, initial.text
+    assert len(initial.json()["versions"]) == 1
+    original = initial.json()["versions"][0]
+
+    # Simulate a later save with different text and capture it as v1.1.
+    with ingested.session_factory() as db:
+        from app.models import Document
+        from app.services import version_service
+        from app.utils.file_security import calculate_file_hash
+
+        document = db.query(Document).filter(Document.id == document_id).one()
+        changed = b"Revised invoice: total amount is 150.00 EUR."
+        with open(document.file_path, "wb") as handle:
+            handle.write(changed)
+        document.file_size = len(changed)
+        document.file_hash = calculate_file_hash(document.file_path)
+        document.version = "1.1"
+        db.commit()
+        version_service.capture(db, document, note="Revised amount", version="1.1")
+
+    history = client.get(f"/api/documents/{document_id}/versions")
+    assert history.status_code == 200, history.text
+    versions = history.json()["versions"]
+    assert {v["version"] for v in versions} == {"1.0", "1.1"}
+    latest = next(v for v in versions if v["version"] == "1.1")
+
+    comparison = client.get(
+        f"/api/documents/{document_id}/versions/{original['id']}/compare/{latest['id']}"
+    )
+    assert comparison.status_code == 200, comparison.text
+    assert comparison.json()["different"] is True
+    assert comparison.json()["comparison_mode"] == "text"
+
+    checkout = client.post(
+        f"/api/documents/{document_id}/versions/{original['id']}/checkout",
+        headers=csrf(client),
+    )
+    assert checkout.status_code == 200, checkout.text
+    assert checkout.json()["version"] == "1.0"
+
+    after_checkout = client.get(f"/api/documents/{document_id}/versions")
+    current = [v for v in after_checkout.json()["versions"] if v["is_current"]]
+    assert len(current) == 1
+    assert current[0]["id"] == original["id"]
+
+
 def test_reprocess_vector_endpoint(ingested):
     """Regression: this used to call a non-existent _create_embeddings()."""
     client = ingested.client

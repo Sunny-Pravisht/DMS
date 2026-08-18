@@ -174,6 +174,38 @@
       border-color:#0877aa; box-shadow:0 0 0 3px rgba(8,119,170,.12);
     }
     @keyframes folderModalIn { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+
+    /* Keep the document/status columns aligned across every row. Without fixed
+       tracks, long titles and badge labels make the browser resize columns per
+       document, which makes the table appear to jump as different files load. */
+    #doc-table { table-layout: fixed; min-width: 900px; }
+    #doc-table .dms-col-document { width: 34%; }
+    #doc-table .dms-col-type { width: 15%; }
+    #doc-table .dms-col-supplier { width: 18%; }
+    #doc-table .dms-col-status { width: 17%; }
+    #doc-table .dms-col-actions { width: 150px; }
+    #doc-table td.actions { overflow: visible; }
+    #doc-table td.actions .row-actions { opacity: 1; visibility: visible; }
+    #doc-table td.actions .icon-btn { flex: 0 0 32px; }
+    #doc-table td:first-child .cell-title,
+    #doc-table td:first-child .cell-sub { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    body.personal-documents-page #doc-table .dms-col-document { width: 52%; }
+    body.personal-documents-page #doc-table .dms-col-status { width: 18%; }
+    body.personal-documents-page #doc-table .dms-col-actions { width: 220px; }
+    body.personal-documents-page #doc-table { min-width: 620px; }
+    #doc-table th:nth-child(2),
+    #doc-table td:nth-child(2),
+    #doc-table th:nth-child(3),
+    #doc-table td:nth-child(3) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #doc-table th:nth-child(4),
+    #doc-table td:nth-child(4) { overflow: visible; white-space: nowrap; }
+    #doc-table td:nth-child(1) { min-width: 0; }
+    #doc-table td:nth-child(4) .badge { max-width: none; overflow: visible; }
+    #doc-table td.actions .row-actions { white-space: nowrap; }
+    /* The custom tooltip is clipped by the table/card boundary. Action buttons
+       already have native title text, so suppress the clipped black bubble. */
+    #doc-table td.actions .tip::after { display: none; }
   </style>
 </head>
 
@@ -354,10 +386,10 @@
         const colgroup = table.querySelector('colgroup');
         const theadRow = table.querySelector('thead tr');
         if (personalMode) {
-          if (colgroup) colgroup.innerHTML = '<col><col><col class="w-tight">';
+          if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
           if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Status</th><th></th>';
         } else {
-          if (colgroup) colgroup.innerHTML = '<col><col><col><col><col class="w-tight">';
+          if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-type"><col class="dms-col-supplier"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
           if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Type</th><th>Supplier</th><th>Status</th><th></th>';
         }
       }
@@ -461,11 +493,11 @@
               escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
             '<td>' + repositoryStatusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
-              '<button class="icon-btn tip" data-tip="Edit in the Studio" data-act="edit">' +
+              '<button class="icon-btn tip" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit">' +
                 icon('compose') + '</button>' +
-              '<button class="icon-btn tip" data-tip="Download" data-act="download">' +
+              '<button class="icon-btn tip" data-tip="Download" title="Download" data-act="download">' +
                 icon('download') + '</button>' +
-              '<button class="icon-btn is-danger tip" data-tip="Delete" data-act="delete">' +
+              '<button class="icon-btn is-danger tip" data-tip="Delete" title="Delete" data-act="delete">' +
                 icon('trash') + '</button>' +
             '</span></td></tr>';
         }).join('');
@@ -481,15 +513,15 @@
               (d.origin === 'composed' ? ' · written here' : '') + '</div></td>' +
             '<td>' + statusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
-              '<button type="button" class="icon-btn tip dms-visible-action dms-view-action" data-tip="View document" data-act="view" aria-label="View document">' +
+              '<button type="button" class="icon-btn tip dms-visible-action dms-view-action" data-tip="View document" title="View document" data-act="view" aria-label="View document">' +
                 actionSvg('view') + '</button>' +
-              '<button type="button" class="icon-btn tip dms-visible-action dms-move-action" data-tip="Move to another folder" data-act="move" aria-label="Move document">' +
+              '<button type="button" class="icon-btn tip dms-visible-action dms-move-action" data-tip="Move to another folder" title="Move to another folder" data-act="move" aria-label="Move document">' +
                 actionSvg('move') + '</button>' +
-              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Edit in the Studio" data-act="edit" aria-label="Edit document">' +
+              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit" aria-label="Edit document">' +
                 actionSvg('edit') + '</button>' +
-              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Download" data-act="download" aria-label="Download document">' +
+              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Download" title="Download" data-act="download" aria-label="Download document">' +
                 actionSvg('download') + '</button>' +
-              '<button type="button" class="icon-btn is-danger tip dms-visible-action" data-tip="Delete" data-act="delete" aria-label="Delete document">' +
+              '<button type="button" class="icon-btn is-danger tip dms-visible-action" data-tip="Delete" title="Delete" data-act="delete" aria-label="Delete document">' +
                 actionSvg('delete') + '</button>' +
             '</span></td></tr>';
         }).join('');
@@ -648,7 +680,7 @@
                       '</span></span>' +
                     '</button>' +
                     '<span class="dms-folder-actions">' +
-                      '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
+                      '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" title="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
                       '<button type="button" class="icon-btn is-danger dms-visible-action tip" data-folder-action="delete" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Delete folder" aria-label="Delete folder">' + actionSvg('delete') + '</button>' +
                     '</span>' +
                   '</div></div></li>'
@@ -690,7 +722,7 @@
                   escapeHtml(f.name) + '</span></span>' +
                 '</button>' +
                 '<span class="dms-folder-actions">' +
-                  '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
+                  '<button type="button" class="icon-btn dms-visible-action tip" data-folder-action="rename" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Rename folder" title="Rename folder" aria-label="Rename folder">' + actionSvg('edit') + '</button>' +
                   '<button type="button" class="icon-btn is-danger dms-visible-action tip" data-folder-action="delete" data-folder-id="' + escapeHtml(f.id) + '" data-tip="Delete folder" aria-label="Delete folder">' + actionSvg('delete') + '</button>' +
                 '</span>' +
               '</div></div></li>').join('')
