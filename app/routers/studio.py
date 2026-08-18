@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import base64
+import zipfile
+import xml.etree.ElementTree as ET
 from html import escape
 from datetime import datetime
 from pathlib import Path
@@ -400,10 +402,26 @@ def get_editable_source(
         }
 
     text = (document.full_text or document.summary or "").strip()
+    file_path = Path(document.file_path) if document.file_path else None
+    file_exists = bool(file_path and file_path.exists())
+    mime = (document.mime_type or "").lower()
+    suffix = file_path.suffix.lower() if file_path else ""
+
+    # Prefer the original Word paragraphs over OCR output. The upload pipeline
+    # may have already populated full_text, but OCR loses the structure that a
+    # user expects to edit in Studio.
+    if file_exists and suffix == ".docx":
+        docx_text = _docx_to_text(file_path)
+        if docx_text:
+            text = docx_text
+    pdf_preview_url = (
+        f"/api/documents/{document.id}/file"
+        if file_exists and (mime == "application/pdf" or suffix == ".pdf")
+        else None
+    )
     image_html = ""
     if not text:
-        file_path = Path(document.file_path) if document.file_path else None
-        if file_path and file_path.exists():
+        if file_exists:
             mime = (document.mime_type or "").lower()
             suffix = file_path.suffix.lower()
             if mime.startswith("text/") or suffix in {".txt", ".md", ".markdown", ".csv", ".log"}:
@@ -411,7 +429,6 @@ def get_editable_source(
                     text = file_path.read_text(encoding="utf-8", errors="replace").strip()
                 except Exception:
                     text = ""
-
             # A photo or scanned image has no editable text until OCR has run.
             # Opening it as an empty page makes Studio look broken and prevents
             # people from adding a signature, notes, or a template around the
@@ -440,6 +457,8 @@ def get_editable_source(
         "origin": document.origin or "uploaded",
         "version": document.version or "1.0",
         "meta": _document_meta(document),
+        "file_url": pdf_preview_url,
+        "file_mime": mime or None,
         "notice": (
             "This image has been placed on the page for you. Add text, a "
             "template, or a signature, then save to create a new version and "
@@ -461,6 +480,31 @@ def _document_meta(document: Document) -> dict:
         "document_date": document.document_date.isoformat() if document.document_date else None,
         "tags": [t.name for t in (document.tags or [])],
     }
+
+
+def _docx_to_text(file_path: Path) -> str:
+    # Extract readable paragraph text from a DOCX without requiring Office.
+    namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    try:
+        with zipfile.ZipFile(file_path) as package:
+            xml = package.read("word/document.xml")
+        root = ET.fromstring(xml)
+        paragraphs = []
+        for paragraph in root.iter(namespace + "p"):
+            parts = []
+            for node in paragraph.iter():
+                if node.tag == namespace + "t" and node.text:
+                    parts.append(node.text)
+                elif node.tag == namespace + "tab":
+                    parts.append("\t")
+                elif node.tag == namespace + "br":
+                    parts.append("\n")
+            value = "".join(parts).strip()
+            if value:
+                paragraphs.append(value)
+        return "\n\n".join(paragraphs).strip()
+    except (OSError, KeyError, ET.ParseError, zipfile.BadZipFile):
+        return ""
 
 
 def _text_to_html(text: str) -> str:

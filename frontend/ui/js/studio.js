@@ -797,6 +797,14 @@
       $('#f-title').value = src.title || '';
       body.innerHTML = src.html || '<p></p>';
       applyTemplate(src.template_id, { silent: true });
+      if (src.file_url && (src.file_mime === 'application/pdf' || /\.pdf$/i.test(src.file_url))) {
+        const preview = document.createElement('div');
+        preview.className = 'studio-file-preview';
+        preview.innerHTML = '<div class="studio-file-preview__head">Original PDF preview <a href="' +
+          escapeHtml(src.file_url) + '" target="_blank" rel="noopener">Open PDF</a></div>' +
+          '<iframe title="Original PDF preview" src="' + escapeHtml(src.file_url) + '"></iframe>';
+        body.prepend(preview);
+      }
 
       const meta = src.meta || {};
       if (meta.doctype_id) $('#f-doctype').value = meta.doctype_id;

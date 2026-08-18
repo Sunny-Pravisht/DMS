@@ -571,14 +571,20 @@
         all = Array.isArray(data) ? data : (data.items || []);
 
         // Strict separation:
-        // - All Documents excludes every folder used by My Folder.
-        // - My Folder shows only the currently selected personal folder.
-        const personalIds = getPersonalFolderIds();
+        // - All Documents excludes folders that are owned by the signed-in user.
+        // - My Folder shows the folders returned by the server, including data
+        //   created before the browser localStorage marker existed.
+        const personalFolderIds = new Set();
+        try {
+          const folderResponse = await api.safe('/api/documents/folders', { folders: [] });
+          (Array.isArray(folderResponse.folders) ? folderResponse.folders : [])
+            .forEach(f => personalFolderIds.add(String(f.id)));
+        } catch (_) {}
 
-        if (!personalMode && personalIds.size) {
+        if (!personalMode && personalFolderIds.size) {
           all = all.filter(d => {
             const folderId = documentFolderId(d);
-            return !folderId || !personalIds.has(String(folderId));
+            return !folderId || !personalFolderIds.has(String(folderId));
           });
         }
 
@@ -640,10 +646,10 @@
           // The old code removed "My Folder" first and then tried to find it,
           // which caused a new empty folder to be created repeatedly.
           if (personalMode) {
-            // Only show folders explicitly created/remembered from My Folder.
-            // Do NOT create or display a synthetic "My Folder" folder.
-            const personalIds = getPersonalFolderIds();
-            const personalFolders = allFolders.filter(f => personalIds.has(String(f.id)));
+            // Show every folder returned for the signed-in user. The server is
+            // the source of truth; relying on browser localStorage made folders
+            // disappear after a different browser, cleared storage, or logout.
+            const personalFolders = allFolders;
 
             personalFolders.forEach(f => {
               folderNameMap[f.id] = f.name;
@@ -653,10 +659,11 @@
             // loaded. Otherwise every redraw restores the old folder after the
             // user clicks a different one.
             const requestedFolderId = new URLSearchParams(window.location.search).get('folder');
-            if (requestedFolderId && personalIds.has(String(requestedFolderId))) {
+            const availableFolderIds = new Set(personalFolders.map(f => String(f.id)));
+            if (requestedFolderId && availableFolderIds.has(String(requestedFolderId))) {
               personalFolderId = String(requestedFolderId);
               filter.folder = personalFolderId;
-            } else if (filter.folder && personalIds.has(String(filter.folder))) {
+            } else if (filter.folder && availableFolderIds.has(String(filter.folder))) {
               personalFolderId = String(filter.folder);
             } else {
               personalFolderId = '';

@@ -1,3 +1,9 @@
+/* PDF preview embedded in the Studio canvas. */
+.studio-file-preview { margin: 0 0 16px; border: 1px solid #d8e4e9; border-radius: 8px; overflow: hidden; background: #f3f7f8; }
+.studio-file-preview__head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 12px; font-weight: 700; color: #35566a; }
+.studio-file-preview__head a { color: #177b9b; font-weight: 600; }
+.studio-file-preview iframe { display: block; width: 100%; height: 520px; border: 0; background: #eef2f4; }
+
 /* ==========================================================================
    Document Studio
    Loaded on top of dms.css. Everything here is specific to authoring: the
