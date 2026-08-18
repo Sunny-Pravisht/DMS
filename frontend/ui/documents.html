@@ -252,16 +252,18 @@
 
               <div class="table-wrap">
                 <table class="table table--clickable" id="doc-table">
-                  <colgroup><col><col><col class="w-tight"></colgroup>
+                  <colgroup><col><col><col><col><col class="w-tight"></colgroup>
                   <thead>
                     <tr>
                       <th>Document</th>
+                      <th>Type</th>
+                      <th>Supplier</th>
                       <th>Status</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody id="doc-rows">
-                    <tr><td colspan="3" style="padding:0">
+                    <tr><td colspan="5" style="padding:0">
                       <div style="height:180px;border-radius:0;background:transparent"></div>
                     </td></tr>
                   </tbody>
@@ -342,6 +344,25 @@
       if (personalMode) {
         document.body.classList.add('personal-documents-page');
       }
+
+      // Keep the repository table exactly as it was before the My Folder work.
+      // My Folder gets its own compact 3-column table, while /documents keeps
+      // Document / Type / Supplier / Status and the original row actions.
+      function configureTableForMode() {
+        const table = $('#doc-table');
+        if (!table) return;
+        const colgroup = table.querySelector('colgroup');
+        const theadRow = table.querySelector('thead tr');
+        if (personalMode) {
+          if (colgroup) colgroup.innerHTML = '<col><col><col class="w-tight">';
+          if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Status</th><th></th>';
+        } else {
+          if (colgroup) colgroup.innerHTML = '<col><col><col><col><col class="w-tight">';
+          if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Type</th><th>Supplier</th><th>Status</th><th></th>';
+        }
+      }
+      configureTableForMode();
+
       let filter = { view: 'all', corr: '', type: '', q: '', folder: '' };
       filter.folder = urlParams.get('folder') || '';
       const folderNameMap = {};
@@ -398,8 +419,7 @@
         }
         // My Folder uploads are stored immediately with all processing stages
         // pending. They are not queued jobs: the user can open them in Studio
-        // whenever they choose. A real pipeline document has no final file path
-        // until it has finished moving out of staging.
+        // whenever they choose.
         const isStoredUnprocessed = Boolean(d.file_path) &&
           d.ocr_status === 'pending' &&
           d.ai_status === 'pending' &&
@@ -413,18 +433,46 @@
         return '<span class="badge">No approval yet</span>';
       }
 
-      function render() {
-        if (!items.length) {
-          rows.innerHTML = '<tr><td colspan="3" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
-          grid.innerHTML = '';
-          count.textContent = '0 documents';
-          pageInfo.textContent = 'Showing 0 to 0';
-          $('#prev').disabled = true;
-          $('#next').disabled = true;
-          return;
+      // Original repository status presentation. Keep this separate so My Folder
+      // can have its own upload-ready state without changing /documents.
+      function repositoryStatusBadge(d) {
+        const wf = flows[d.id];
+        if (wf) return workflow.statusBadge(wf.status);
+        if (d.ocr_status === 'failed' || d.ai_status === 'failed') {
+          return '<span class="badge badge--danger">' + icon('alert') + 'Processing failed</span>';
         }
+        if (['processing', 'pending'].includes(d.ocr_status) ||
+            ['processing', 'pending'].includes(d.ai_status)) {
+          return '<span class="badge"><span class="dot dot--accent dot--pulse"></span>Processing</span>';
+        }
+        return '<span class="badge">No approval yet</span>';
+      }
 
-        rows.innerHTML = items.map(d => {
+      function renderRepositoryRows() {
+        return items.map(d => {
+          const title = escapeHtml(d.title || d.original_filename || d.filename || 'Untitled');
+          return '<tr data-id="' + escapeHtml(d.id) + '">' +
+            '<td><div class="cell-title truncate" style="max-width:44ch">' + title + '</div>' +
+              '<div class="cell-sub">v' + escapeHtml(d.version || '1.0') + ' · ' +
+              fmt.bytes(d.file_size) + ' · ' + fmt.ago(d.created_at) +
+              (d.origin === 'composed' ? ' · written here' : '') + '</div></td>' +
+            '<td>' + (d.doctype ? '<span class="badge">' + escapeHtml(d.doctype.name) + '</span>' : '<span class="muted-2">Not set</span>') + '</td>' +
+            '<td class="truncate" style="max-width:26ch">' +
+              escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
+            '<td>' + repositoryStatusBadge(d) + '</td>' +
+            '<td class="actions"><span class="row-actions">' +
+              '<button class="icon-btn tip" data-tip="Edit in the Studio" data-act="edit">' +
+                icon('compose') + '</button>' +
+              '<button class="icon-btn tip" data-tip="Download" data-act="download">' +
+                icon('download') + '</button>' +
+              '<button class="icon-btn is-danger tip" data-tip="Delete" data-act="delete">' +
+                icon('trash') + '</button>' +
+            '</span></td></tr>';
+        }).join('');
+      }
+
+      function renderPersonalRows() {
+        return items.map(d => {
           const title = escapeHtml(d.title || d.original_filename || d.filename || 'Untitled');
           return '<tr data-id="' + escapeHtml(d.id) + '">' +
             '<td><div class="cell-title truncate" style="max-width:44ch">' + title + '</div>' +
@@ -445,12 +493,27 @@
                 actionSvg('delete') + '</button>' +
             '</span></td></tr>';
         }).join('');
+      }
+
+      function render() {
+        if (!items.length) {
+          rows.innerHTML = '<tr><td colspan="' + (personalMode ? '3' : '5') + '" style="padding:0"><div style="height:180px;border-radius:0;background:transparent"></div></td></tr>';
+          grid.innerHTML = '';
+          count.textContent = '0 documents';
+          pageInfo.textContent = 'Showing 0 to 0';
+          $('#prev').disabled = true;
+          $('#next').disabled = true;
+          return;
+        }
+
+        rows.innerHTML = personalMode ? renderPersonalRows() : renderRepositoryRows();
 
         grid.innerHTML = items.map(d => {
           const title = escapeHtml(d.title || d.original_filename || 'Untitled');
+          const badge = personalMode ? statusBadge(d) : repositoryStatusBadge(d);
           return '<article class="doc-card" data-id="' + escapeHtml(d.id) + '">' +
             '<div class="doc-card__thumb">' + icon('file') +
-              '<span class="doc-card__flag">' + statusBadge(d) + '</span></div>' +
+              '<span class="doc-card__flag">' + badge + '</span></div>' +
             '<div class="doc-card__body"><div class="doc-card__title truncate">' + title + '</div>' +
             '<div class="doc-card__meta">' + fmt.date(d.document_date || d.created_at) + ' · ' + fmt.bytes(d.file_size) + '</div>' +
             '</div></article>';
