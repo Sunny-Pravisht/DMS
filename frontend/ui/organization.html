@@ -102,8 +102,19 @@
 
       <div class="divider"></div>
 
-      <!-- The two permissions that drive the whole approval model. -->
-      <div class="t-eyebrow mb-2">What they may do</div>
+      <div class="t-eyebrow mb-2">Account type</div>
+      <label class="field"><span class="field__label">Choose access level</span>
+        <select class="select" id="new-account-type">
+          <option value="employee">Employee · read documents</option>
+          <option value="team_member">Team member · upload and edit</option>
+          <option value="hr">HR · approve HR documents</option>
+          <option value="approver" selected>Approver · review assigned approvals</option>
+          <option value="signatory">Signatory · approve and sign</option>
+          <option value="administrator">Administrator · full access</option>
+        </select>
+      </label>
+      <!-- Advanced approval permissions remain available for custom cases. -->
+      <div class="t-eyebrow mb-2">Approval permissions</div>
       <label class="check mb-2"><input type="checkbox" id="new-approve" checked>
         <span class="check__box"><i data-icon="check"></i></span>
         <span class="check__text"><strong>Approve documents.</strong> They can act on any
@@ -296,6 +307,8 @@
         $('#pw-hint').textContent = user ? 'Only fill this in if you are resetting it.'
                                          : 'They should change it after signing in.';
 
+        $('#new-account-type').value = user && user.account_type ? user.account_type :
+          (user && user.is_admin ? 'administrator' : user && user.can_sign ? 'signatory' : user && user.can_approve ? 'approver' : 'employee');
         $('#new-approve').checked = user ? (user.can_approve !== false) : true;
         $('#new-sign').checked = user ? !!user.can_sign : false;
         $('#new-admin').checked = user ? !!user.is_admin : false;
@@ -313,15 +326,17 @@
 
       $('#btn-create-user').onclick = async () => {
         const isAdmin = $('#new-admin').checked;
+        const accountType = $('#new-account-type').value;
         const payload = {
+          account_type: accountType,
           username: $('#new-username').value.trim(),
           email: $('#new-email').value.trim(),
           full_name: $('#new-name').value.trim(),
           department: $('#new-dept').value || null,
           job_title: $('#new-title').value.trim() || null,
           is_admin: isAdmin,
-          can_approve: isAdmin ? true : $('#new-approve').checked,
-          can_sign: isAdmin ? true : $('#new-sign').checked,
+          can_approve: isAdmin || ['team_member', 'hr', 'approver', 'signatory'].includes(accountType) ? true : $('#new-approve').checked,
+          can_sign: isAdmin || accountType === 'signatory' ? true : $('#new-sign').checked,
         };
 
         const password = $('#new-password').value;

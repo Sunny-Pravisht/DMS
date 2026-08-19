@@ -41,6 +41,7 @@ ADDITIONS: dict[str, dict[str, str]] = {
     "users": {
         "department": "VARCHAR",
         "job_title": "VARCHAR",
+        "account_type": "VARCHAR DEFAULT 'employee'",
         # Existing users keep the ability to approve and, deliberately, do NOT
         # gain the ability to sign. Signature authority is granted, never
         # inherited by a migration.

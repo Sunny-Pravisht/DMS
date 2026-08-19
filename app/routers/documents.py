@@ -370,6 +370,9 @@ def update_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    if not check_document_access(document, current_user, 'write'):
+        raise HTTPException(status_code=403, detail="You do not have access to update this document")
+
     # Update fields
     update_data = document_update.dict(exclude_unset=True)
 
@@ -1114,6 +1117,8 @@ def compare_document_versions(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+    if not check_document_access(document, current_user, 'read'):
+        raise HTTPException(status_code=403, detail="Access denied to this document")
 
     try:
         return version_service.compare_versions(db, document_id, version_id, other_version_id)
@@ -1134,6 +1139,8 @@ def checkout_document_version(
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+    if not check_document_access(document, current_user, 'write'):
+        raise HTTPException(status_code=403, detail="Access denied to this document")
 
     try:
         snapshot = version_service.checkout_version(db, document, version_id, actor=current_user)

@@ -72,29 +72,29 @@ DANGEROUS_PATTERNS = [
 def check_file_permissions(file_path: Path, user: User) -> bool:
     """
     Check if user has permission to access a file.
-    
+
     Args:
         file_path: Path to the file
         user: User requesting access
-        
+
     Returns:
         True if user has permission, False otherwise
     """
     # Admins have access to all files
     if user.is_admin:
         return True
-    
+
     # Check if file is in allowed directories
     settings = get_settings()
     allowed_dirs = [
         Path(settings.storage_folder),
         Path(settings.staging_folder),
     ]
-    
+
     try:
         # Resolve the file path
         resolved_path = file_path.resolve()
-        
+
         # Check if file is within allowed directories
         for allowed_dir in allowed_dirs:
             try:
@@ -102,9 +102,9 @@ def check_file_permissions(file_path: Path, user: User) -> bool:
                 return True
             except ValueError:
                 continue
-        
+
         return False
-        
+
     except Exception as e:
         logger.error(f"Error checking file permissions: {e}")
         return False
@@ -118,41 +118,41 @@ def validate_file_upload(
 ) -> Tuple[str, str]:
     """
     Validate a file upload for security.
-    
+
     Args:
         filename: Original filename
         content: File content as bytes
         user: User uploading the file
         max_size: Maximum allowed file size (bytes)
-        
+
     Returns:
         Tuple of (safe_filename, mime_type)
-        
+
     Raises:
         FileSecurityError: If file validation fails
     """
     # Validate filename
     if not filename:
         raise FileSecurityError("Filename cannot be empty")
-    
+
     # Get file extension
     file_ext = Path(filename).suffix.lower()
-    
+
     # Check allowed extensions
     if file_ext not in ALLOWED_EXTENSIONS:
         raise FileTypeNotAllowedError(
             f"File type '{file_ext}' not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
         )
-    
+
     # Check file size
     file_size = len(content)
     max_allowed = max_size or MAX_FILE_SIZE
-    
+
     if file_size > max_allowed:
         raise FileSecurityError(
             f"File size ({file_size / 1024 / 1024:.1f}MB) exceeds limit ({max_allowed / 1024 / 1024:.1f}MB)"
         )
-    
+
     # Check MIME type using python-magic when available; fallback otherwise
     try:
         detected_mime = None
@@ -196,14 +196,14 @@ def validate_file_upload(
     except Exception as e:
         logger.error(f"Error checking MIME type: {e}")
         raise FileSecurityError("Could not verify file type")
-    
+
     # Check for dangerous patterns only in text files. Skip binary formats
     # (PDF, images, Office docs) as they can legitimately contain these bytes.
     text_mime_types = {
         'text/plain', 'text/csv', 'text/markdown',
         'application/rtf'
     }
-    
+
     if detected_mime in text_mime_types:
         # For text files, check for script tags and server-side code
         text_patterns = [
@@ -213,72 +213,72 @@ def validate_file_upload(
         for pattern in text_patterns:
             if pattern in content[:1024]:  # Check first 1KB
                 raise FileSecurityError("File contains potentially dangerous content")
-    
+
     # Generate safe filename
     safe_filename = sanitize_filename(filename)
-    
+
     return safe_filename, detected_mime
 
 
 def sanitize_filename(filename: str) -> str:
     """
     Sanitize a filename to prevent directory traversal and other attacks.
-    
+
     Args:
         filename: Original filename
-        
+
     Returns:
         Sanitized filename
     """
     # Remove path components
     filename = os.path.basename(filename)
-    
+
     # Replace dangerous characters
     dangerous_chars = ['/', '\\', '..', '~', '\x00', '\n', '\r', '\t']
     for char in dangerous_chars:
         filename = filename.replace(char, '_')
-    
+
     # Limit length
     name, ext = os.path.splitext(filename)
     if len(name) > 200:
         name = name[:200]
-    
+
     filename = name + ext
-    
+
     # Ensure filename is not empty
     if not filename or filename.strip() == '':
         filename = 'unnamed_file'
-    
+
     return filename
 
 
 def secure_file_path(base_path: Path, filename: str) -> Path:
     """
     Create a secure file path preventing directory traversal.
-    
+
     Args:
         base_path: Base directory path
         filename: Filename to append
-        
+
     Returns:
         Secure file path
-        
+
     Raises:
         FileSecurityError: If path would escape base directory
     """
     try:
         # Sanitize filename first
         safe_filename = sanitize_filename(filename)
-        
+
         # Validate path doesn't escape base directory
         validated_path = validate_safe_path(
             safe_filename,
             str(base_path),
             allow_create=True
         )
-        
+
         return validated_path
-        
+
     except ValidationError as e:
         raise FileSecurityError(f"Invalid file path: {str(e)}")
 
@@ -286,7 +286,7 @@ def secure_file_path(base_path: Path, filename: str) -> Path:
 def set_secure_permissions(file_path: Path, is_private: bool = True):
     """
     Set secure file permissions.
-    
+
     Args:
         file_path: Path to the file
         is_private: Whether file should be private (owner-only access)
@@ -310,20 +310,20 @@ def set_secure_permissions(file_path: Path, is_private: bool = True):
 def calculate_file_hash(file_path: Path, algorithm: str = 'sha256') -> str:
     """
     Calculate cryptographic hash of a file.
-    
+
     Args:
         file_path: Path to the file
         algorithm: Hash algorithm to use
-        
+
     Returns:
         Hex digest of file hash
     """
     hash_func = hashlib.new(algorithm)
-    
+
     with open(file_path, 'rb') as f:
         while chunk := f.read(8192):
             hash_func.update(chunk)
-    
+
     return hash_func.hexdigest()
 
 
@@ -334,37 +334,42 @@ def check_document_access(
 ) -> bool:
     """
     Check if user has permission to access a document.
-    
+
     Args:
         document: Document to check
         user: User requesting access
         permission: Permission type (read, write, delete)
-        
+
     Returns:
         True if user has permission
     """
-    # Admins have full access
+    # Administrators bypass both the product permission and document ownership
+    # checks. Everyone else must satisfy the role permission first.
     if user.is_admin:
         return True
-
-    # Map document permissions to user permissions
     permission_map = {
         'read': 'documents.read',
         'write': 'documents.update',
-        'delete': 'documents.delete'
+        'delete': 'documents.delete',
     }
-
     required_permission = permission_map.get(permission, f'documents.{permission}')
-
-    # Permissions live on the user's roles (Role.permissions is a JSON list),
-    # not on a `User.permissions` column - that attribute does not exist.
-    return user.has_permission(required_permission)
+    if not user.has_permission(required_permission):
+        return False
+    # A document with an owner or personal folder is private to that owner.
+    # Documents without either marker remain repository-wide shared documents.
+    owner_id = getattr(document, 'created_by', None)
+    folder = getattr(document, 'folder', None)
+    folder_owner_id = getattr(folder, 'user_id', None) if folder else None
+    private_owner = folder_owner_id or owner_id
+    if private_owner and private_owner != user.id:
+        return False
+    return True
 
 
 def quarantine_file(file_path: Path, reason: str):
     """
     Move a suspicious file to quarantine.
-    
+
     Args:
         file_path: Path to the file
         reason: Reason for quarantine
@@ -373,23 +378,23 @@ def quarantine_file(file_path: Path, reason: str):
         # Create quarantine directory
         quarantine_dir = Path('data/quarantine')
         quarantine_dir.mkdir(exist_ok=True)
-        
+
         # Generate quarantine filename
         timestamp = hashlib.sha256(str(file_path).encode()).hexdigest()[:8]
         quarantine_name = f"{timestamp}_{file_path.name}"
         quarantine_path = quarantine_dir / quarantine_name
-        
+
         # Move file to quarantine
         file_path.rename(quarantine_path)
-        
+
         # Set restrictive permissions
         set_secure_permissions(quarantine_path, is_private=True)
-        
+
         # Log quarantine action
         logger.warning(
             f"File quarantined: {file_path} -> {quarantine_path}, reason: {reason}"
         )
-        
+
         # Create quarantine log
         log_path = quarantine_dir / 'quarantine.log'
         with open(log_path, 'a') as f:
@@ -398,7 +403,7 @@ def quarantine_file(file_path: Path, reason: str):
                 f"{datetime.datetime.now().isoformat()} | "
                 f"{file_path} | {quarantine_path} | {reason}\n"
             )
-        
+
     except Exception as e:
         logger.error(f"Failed to quarantine file: {e}")
         # If quarantine fails, delete the file for safety
@@ -412,22 +417,22 @@ def quarantine_file(file_path: Path, reason: str):
 def scan_directory_security(directory: Path) -> List[Dict[str, str]]:
     """
     Scan a directory for security issues.
-    
+
     Args:
         directory: Directory to scan
-        
+
     Returns:
         List of security issues found
     """
     issues = []
-    
+
     try:
         for file_path in directory.rglob('*'):
             if file_path.is_file():
                 # Check file permissions
                 file_stat = file_path.stat()
                 mode = file_stat.st_mode
-                
+
                 # Check for world-writable files
                 if mode & stat.S_IWOTH:
                     issues.append({
@@ -435,7 +440,7 @@ def scan_directory_security(directory: Path) -> List[Dict[str, str]]:
                         'issue': 'World-writable file',
                         'severity': 'high'
                     })
-                
+
                 # Check for executable files
                 if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
                     issues.append({
@@ -443,7 +448,7 @@ def scan_directory_security(directory: Path) -> List[Dict[str, str]]:
                         'issue': 'Executable file found',
                         'severity': 'medium'
                     })
-                
+
                 # Check file extension
                 if file_path.suffix.lower() not in ALLOWED_EXTENSIONS:
                     issues.append({
@@ -451,7 +456,7 @@ def scan_directory_security(directory: Path) -> List[Dict[str, str]]:
                         'issue': f'Disallowed file type: {file_path.suffix}',
                         'severity': 'medium'
                     })
-                
+
     except Exception as e:
         logger.error(f"Error scanning directory: {e}")
         issues.append({
@@ -459,5 +464,5 @@ def scan_directory_security(directory: Path) -> List[Dict[str, str]]:
             'issue': f'Scan error: {str(e)}',
             'severity': 'low'
         })
-    
+
     return issues

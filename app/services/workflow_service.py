@@ -634,8 +634,10 @@ def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
                          reason: str = "Approver unavailable") -> Optional[ApprovalStep]:
     """Escalate a pending step when the primary approver is unavailable."""
     step = current_step(workflow)
-    if not step:
+    if not step or workflow.status != ACTIVE:
         return None
+    if not (actor and (actor.is_admin or is_overdue(step))):
+        raise WorkflowError("Only an administrator or an overdue approval can be escalated.")
 
     assignees = sorted(
         list(step.assignees or []),

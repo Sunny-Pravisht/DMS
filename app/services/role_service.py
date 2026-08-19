@@ -30,7 +30,7 @@ READ = [
 ]
 
 CONTRIBUTE = READ + [
-    "documents.create", "documents.update",
+    "documents.create", "documents.update", "documents.delete",
     "correspondents.create", "correspondents.update",
     "doctypes.create", "tags.create", "tags.update",
 ]

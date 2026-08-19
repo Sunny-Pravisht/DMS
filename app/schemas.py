@@ -18,7 +18,7 @@ class CorrespondentUpdate(BaseModel):
 
 class Correspondent(CorrespondentBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -37,7 +37,7 @@ class DocTypeUpdate(BaseModel):
 
 class DocType(DocTypeBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -56,7 +56,7 @@ class TagUpdate(BaseModel):
 
 class Tag(TagBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -148,7 +148,7 @@ class DocumentUpdate(BaseModel):
 
 class Document(DocumentBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     filename: str
     original_filename: str
@@ -165,7 +165,7 @@ class Document(DocumentBase):
     vector_status: str = "pending"
     view_count: int = 0
     last_viewed: Optional[datetime] = None
-    
+
     # Approval fields
     is_approved: bool = False
     approved_at: Optional[datetime] = None
@@ -250,7 +250,7 @@ class FileUploadResponse(BaseModel):
     # original_filename, which is how a caller finds the record it just made.
     filename: Optional[str] = None
     folder: Optional[str] = None
-    
+
 class StagingFile(BaseModel):
     filename: str
     size: int
@@ -272,7 +272,7 @@ class SettingUpdate(BaseModel):
 
 class Setting(SettingBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -322,27 +322,27 @@ class ExtendedSettingsResponse(BaseModel):
     chroma_host: str = "localhost"
     chroma_port: int = 8001
     chroma_collection_name: str = "documents"
-    
+
     # Folder Settings
     root_folder: str = "."
     staging_folder: str = "./data/staging"
     data_folder: str = "./data"
     storage_folder: str = "./data/storage"
     logs_folder: str = "./data/logs"
-    
+
     # OCR Settings
     tesseract_path: str = "/usr/bin/tesseract"
     poppler_path: str = "/usr/bin"
-    
+
     # File Settings
     max_file_size: str = "100MB"
     allowed_extensions: str = "pdf,png,jpg,jpeg,tiff,bmp,txt,text,md,markdown"
-    
+
     # Security Settings
     secret_key: str = "your-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    
+
     # Logging
     log_level: str = "INFO"
 
@@ -380,37 +380,37 @@ class ExtendedSettingsUpdate(BaseModel):
     azure_openai_api_version: Optional[str] = None
     azure_openai_chat_deployment: Optional[str] = None
     azure_openai_embeddings_deployment: Optional[str] = None
-    
+
     # AI Limits
     ai_text_limit: Optional[int] = None
     ai_context_limit: Optional[int] = None
-    
+
     # Database Settings
     database_url: Optional[str] = None
     chroma_host: Optional[str] = None
     chroma_port: Optional[int] = None
     chroma_collection_name: Optional[str] = None
-    
+
     # Folder Settings
     root_folder: Optional[str] = None
     staging_folder: Optional[str] = None
     data_folder: Optional[str] = None
     storage_folder: Optional[str] = None
     logs_folder: Optional[str] = None
-    
+
     # OCR Settings
     tesseract_path: Optional[str] = None
     poppler_path: Optional[str] = None
-    
+
     # File Settings
     max_file_size: Optional[str] = None
     allowed_extensions: Optional[str] = None
-    
+
     # Security Settings
     secret_key: Optional[str] = None
     algorithm: Optional[str] = None
     access_token_expire_minutes: Optional[int] = None
-    
+
     # Logging
     log_level: Optional[str] = None
 
@@ -465,7 +465,7 @@ class UserCreate(BaseModel):
     # authorities: a clerk may verify, only a signatory may bind.
     can_approve: bool = True
     can_sign: bool = False
-
+    account_type: str = "approver"  # employee | team_member | hr | signatory | administrator
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
@@ -477,7 +477,7 @@ class UserUpdate(BaseModel):
     job_title: Optional[str] = None
     can_approve: Optional[bool] = None
     can_sign: Optional[bool] = None
-
+    account_type: Optional[str] = None
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -487,6 +487,7 @@ class UserResponse(BaseModel):
     full_name: Optional[str]
     is_active: bool
     is_admin: bool
+    account_type: Optional[str] = None
     department: Optional[str] = None
     job_title: Optional[str] = None
     can_approve: Optional[bool] = True

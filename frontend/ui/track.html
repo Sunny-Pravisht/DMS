@@ -9,28 +9,26 @@
   <link rel="stylesheet" href="/static/ui/css/dms.css">
 </head>
 
-<body data-page="track" data-step="4" data-title="Track Status">
+<body data-page="track" data-title="Status &amp; Tracking">
   <div class="app">
     <aside class="sidebar" id="sidebar"></aside>
 
     <div class="main">
       <header class="topbar" id="topbar"></header>
       <div id="topbar-actions" hidden>
-        <button class="btn btn--outline btn--sm" id="btn-remind" hidden>
-          <i data-icon="bell"></i>Send a reminder</button>
+        <button class="btn btn--outline btn--sm" id="btn-escalate" hidden>
+          <i data-icon="alert"></i>Escalate</button>
+        <button class="btn btn--primary btn--sm" id="btn-publish" hidden>
+          <i data-icon="send"></i>Publish</button>
         <!-- This prints the page, which IS the approval record: every step,
              who decided, when, and their signature. It was labelled "Approval
              certificate" behind a download icon, which promised a file. -->
         <button class="btn btn--outline btn--sm" id="btn-print" hidden>
           <i data-icon="documents"></i>Print the approval trail</button>
-        <a class="btn btn--primary btn--sm" id="btn-publish" href="/publish" hidden>
-          <i data-icon="send"></i>Publish it</a>
       </div>
 
       <main class="page">
-        <div data-journey></div>
-
-        <div class="t-eyebrow mb-3">Step 4 of 5 · Status &amp; Tracking</div>
+        <div class="t-eyebrow mb-3">Approval workspace · Status &amp; Tracking</div>
 
         <!-- Two ways to read the same set: one at a time with its full history,
              or all of them side by side. Neither is a filter on the other, so
@@ -54,7 +52,6 @@
             <option value="active">In progress</option>
             <option value="changes_requested">Changes needed</option>
             <option value="approved">Approved</option>
-            <option value="published">Published</option>
             <option value="rejected">Rejected</option>
           </select>
           <select class="select" id="f-priority" style="width:auto">
@@ -120,10 +117,7 @@
           </div>
         </div>
 
-        <!-- Steps 1-3 all end in one of these. Step 4 had none, so the journey
-             appeared to stop here. What "next" means depends on where the
-             document has got to, so the bar says so rather than offering a
-             button that would only be refused. -->
+        <!-- Tracking is a standalone workspace, separate from the upload flow. -->
         <div class="next-bar" id="next-bar" hidden>
           <div>
             <div class="next-bar__text" id="next-text">Waiting on its approvers.</div>
@@ -132,8 +126,7 @@
           <div class="btn-row">
             <a class="btn btn--outline" id="btn-back-process" href="/process">
               <i data-icon="chevronLeft"></i>Change the approvers</a>
-            <a class="btn btn--primary btn--lg" id="btn-next" href="/publish" hidden>
-              Publish it<i data-icon="arrowRight"></i></a>
+            <span id="btn-next" hidden></span>
           </div>
         </div>
       </main>
@@ -145,7 +138,7 @@
   <script>
     (function () {
       const { api, fmt, escapeHtml, toast, icon, flow, workflow, signatureMark,
-              confirmDanger } = DMS;
+              confirmDanger, openOverlay, closeOverlays } = DMS;
       const $ = s => document.querySelector(s);
       const params = new URLSearchParams(location.search);
 
@@ -164,7 +157,10 @@
         query.set('limit', '60');
 
         const data = await api.safe('/api/workflow/?' + query.toString(), { workflows: [] });
-        list = data.workflows || [];
+        // Published workflows belong in the publishing history, not the active
+        // approvals workspace.
+        list = (data.workflows || []).filter(w =>
+          !['published', 'cancelled'].includes(w.status));
 
         // Overdue is a property of the step, so it is filtered here rather
         // than pushed into the query: the server already told us.
@@ -331,7 +327,6 @@
         // half-formed object throws deep inside the render and leaves a blank
         // panel with no explanation, so refuse it here.
         selected = (loaded && loaded.progress && Array.isArray(loaded.steps)) ? loaded : null;
-        if (selected && selected.status === 'approved') flow.complete(4);
         renderList();
         if (selected) renderDetail();
         else renderEmptyDetail('');
@@ -340,7 +335,7 @@
       /* ------------------------------------------------------- the detail */
       function renderEmptyDetail(q) {
         selected = null;
-        ['#btn-remind', '#btn-print', '#btn-publish'].forEach(s => { $(s).hidden = true; });
+        ['#btn-escalate', '#btn-publish', '#btn-print'].forEach(s => { $(s).hidden = true; });
         // Nothing is selected, so there is no "next" for anything.
         $('#next-bar').hidden = true;
         $('#detail').innerHTML = '<div class="card card--pad">' +
@@ -364,10 +359,14 @@
         const mine = step && step.can_act;
 
         const docId = doc.id || '';
-        $('#btn-remind').hidden = w.status !== 'active';
-        $('#btn-print').hidden = !['approved', 'published'].includes(w.status);
+        // Administrators may escalate an active step before it becomes overdue;
+        // regular users can escalate only after the deadline has passed.
+        const canEscalate = w.status === 'active' && step &&
+          ((window.DMS.me && window.DMS.me.is_admin) || step.overdue);
+        $('#btn-escalate').hidden = !canEscalate;
         $('#btn-publish').hidden = w.status !== 'approved';
-        if (docId) $('#btn-publish').href = '/publish?id=' + encodeURIComponent(docId);
+        $('#btn-print').hidden = w.status !== 'approved';
+
 
         renderNextBar(w, step, docId);
 
@@ -393,8 +392,7 @@
         const next = $('#btn-next');
         const back = $('#btn-back-process');
         bar.hidden = false;
-
-        next.href = docId ? '/publish?id=' + encodeURIComponent(docId) : '/publish';
+        next.hidden = true;
 
         // Going back only means "change the approvers" while there is still an
         // approval to change. Once it is published or rejected the chain is
@@ -415,9 +413,7 @@
         };
 
         if (w.status === 'approved') {
-          say('Every approver has acted.', 'Next: release it, export it, or print it.', true);
-        } else if (w.status === 'published') {
-          say('Published and filed.', 'This document has completed all five steps.', false);
+          say('Every approver has acted.', 'The approval is complete. Publish it from the Publish queue.', false);
         } else if (w.status === 'rejected') {
           say('Rejected, so the process has ended.',
               'Edit the document and start a new approval when it is ready.', false);
@@ -435,21 +431,11 @@
 
       function outcomeBar(w) {
         if (w.status === 'approved') {
-          const to = (w.document || {}).id
-            ? '/publish?id=' + encodeURIComponent(w.document.id) : '/publish';
           return '<div class="decision mb-3">' +
             '<span class="tile-icon">' + icon('check') + '</span>' +
             '<div><div class="decision__prompt">Fully approved</div>' +
             '<div class="decision__sub">Completed ' + fmt.dateTime(w.completed_at) +
-            ' · ready to publish</div></div><span class="spacer"></span>' +
-            '<a class="btn btn--primary" href="' + to + '">' + icon('send') + 'Publish it</a></div>';
-        }
-        if (w.status === 'published') {
-          return '<div class="decision mb-3">' +
-            '<span class="tile-icon">' + icon('send') + '</span>' +
-            '<div><div class="decision__prompt">Published</div>' +
-            '<div class="decision__sub">Released ' + fmt.dateTime(w.published_at) +
-            (w.published_by ? ' by ' + escapeHtml(w.published_by.name) : '') + '</div></div></div>';
+            ' · ready to publish from the Publish queue</div></div></div>';
         }
         if (w.status === 'rejected') {
           const r = (w.steps || []).find(x => x.status === 'rejected') || {};
@@ -700,8 +686,8 @@
             (events.length
               ? events.slice().reverse().map(e =>
                   '<div class="timeline__item ' +
-                    ({ approved: 'is-accent', published: 'is-accent', rejected: 'is-danger',
-                       changes: 'is-warn' }[e.kind] || '') + '">' +
+                    ({ approved: 'is-accent', rejected: 'is-danger',
+                       changes: 'is-warn', escalated: 'is-warn' }[e.kind] || '') + '">' +
                     '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
                     '<div class="timeline__meta">' + fmt.dateTime(e.at) +
                       (e.detail ? ' · “' + escapeHtml(e.detail) + '”' : '') + '</div>' +
@@ -767,7 +753,6 @@
                 ? 'Now with ' + workflow.addressee(updated.current_step)
                 : ((workflow.STATUS[updated.status] || {}).label || ''));
             selected = updated;
-            if (updated.status === 'approved') flow.complete(4);
             await loadList(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
@@ -820,19 +805,66 @@
       }
 
       /* ------------------------------------------------------- top actions */
-      $('#btn-remind').onclick = async () => {
-        if (!selected) return;
+      $('#btn-publish').onclick = async () => {
+        if (!selected || selected.status !== 'approved') return;
+        const button = $('#btn-publish');
+        button.disabled = true;
         try {
-          const r = await api.post('/api/workflow/' + selected.id + '/remind', {});
-          toast('Reminder sent', r.notified);
-          selected = await api.safe('/api/workflow/' + selected.id, selected);
-          renderDetail();
+          const result = await api.post('/api/publishing/' + encodeURIComponent(selected.id) + '/publish', {});
+          toast('Published', result.message || 'Document published successfully.');
+          selected = null;
+          await loadList(false);
         } catch (err) {
-          toast('Could not send a reminder', String(err.message || err).slice(0, 200), 'danger');
+          toast('Publish failed', String(err.message || err).slice(0, 220), 'danger');
+        } finally {
+          button.disabled = false;
         }
       };
+      $('#btn-escalate').onclick = async () => {
+        if (!selected) return;
+        const reason = await escalationReasonDialog();
+        if (reason === null) return;
+        try {
+          const updated = await api.post('/api/workflow/' + selected.id + '/escalate', {
+            reason: reason.trim() || 'Approver unavailable'
+          });
+          toast('Approval escalated', 'The alternate approver and new deadline are now shown in the timeline.');
+          selected = (updated && updated.workflow) ||
+            await api.safe('/api/workflow/' + selected.id, selected);
+          renderDetail();
+          await loadList(true);
+        } catch (err) {
+          toast('Could not escalate approval', String(err.message || err).slice(0, 220), 'danger');
+        }
+      };
+      function escalationReasonDialog() {
+        return new Promise(resolve => {
+          const el = document.createElement('div');
+          el.className = 'modal';
+          el.innerHTML = '<div class="modal__head"><div class="row-top">' +
+            '<span class="tile-icon tile-icon--warn">' + icon('alert') + '</span>' +
+            '<div><h3 class="t-h2">Escalate approval</h3>' +
+            '<p class="t-sm muted mt-1">Reassign this approval to an alternate approver and start a new deadline.</p></div></div></div>' +
+            '<div class="modal__body"><label class="field"><span class="field__label">Reason for escalation</span>' +
+            '<textarea class="textarea" rows="4" data-escalation-reason>Approver unavailable before deadline</textarea></label></div>' +
+            '<div class="modal__foot"><div class="btn-row"><button class="btn btn--outline" data-cancel>Cancel</button>' +
+            '<button class="btn btn--primary" data-submit>' + icon('alert') + 'Escalate approval</button></div></div>';
+          document.body.appendChild(el);
+          openOverlay(el);
+          const finish = value => { closeOverlays(); setTimeout(() => el.remove(), 260); resolve(value); };
+          el.querySelector('[data-cancel]').onclick = () => finish(null);
+          el.querySelector('[data-submit]').onclick = () => finish(el.querySelector('[data-escalation-reason]').value);
+          el.querySelector('[data-escalation-reason]').focus();
+        });
+      }
+
       $('#btn-print').onclick = () => window.print();
       $('#btn-refresh').onclick = () => loadList(true);
+      // Keep the standalone tracking workspace current while approvals are being
+      // created or decided in another tab. Preserve the selected workflow.
+      setInterval(() => {
+        if (!document.hidden) loadList(true);
+      }, 15000);
 
       /* ------------------------------------------------------------ filters */
       let debounce = null;
@@ -846,14 +878,8 @@
 
       /* --------------------------------------------------------------- boot */
       (async function () {
-        // Track is part of the current-document journey. Without an explicit
-        // document id, do not auto-select the first workflow from the
-        // repository; that made a fresh session appear to have an old document
-        // in progress. Existing/global workflows can still be opened by id.
-        if (!wantDocId) {
-          renderEmptyDetail('');
-          return;
-        }
+        // Tracking is a standalone workspace. Load all available workflows on
+        // entry; a document id is only an optional selection hint.
         await loadList(false);
       })();
     })();

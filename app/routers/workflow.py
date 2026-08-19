@@ -504,7 +504,10 @@ def escalate(
     if not step:
         raise HTTPException(status_code=400, detail="There is no step waiting for escalation.")
 
-    escalated = wf.escalate_current_step(db, workflow, current_user, reason=payload.reason)
+    try:
+        escalated = wf.escalate_current_step(db, workflow, current_user, reason=payload.reason)
+    except wf.WorkflowError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     if not escalated:
         raise HTTPException(status_code=400, detail="No alternate approver was available for escalation.")
     return {

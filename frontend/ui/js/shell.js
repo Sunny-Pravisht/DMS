@@ -125,9 +125,7 @@
   const JOURNEY = [
     { id: 'studio',  n: 1, label: 'Upload Document',  hint: 'Add a document',          href: '/studio',  icon: 'compose' },
     { id: 'review',  n: 2, label: 'Review & Confirm', hint: 'Check extracted details', href: '/review',  icon: 'eye' },
-    { id: 'process', n: 3, label: 'Set Up Approval',  hint: 'Choose who approves',     href: '/process', icon: 'workflow' },
-    { id: 'track',   n: 4, label: 'Track Status',     hint: 'Follow approvals',       href: '/track',   icon: 'approvals' },
-    { id: 'publish', n: 5, label: 'Publish',           hint: 'Release the record',      href: '/publish', icon: 'send' },
+    { id: 'process', n: 3, label: 'Set Up Approval', hint: 'Choose who approves',     href: '/process', icon: 'workflow' },
   ];
 
   // The sidebar should stay focused on the starting action, while the top
@@ -154,6 +152,7 @@
     // The count is filled in from the server on every page load; it is
     // never a fixed number, because a badge that lies is worse than none.
     { id: 'tasks', label: 'My Tasks', icon: 'approvals', href: '/tasks' },
+    { id: 'track', label: 'Status & Tracking', icon: 'workflow', href: '/track' },
     { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
     { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents?personal=1' },
     { id: 'search', label: 'Search', icon: 'search', href: '/search' },
@@ -703,7 +702,7 @@
       for (let n = 1; n < step; n++) {
         if (!done.has(n)) return false;
       }
-      return !!flow.doc();
+      return !!flow.doc() || !!new URLSearchParams(window.location.search).get('id');
     },
     doc() { return flow.get().doc || null; },
     clear() {
@@ -956,7 +955,19 @@
    */
   function enforceJourneyAccess() {
     const stepNo = Number(document.body && document.body.dataset.step || 0);
-    if (!stepNo || stepNo <= 1) return true;
+    // Status & Tracking is a global work queue, not a step that requires a
+    // locally saved document. It must remain reachable from the sidebar even
+    // when the user has not started the five-step journey in this browser.
+    // Review can always be opened directly. It renders a clear "no document"
+    // state when no id is supplied instead of silently redirecting away from a
+    // button the user just clicked.
+    if (stepNo === 2 && document.querySelector('body[data-page="review"]')) return true;
+    // Approval setup is document-scoped too. A valid id in the link is enough
+    // to open it; requiring localStorage step history made Confirm & set up
+    // approval appear to do nothing after a session change or hard refresh.
+    if (stepNo === 3 && new URLSearchParams(window.location.search).get('id')) return true;
+    if (stepNo === 4) return true;
+    if (stepNo <= 1) return true;
     if (flow.canEnter(stepNo)) return true;
 
     const reached = flow.reached();

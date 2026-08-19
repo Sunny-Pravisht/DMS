@@ -1307,7 +1307,8 @@
 
     return '<div class="filecard__row">' +
         '<a class="btn btn--sm btn--primary' + off + '"' +
-          (id ? ' href="/review?id=' + id + '"' : '') + '>' +
+          (id ? ' href="/review?id=' + id + '"' : '') +
+          ' data-review="' + id + '">' +
           'Review' + icon('arrowRight') + '</a>' +
         '<a class="btn btn--sm btn--outline' + off + '"' +
           (id ? ' href="/studio?id=' + id + '"' : '') + '>' +

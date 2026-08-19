@@ -24,38 +24,38 @@ document_relations = Table(
 
 class Correspondent(Base):
     __tablename__ = "correspondents"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     name = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, nullable=True)
     address = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     documents = relationship("Document", back_populates="correspondent")
 
 class DocType(Base):
     __tablename__ = "doctypes"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     documents = relationship("Document", back_populates="doctype")
 
 class Tag(Base):
     __tablename__ = "tags"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     name = Column(String, unique=True, nullable=False, index=True)
     color = Column(String, nullable=True)  # For UI representation
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     documents = relationship("Document", secondary=document_tags, back_populates="tags")
 
@@ -86,7 +86,7 @@ class DocumentFolder(Base):
 
 class Document(Base):
     __tablename__ = "documents"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     filename = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
@@ -94,13 +94,13 @@ class Document(Base):
     file_path = Column(String, nullable=False)  # Path in storage
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=False)
-    
+
     # Document metadata
     title = Column(String, nullable=True)
     summary = Column(Text, nullable=True)
     full_text = Column(Text, nullable=True)  # OCR result
     document_date = Column(DateTime, nullable=True)  # Date from document content
-    
+
     # Extended fields as requested
     is_tax_relevant = Column(Boolean, default=False, nullable=False)
     reminder_date = Column(DateTime, nullable=True)
@@ -115,38 +115,38 @@ class Document(Base):
     version = Column(String, default="1.0", nullable=True)
     revision_of = Column(String, nullable=True)                  # documents.id
     created_by = Column(String, nullable=True)                   # users.id
-    
+
     # View tracking
     view_count = Column(Integer, default=0, nullable=False)
     last_viewed = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Foreign keys
     correspondent_id = Column(String, ForeignKey("correspondents.id"), nullable=True)
     doctype_id = Column(String, ForeignKey("doctypes.id"), nullable=True)
     folder_id = Column(String, ForeignKey("document_folders.id"), nullable=True, index=True)
-    
+
     # System metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Processing status
     ocr_status = Column(String, default="pending")  # pending, processing, completed, failed
     ai_status = Column(String, default="pending")   # pending, processing, completed, failed
     vector_status = Column(String, default="pending")  # pending, processing, completed, failed
-    
+
     # Approval status
     is_approved = Column(Boolean, default=False, nullable=False)
     approved_at = Column(DateTime(timezone=True), nullable=True)
     approved_by = Column(String, ForeignKey("users.id"), nullable=True)
-    
+
     # Relationships
     correspondent = relationship("Correspondent", back_populates="documents")
     doctype = relationship("DocType", back_populates="documents")
     folder = relationship("DocumentFolder", back_populates="documents")
     tags = relationship("Tag", secondary=document_tags, back_populates="documents")
     approved_by_user = relationship("User", foreign_keys=[approved_by])
-    
+
     # Self-referential relationship for main/sub documents
     children = relationship(
         "Document",
@@ -451,7 +451,7 @@ class DocumentVersion(Base):
 
 class Settings(Base):
     __tablename__ = "settings"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     key = Column(String, unique=True, nullable=False, index=True)
     value = Column(Text, nullable=True)
@@ -461,7 +461,7 @@ class Settings(Base):
 
 class ProcessingLog(Base):
     __tablename__ = "processing_logs"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     document_id = Column(String, ForeignKey("documents.id"), nullable=True)
     operation = Column(String, nullable=False)  # ocr, ai_extraction, etc.
@@ -483,20 +483,20 @@ user_roles = Table(
 
 class Role(Base):
     __tablename__ = "roles"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     name = Column(String, unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     permissions = Column(Text, nullable=True)  # JSON string of permissions
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     users = relationship("User", secondary=user_roles, back_populates="roles")
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     username = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
@@ -510,6 +510,7 @@ class User(Base):
     # can find them without anyone maintaining a second directory.
     department = Column(String, nullable=True)
     job_title = Column(String, nullable=True)
+    account_type = Column(String, nullable=True, default="employee")
 
     # The two approval permissions, kept separate on purpose.
     #
@@ -527,23 +528,23 @@ class User(Base):
     password_reset_expires = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     roles = relationship("Role", secondary=user_roles, back_populates="users")
-    
+
     def set_password(self, password: str):
         """Hash and set password"""
         self.hashed_password = pwd_context.hash(password)
-    
+
     def verify_password(self, password: str) -> bool:
         """Verify password against hash"""
         return pwd_context.verify(password, self.hashed_password)
-    
+
     def has_permission(self, permission: str) -> bool:
         """Check if user has specific permission"""
         if self.is_admin:
             return True
-        
+
         for role in self.roles:
             if role.permissions:
                 import json
@@ -557,7 +558,7 @@ class User(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     session_token = Column(String, unique=True, nullable=False, index=True)
@@ -565,13 +566,13 @@ class Session(Base):
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     user = relationship("User")
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     action = Column(String, nullable=False)  # login, logout, create_document, etc.
@@ -581,6 +582,6 @@ class AuditLog(Base):
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     user = relationship("User")

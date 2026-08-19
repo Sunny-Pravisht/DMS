@@ -60,7 +60,7 @@ async def login(
 ):
     """Login endpoint"""
     auth_service = AuthService(db)
-    
+
     user = auth_service.authenticate_user(login_data.username, login_data.password)
     if not user:
         auth_service.log_audit_event(
@@ -75,23 +75,23 @@ async def login(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Create JWT token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth_service.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    
+
     # Create session
     session_token = auth_service.create_session(
         user,
         ip_address=request.client.host,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     # Get settings to check production mode
     settings = get_settings(db)
-    
+
     # Set session cookie
     response.set_cookie(
         key="session_token",
@@ -101,7 +101,7 @@ async def login(
         secure=settings.production_mode,  # Secure cookies in production
         samesite="lax"
     )
-    
+
     # Log successful login
     auth_service.log_audit_event(
         user_id=user.id,
@@ -109,9 +109,9 @@ async def login(
         ip_address=request.client.host,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
-        "access_token": access_token, 
+        "access_token": access_token,
         "token_type": "bearer",
         "must_change_password": user.must_change_password
     }
@@ -125,15 +125,15 @@ async def logout(
 ):
     """Logout endpoint"""
     auth_service = AuthService(db)
-    
+
     # Get session token from cookie
     session_token = request.cookies.get("session_token")
     if session_token:
         auth_service.invalidate_session(session_token)
-    
+
     # Clear session cookie
     response.delete_cookie(key="session_token")
-    
+
     # Log logout
     if current_user:
         auth_service.log_audit_event(
@@ -142,7 +142,7 @@ async def logout(
             ip_address=request.client.host,
             user_agent=request.headers.get("user-agent")
         )
-    
+
     return {"message": "Successfully logged out"}
 
 @router.get("/me", response_model=UserResponse)
@@ -158,25 +158,25 @@ async def change_password(
 ):
     """Change user password"""
     auth_service = AuthService(db)
-    
+
     # Verify current password
     if not current_user.verify_password(password_data.current_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
         )
-    
+
     # Set new password
     current_user.set_password(password_data.new_password)
     current_user.must_change_password = False  # Clear the flag
     db.commit()
-    
+
     # Log password change
     auth_service.log_audit_event(
         user_id=current_user.id,
         action="password_changed"
     )
-    
+
     return {"message": "Password changed successfully"}
 
 @router.get("/check-session")
@@ -190,7 +190,7 @@ async def check_session(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session"
         )
-    
+
     return {
         "valid": True,
         "user": {
@@ -211,31 +211,45 @@ async def create_user(
 ):
     """Create new user (admin only)"""
     auth_service = AuthService(db)
-    
+
     # Check if user already exists
     existing_user = db.query(User).filter(
         (User.username == user_data.username) | (User.email == user_data.email)
     ).first()
-    
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this username or email already exists"
         )
-    
+
     # Create user
+    account_type = (user_data.account_type or "approver").strip().lower()
+    account_defaults = {
+        "employee": (False, False),
+        "team_member": (True, False),
+        "hr": (True, False),
+        "approver": (True, False),
+        "signatory": (True, True),
+        "administrator": (True, True),
+    }
+    if account_type not in account_defaults:
+        raise HTTPException(status_code=400, detail="Invalid account type")
+    default_approve, default_sign = account_defaults[account_type]
+    is_admin = user_data.is_admin or account_type == "administrator"
     user = User(
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
-        is_admin=user_data.is_admin,
+        is_admin=is_admin,
         is_active=True,
         department=user_data.department,
         job_title=user_data.job_title,
-        can_approve=user_data.can_approve,
+        account_type=account_type,
+        can_approve=default_approve if account_type != "approver" else user_data.can_approve,
         # Signature authority is granted explicitly, never by default. An admin
         # can always sign, because somebody must be able to unblock a process.
-        can_sign=user_data.can_sign or user_data.is_admin,
+        can_sign=default_sign if account_type not in ("approver",) else user_data.can_sign or is_admin,
     )
     user.set_password(user_data.password)
 
@@ -257,7 +271,7 @@ async def create_user(
         resource_id=user.id,
         details={"username": user.username, "email": user.email}
     )
-    
+
     return user
 
 @router.get("/users", response_model=list[UserResponse])
@@ -293,22 +307,22 @@ async def update_user(
 ):
     """Update user (admin only)"""
     auth_service = AuthService(db)
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     # Update fields
     update_data = user_data.dict(exclude_unset=True)
-    
+
     # Handle password separately
     if 'password' in update_data and update_data['password']:
         user.set_password(update_data['password'])
         del update_data['password']
-    
+
     # Update other fields
     for field, value in update_data.items():
         setattr(user, field, value)
@@ -316,6 +330,18 @@ async def update_user(
     db.commit()
 
     # Approval authority may have changed, so the role has to follow it.
+    if "account_type" in update_data:
+        account_type = (update_data["account_type"] or "employee").strip().lower()
+        defaults = {"employee": (False, False), "team_member": (True, False), "hr": (True, False), "approver": (True, False), "signatory": (True, True), "administrator": (True, True)}
+        if account_type not in defaults:
+            raise HTTPException(status_code=400, detail="Invalid account type")
+        user.account_type = account_type
+        if account_type != "approver":
+            user.can_approve, user.can_sign = defaults[account_type]
+        if account_type == "administrator":
+            user.is_admin = True
+        del update_data["account_type"]
+
     if {"can_approve", "can_sign", "is_admin"} & set(update_data):
         from ..services.role_service import apply_role
         apply_role(db, user)
@@ -330,7 +356,7 @@ async def update_user(
         resource_id=user.id,
         details=update_data
     )
-    
+
     return user
 
 @router.delete("/users/{user_id}")
@@ -341,20 +367,20 @@ async def delete_user(
 ):
     """Delete user (admin only)"""
     auth_service = AuthService(db)
-    
+
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account"
         )
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
+
     # Log user deletion before deleting
     auth_service.log_audit_event(
         user_id=current_user.id,
@@ -363,10 +389,10 @@ async def delete_user(
         resource_id=user.id,
         details={"username": user.username, "email": user.email}
     )
-    
+
     db.delete(user)
     db.commit()
-    
+
     return {"message": "User deleted successfully"}
 
 @router.get("/setup/check")
@@ -392,15 +418,15 @@ async def create_initial_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Initial setup already completed"
         )
-    
+
     auth_service = AuthService(db)
-    
+
     # Create default roles
     auth_service.create_default_roles()
-    
+
     # Create default document types
     ensure_default_document_types(db)
-    
+
     # Create admin user
     try:
         user = auth_service.create_admin_user(
@@ -409,7 +435,7 @@ async def create_initial_user(
             password=user_data.password,
             full_name=user_data.full_name
         )
-        
+
         # Log initial setup
         auth_service.log_audit_event(
             user_id=user.id,
@@ -418,9 +444,9 @@ async def create_initial_user(
             ip_address=request.client.host,
             user_agent=request.headers.get("user-agent")
         )
-        
+
         return {"message": "Initial admin user created successfully", "user_id": user.id}
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
