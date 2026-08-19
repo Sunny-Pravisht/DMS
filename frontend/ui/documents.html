@@ -405,9 +405,16 @@
       // so they never leak back into the repository's All Documents view.
       const PERSONAL_FOLDER_STORAGE_KEY = 'dms_personal_folder_ids_v1';
 
+      function personalFolderStorageKey() {
+        const userId = window.DMS && window.DMS.me && window.DMS.me.id;
+        return userId ? PERSONAL_FOLDER_STORAGE_KEY + '::' + userId : null;
+      }
+
       function getPersonalFolderIds() {
+        const key = personalFolderStorageKey();
+        if (!key) return new Set();
         try {
-          const value = JSON.parse(localStorage.getItem(PERSONAL_FOLDER_STORAGE_KEY) || '[]');
+          const value = JSON.parse(localStorage.getItem(key) || '[]');
           return new Set(Array.isArray(value) ? value.map(String) : []);
         } catch (_) {
           return new Set();
@@ -418,7 +425,8 @@
         if (!id) return;
         const ids = getPersonalFolderIds();
         ids.add(String(id));
-        localStorage.setItem(PERSONAL_FOLDER_STORAGE_KEY, JSON.stringify([...ids]));
+        const key = personalFolderStorageKey();
+        if (key) localStorage.setItem(key, JSON.stringify([...ids]));
       }
 
       function documentFolderId(d) {
@@ -773,7 +781,8 @@
               await api.del('/api/documents/folders/' + encodeURIComponent(folderId));
               getPersonalFolderIds().delete(String(folderId));
               const ids = getPersonalFolderIds();
-              localStorage.setItem(PERSONAL_FOLDER_STORAGE_KEY, JSON.stringify([...ids]));
+              const key = personalFolderStorageKey();
+              if (key) localStorage.setItem(key, JSON.stringify([...ids]));
               if (String(filter.folder) === String(folderId)) {
                 filter.folder = '';
                 personalFolderId = '';

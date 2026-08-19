@@ -427,7 +427,9 @@
 
   const templates = {
     custom() {
-      try { return JSON.parse(localStorage.getItem(TPL_KEY)) || []; }
+      const key = userKey(TPL_KEY);
+      if (!key) return [];
+      try { return JSON.parse(localStorage.getItem(key)) || []; }
       catch (e) { return []; }
     },
     all() { return BUILT_IN_TEMPLATES.concat(templates.custom()); },
@@ -438,12 +440,14 @@
       const record = Object.assign({ custom: true }, tpl, { id: id });
       const at = list.findIndex(t => t.id === id);
       if (at >= 0) list[at] = record; else list.push(record);
-      try { localStorage.setItem(TPL_KEY, JSON.stringify(list)); } catch (e) { /* private mode */ }
+      const key = userKey(TPL_KEY);
+      try { if (key) localStorage.setItem(key, JSON.stringify(list)); } catch (e) { /* private mode */ }
       return record;
     },
     remove(id) {
       const list = templates.custom().filter(t => t.id !== id);
-      try { localStorage.setItem(TPL_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+      const key = userKey(TPL_KEY);
+      try { if (key) localStorage.setItem(key, JSON.stringify(list)); } catch (e) { /* ignore */ }
     },
     /**
      * A template is only usable if every step says who acts and by when.
@@ -487,7 +491,7 @@
 
   const api = {
     async request(path, options, _retried) {
-      const opts = Object.assign({ credentials: 'same-origin' }, options || {});
+      const opts = Object.assign({ credentials: 'same-origin', cache: 'no-store' }, options || {});
       opts.headers = Object.assign({}, options && options.headers);
 
       if (opts.body && !(opts.body instanceof FormData)) {
