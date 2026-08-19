@@ -11,11 +11,10 @@ export POPPLER_PATH="/usr/bin"
 
 # Ensure directories exist with correct permissions
 echo "📁 Creating directories..."
-mkdir -p /app/data /app/data/logs /app/data/staging /app/data/storage /app/data/uploads /app/data/backups /app/data/.cache /root/.cache
-# Chroma's ONNX helper defaults to ~/.cache/chroma. Keep that cache on the
-# persistent data volume so model downloads survive restarts and redeploys.
-mkdir -p /app/data/.cache/chroma
-ln -sfn /app/data/.cache/chroma /root/.cache/chroma
+mkdir -p /app/data /app/data/logs /app/data/staging /app/data/storage /app/data/uploads /app/data/backups /app/data/.cache /app/data/.cache/chroma
+# Chroma's ONNX helper defaults to ~/.cache/chroma. Point HOME at the
+# persistent application volume; this image runs as non-root appuser.
+export HOME=/app/data
 export CHROMA_CACHE_DIR=/app/data/.cache
 export XDG_CACHE_HOME=/app/data/.cache
 

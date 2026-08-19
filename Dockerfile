@@ -92,6 +92,7 @@ ENV PYTHONUNBUFFERED=1 \
     # Cache the ONNX embedding model inside the mounted data volume so it is
     # downloaded once rather than on every container start.
     HF_HOME=/app/data/.cache \
+    CHROMA_CACHE_DIR=/app/data/.cache \
     XDG_CACHE_HOME=/app/data/.cache \
     TRUSTED_PROXY_IPS=127.0.0.1
 
