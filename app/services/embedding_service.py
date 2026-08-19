@@ -7,7 +7,7 @@ selected via the ``embedding_provider`` setting:
 ``local``  (default)
     Runs ``all-MiniLM-L6-v2`` on the CPU through the ONNX runtime that ChromaDB
     already depends on. No API key, no extra pip dependency. The ~80 MB model is
-    downloaded once on first use and cached under ``~/.cache/chroma``.
+    downloaded once on first use and cached under ``/app/data/.cache`` in production (or ``CHROMA_CACHE_DIR`` when configured).
 
 ``openai`` / ``azure``
     Uses the corresponding hosted embeddings API. Requires a key for that
@@ -17,8 +17,24 @@ Vector dimensions differ per backend (MiniLM = 384, text-embedding-3-small =
 1536). Switching backends invalidates the existing Chroma collection, so run
 ``python cli.py reindex-vectors --force`` afterwards.
 """
+import asyncio
+import os
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import List, Optional
+# Loading the ONNX model performs network I/O on first use. Keep this bounded so
+# a bad connection cannot permanently pin a worker. The loader runs separately
+# from request/event-loop threads; a timed-out download cannot be cancelled, but
+# it is never allowed to block the application worker.
+_LOCAL_MODEL_LOAD_TIMEOUT = float(os.getenv("LOCAL_EMBEDDING_LOAD_TIMEOUT", "120"))
+_LOCAL_MODEL_CACHE = os.getenv("CHROMA_CACHE_DIR", "/app/data/.cache")
+_LOCAL_MODEL_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="onnx-loader")
+
+# Chroma reads this when constructing its bundled ONNX function. Set a stable
+# fallback as well for local development and for Chroma versions that consult
+# the process environment at import/construction time.
+os.environ.setdefault("CHROMA_CACHE_DIR", _LOCAL_MODEL_CACHE)
+os.environ.setdefault("XDG_CACHE_HOME", _LOCAL_MODEL_CACHE)
 
 from loguru import logger
 
@@ -53,6 +69,21 @@ class _LocalEmbedder:
                 cls._instance = cls()
             return cls._instance
 
+    def _load_model(self):
+        from chromadb.utils import embedding_functions
+        # Name differs slightly across ChromaDB releases.
+        factory = getattr(
+            embedding_functions, "ONNXMiniLM_L6_V2", None
+        ) or getattr(embedding_functions, "DefaultEmbeddingFunction", None)
+        if factory is None:
+            raise ImportError("ChromaDB does not expose a default ONNX embedding function")
+        logger.info(
+            "Initialising local ONNX embedding model (all-MiniLM-L6-v2). "
+            "The model is downloaded once on first use."
+        )
+        fn = factory()
+        fn(["warmup"])
+        return fn
     def _ensure_loaded(self):
         if self._fn is not None:
             return
@@ -61,28 +92,19 @@ class _LocalEmbedder:
                 return
             if self._init_error is not None:
                 raise EmbeddingError(self._init_error)
+            future = _LOCAL_MODEL_EXECUTOR.submit(self._load_model)
             try:
-                from chromadb.utils import embedding_functions
-
-                # Name differs slightly across ChromaDB releases.
-                factory = getattr(
-                    embedding_functions, "ONNXMiniLM_L6_V2", None
-                ) or getattr(
-                    embedding_functions, "DefaultEmbeddingFunction", None
-                )
-                if factory is None:
-                    raise ImportError(
-                        "ChromaDB does not expose a default ONNX embedding function"
-                    )
-                logger.info(
-                    "Initialising local ONNX embedding model (all-MiniLM-L6-v2). "
-                    "The model is downloaded once on first use."
-                )
-                self._fn = factory()
-                # Force the model download/warm-up now so the first document
-                # upload does not pay the cost mid-pipeline.
-                self._fn(["warmup"])
+                self._fn = future.result(timeout=_LOCAL_MODEL_LOAD_TIMEOUT)
                 logger.info("Local embedding model ready")
+            except FutureTimeoutError as exc:
+                future.cancel()
+                self._init_error = (
+                    f"Local embedding model did not finish loading within "
+                    f"{_LOCAL_MODEL_LOAD_TIMEOUT:g} seconds. "
+                    "Check network access or switch embeddings.provider to 'openai'."
+                )
+                logger.error(self._init_error)
+                raise EmbeddingError(self._init_error) from exc
             except Exception as exc:
                 self._init_error = (
                     f"Local embedding model unavailable: {exc}. "
@@ -180,12 +202,24 @@ class EmbeddingService:
         ordered = sorted(response.data, key=lambda item: item.index)
         return [[float(v) for v in item.embedding] for item in ordered]
 
+    async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
+        # Async variant: keep embedding work off the event loop.
+        return await asyncio.to_thread(self.embed_documents, texts)
+
     def embed_query(self, text: str) -> List[float]:
         """Embed a single text and return its vector."""
         vectors = self.embed_documents([text])
         if not vectors:
             raise EmbeddingError("Embedding backend returned no vectors")
         return vectors[0]
+
+    async def aembed_query(self, text: str) -> List[float]:
+        # Async variant: keep embedding work off the event loop.
+        return await asyncio.to_thread(self.embed_query, text)
+
+    async def adescribe(self) -> dict:
+        # Async diagnostics; model probing must not block the event loop.
+        return await asyncio.to_thread(self.describe)
 
     def describe(self) -> dict:
         """Diagnostics for the health endpoint."""
