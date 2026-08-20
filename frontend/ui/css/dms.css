@@ -274,6 +274,14 @@ table { border-collapse: collapse; width: 100%; }
 }
 .nav-link.is-active svg { color: #FFFFFF; }
 
+/* Sign out follows the same spacing, typography, and colours as sidebar links. */
+.sidebar__nav > .sidebar-signout {
+  width: 100%; border: 0; text-align: left; cursor: pointer;
+  font-family: inherit;
+}
+.sidebar__nav > .sidebar-signout svg { color: rgba(255, 255, 255, .48); }
+
+
 /* Numbered journey steps in the sidebar */
 .nav-link__step {
   width: 19px; height: 19px; border-radius: 5px;

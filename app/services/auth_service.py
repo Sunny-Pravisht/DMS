@@ -45,10 +45,10 @@ security = HTTPBearer()
 
 class AuthService:
     """Authentication and Authorization Service"""
-    
+
     def __init__(self, db: Session):
         self.db = db
-    
+
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         """Create JWT access token"""
         to_encode = data.copy()
@@ -60,7 +60,7 @@ class AuthService:
         secret_key = get_secret_key(self.db)
         encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=ALGORITHM)
         return encoded_jwt
-    
+
     def verify_token(self, token: str) -> Optional[str]:
         """Verify JWT token and return username"""
         try:
@@ -72,13 +72,13 @@ class AuthService:
             return username
         except JWTError:
             return None
-    
+
     def authenticate_user(self, username: str, password: str, ip_address: str = None, user_agent: str = None) -> Optional[User]:
         """Authenticate user with username/password"""
         user = self.db.query(User).filter(
             (User.username == username) | (User.email == username)
         ).first()
-        
+
         if not user:
             # Log failed login attempt - user not found
             log_security_event(
@@ -89,7 +89,7 @@ class AuthService:
             )
             logger.warning(f"Login attempt with non-existent username: {username[:20]}...")
             return None
-        
+
         if not user.verify_password(password):
             # Log failed login attempt - wrong password
             log_security_event(
@@ -101,7 +101,7 @@ class AuthService:
             )
             logger.warning(f"Failed login attempt for user: {user.username}")
             return None
-        
+
         if not user.is_active:
             # Log failed login attempt - inactive user
             log_security_event(
@@ -113,7 +113,7 @@ class AuthService:
             )
             logger.warning(f"Login attempt for inactive user: {user.username}")
             return None
-        
+
         # Successful authentication
         log_security_event(
             event_type="login_successful",
@@ -123,17 +123,17 @@ class AuthService:
             details={"username": user.username}
         )
         logger.info(f"Successful login for user: {user.username}")
-        
+
         # Update last login
         user.last_login = datetime.utcnow()
         self.db.commit()
-        
+
         return user
-    
+
     def create_session(self, user: User, ip_address: str = None, user_agent: str = None) -> str:
         """Create user session"""
         session_token = secrets.token_urlsafe(32)
-        
+
         session = UserSession(
             user_id=user.id,
             session_token=session_token,
@@ -141,40 +141,40 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-        
+
         self.db.add(session)
         self.db.commit()
-        
+
         return session_token
-    
+
     def get_session(self, session_token: str) -> Optional[UserSession]:
         """Get valid session"""
         session = self.db.query(UserSession).filter(
             UserSession.session_token == session_token,
             UserSession.expires_at > datetime.utcnow()
         ).first()
-        
+
         return session
-    
+
     def invalidate_session(self, session_token: str):
         """Invalidate session"""
         session = self.db.query(UserSession).filter(
             UserSession.session_token == session_token
         ).first()
-        
+
         if session:
             self.db.delete(session)
             self.db.commit()
-    
+
     def cleanup_expired_sessions(self):
         """Clean up expired sessions"""
         self.db.query(UserSession).filter(
             UserSession.expires_at <= datetime.utcnow()
         ).delete()
         self.db.commit()
-    
-    def log_audit_event(self, user_id: str, action: str, resource_type: str = None, 
-                       resource_id: str = None, details: dict = None, 
+
+    def log_audit_event(self, user_id: str, action: str, resource_type: str = None,
+                       resource_id: str = None, details: dict = None,
                        ip_address: str = None, user_agent: str = None):
         """Log audit event"""
         audit_log = AuditLog(
@@ -186,10 +186,10 @@ class AuthService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-        
+
         self.db.add(audit_log)
         self.db.commit()
-    
+
     def create_default_roles(self):
         """Create default roles if they don't exist"""
         default_roles = [
@@ -203,7 +203,7 @@ class AuthService:
                 "description": "Can view, create, and edit documents",
                 "permissions": [
                     "documents.read", "documents.create", "documents.update",
-                    "documents.delete", "correspondents.read", "correspondents.create",
+                    "correspondents.read", "correspondents.create",
                     "correspondents.update", "doctypes.read", "doctypes.create",
                     "doctypes.update", "tags.read", "tags.create", "tags.update"
                 ]
@@ -216,7 +216,7 @@ class AuthService:
                 ]
             }
         ]
-        
+
         for role_data in default_roles:
             existing_role = self.db.query(Role).filter(Role.name == role_data["name"]).first()
             if not existing_role:
@@ -226,19 +226,19 @@ class AuthService:
                     permissions=json.dumps(role_data["permissions"])
                 )
                 self.db.add(role)
-        
+
         self.db.commit()
-    
+
     def create_admin_user(self, username: str, email: str, password: str, full_name: str = None) -> User:
         """Create admin user"""
         # Check if user already exists
         existing_user = self.db.query(User).filter(
             (User.username == username) | (User.email == email)
         ).first()
-        
+
         if existing_user:
             raise ValueError("User with this username or email already exists")
-        
+
         # Create user
         user = User(
             username=username,
@@ -248,15 +248,15 @@ class AuthService:
             is_active=True
         )
         user.set_password(password)
-        
+
         self.db.add(user)
         self.db.flush()  # Get the user ID
-        
+
         # Assign admin role
         admin_role = self.db.query(Role).filter(Role.name == "admin").first()
         if admin_role:
             user.roles.append(admin_role)
-        
+
         self.db.commit()
         return user
 
@@ -271,7 +271,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         auth_service = AuthService(db)
         username = auth_service.verify_token(credentials.credentials)
@@ -279,11 +279,11 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.username == username).first()
     if user is None or not user.is_active:
         raise credentials_exception
-    
+
     return user
 
 # Dependency to get current user from session
@@ -295,16 +295,16 @@ def get_user_from_session_token(
     session_token = request.cookies.get("session_token")
     if not session_token:
         return None
-    
+
     auth_service = AuthService(db)
     session = auth_service.get_session(session_token)
     if not session:
         return None
-    
+
     user = db.query(User).filter(User.id == session.user_id).first()
     if not user or not user.is_active:
         return None
-    
+
     return user
 
 async def get_current_user_from_session(
@@ -322,7 +322,7 @@ async def get_current_user_flexible(
 ) -> User:
     """Get current user from either JWT token or session cookie"""
     user = None
-    
+
     # Try JWT authentication first
     if credentials:
         try:
@@ -334,12 +334,12 @@ async def get_current_user_flexible(
                     return user
         except Exception:
             pass  # Fall through to session authentication
-    
+
     # Try session authentication
     user = get_user_from_session_token(request, db)
     if user and user.is_active:
         return user
-    
+
     # Neither authentication method worked
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -370,6 +370,20 @@ def require_permission_flexible(permission: str):
             )
         return current_user
     return permission_checker
+
+def require_document_delete_flexible(
+    current_user: User = Depends(get_current_user_flexible),
+) -> User:
+    # Allow document deletion only to upload-and-edit users or administrators."
+    if current_user.is_admin or (
+        current_user.has_permission("documents.create")
+        and current_user.has_permission("documents.update")
+    ):
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Document deletion requires upload and edit access",
+    )
 
 # Admin only dependency
 def require_admin(current_user: User = Depends(get_current_user)):

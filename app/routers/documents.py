@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_, exists
 from typing import List, Optional
 import os
 from pathlib import Path
@@ -10,7 +10,7 @@ import mimetypes
 from loguru import logger
 
 from ..database import get_db
-from ..models import Document, DocumentFolder, ProcessingLog, Tag, User
+from ..models import Document, DocumentFolder, ProcessingLog, Tag, User, ApprovalWorkflow, ApprovalStep, step_assignees
 from ..schemas import (
     Document as DocumentSchema, DocumentUpdate, DocumentProcessingStatus,
     FileUploadResponse, StagingFile, DocumentApprovalRequest, DocumentApprovalResponse,
@@ -26,7 +26,12 @@ from ..services.folder_service import (
     delete_folder,
 )
 from ..services import thumbnails
-from ..services.auth_service import get_current_user_flexible, require_permission_flexible
+from ..services.auth_service import (
+    get_current_user_flexible,
+    require_permission_flexible,
+    require_document_delete_flexible,
+    require_admin_flexible,
+)
 from ..config import get_settings
 from ..utils.file_security import (
     validate_file_upload, secure_file_path, set_secure_permissions,
@@ -34,6 +39,7 @@ from ..utils.file_security import (
     FileTypeNotAllowedError
 )
 from datetime import datetime
+import uuid
 
 router = APIRouter()
 
@@ -129,7 +135,7 @@ def update_user_folder(
 def delete_user_folder(
     folder_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission_flexible("documents.delete")),
+    current_user: User = Depends(require_document_delete_flexible),
 ):
     """Delete an owned folder only when empty."""
     try:
@@ -196,16 +202,25 @@ def get_documents(
     db: Session = Depends(get_db)
 ):
     """Get all documents with optional filtering"""
-    query = (
-        db.query(Document)
-        .outerjoin(DocumentFolder, Document.folder_id == DocumentFolder.id)
-        .filter(
-            or_(
-                Document.folder_id.is_(None),
-                DocumentFolder.user_id == current_user.id,
-            )
-        )
+    # Administrators can see the complete repository. Regular users see only
+    # documents they own, documents in their personal folders, or documents
+    # explicitly assigned to them in an approval workflow. In particular, a
+    # document uploaded by an admin is not implicitly visible to every user.
+    query = db.query(Document).filter(Document.deleted_at.is_(None)).outerjoin(
+        DocumentFolder, Document.folder_id == DocumentFolder.id
     )
+    if not current_user.is_admin:
+        assigned_document = exists().where(
+            ApprovalWorkflow.document_id == Document.id,
+            ApprovalWorkflow.id == ApprovalStep.workflow_id,
+            ApprovalStep.id == step_assignees.c.step_id,
+            step_assignees.c.user_id == current_user.id,
+        )
+        query = query.filter(or_(
+            Document.created_by == current_user.id,
+            DocumentFolder.user_id == current_user.id,
+            assigned_document,
+        ))
 
     resolved_folder_id = folder_id or folder
     if resolved_folder_id:
@@ -270,6 +285,49 @@ def get_documents(
     )
     return documents
 
+# These literal Recently Deleted routes must be registered before the generic
+# /{document_id} route, otherwise "recently-deleted" is interpreted as a document ID.
+@router.get("/recently-deleted")
+def list_recently_deleted_early(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    documents = db.query(Document).filter(Document.deleted_at.isnot(None)).order_by(Document.deleted_at.desc()).all()
+    return {"documents": [{
+        "id": d.id,
+        "title": d.title or d.original_filename,
+        "filename": d.original_filename,
+        "deleted_at": d.deleted_at,
+        "file_size": d.file_size,
+    } for d in documents]}
+
+@router.post("/recently-deleted/{document_id}/restore")
+def restore_deleted_document_early(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    document = db.query(Document).filter(Document.id == document_id, Document.deleted_at.isnot(None)).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Deleted document not found")
+    document.deleted_at = None
+    document.deleted_by = None
+    document.folder_id = document.deleted_from_folder_id
+    document.deleted_from_folder_id = None
+    db.commit()
+    return {"message": "Document restored successfully"}
+
+@router.delete("/recently-deleted/{document_id}")
+def permanently_delete_document_early(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    document = db.query(Document).filter(Document.id == document_id, Document.deleted_at.isnot(None)).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Deleted document not found")
+    return _permanently_delete_document(db, document)
+
 @router.get("/{document_id}", response_model=DocumentSchema)
 def get_document(
     document_id: str,
@@ -291,9 +349,7 @@ def get_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if document.folder_id and not get_user_folder(
-        db, current_user.id, document.folder_id
-    ):
+    if not check_document_access(document, current_user, 'read'):
         raise HTTPException(status_code=403, detail="You do not have access to this document")
 
     return document
@@ -395,61 +451,105 @@ def update_document(
     db.refresh(document)
     return document
 
+@router.get("/recently-deleted")
+def list_recently_deleted(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    # List soft-deleted documents for administrators."
+    documents = (
+        db.query(Document)
+        .filter(Document.deleted_at.isnot(None))
+        .order_by(Document.deleted_at.desc())
+        .all()
+    )
+    return {"documents": [
+        {
+            "id": d.id,
+            "title": d.title or d.original_filename,
+            "filename": d.original_filename,
+            "deleted_at": d.deleted_at,
+            "file_size": d.file_size,
+        }
+        for d in documents
+    ]}
+
+@router.post("/recently-deleted/{document_id}/restore")
+def restore_deleted_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    document = db.query(Document).filter(Document.id == document_id, Document.deleted_at.isnot(None)).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Deleted document not found")
+    document.deleted_at = None
+    document.deleted_by = None
+    document.folder_id = document.deleted_from_folder_id
+    document.deleted_from_folder_id = None
+    db.commit()
+    return {"message": "Document restored successfully"}
+
+@router.delete("/recently-deleted/{document_id}")
+def permanently_delete_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    document = db.query(Document).filter(Document.id == document_id, Document.deleted_at.isnot(None)).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Deleted document not found")
+    return _permanently_delete_document(db, document)
+
 @router.delete("/{document_id}")
 def delete_document(
     document_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission_flexible("documents.delete"))
+    current_user: User = Depends(require_document_delete_flexible)
 ):
-    """Delete a document"""
+    # Move the document to Recently Deleted. Only an administrator can permanently delete it.
     document = _get_owned_document(db, document_id, current_user)
+    if document.deleted_at:
+        raise HTTPException(status_code=404, detail="Document not found")
+    document.deleted_from_folder_id = document.folder_id
+    document.folder_id = None
+    document.deleted_at = datetime.utcnow()
+    document.deleted_by = current_user.id
+    db.commit()
+    return {"message": "Document moved to Recently Deleted"}
 
+
+def _permanently_delete_document(db: Session, document: Document):
     # Delete physical file
     try:
         file_path = Path(document.file_path)
         if file_path.exists():
             file_path.unlink()
-            print(f"Deleted physical file: {file_path}")
-        else:
-            print(f"Physical file not found: {file_path}")
-    except Exception as e:
-        print(f"Error deleting physical file: {e}")
-        # Log error but don't fail the deletion
+    except Exception:
         pass
-
-    # Delete from vector database
     try:
         from ..services.vector_db_service import VectorDBService
-        vector_db = VectorDBService(db)
-        vector_db.delete_document(document_id)
-        print(f"Deleted from vector database: {document_id}")
-    except Exception as e:
-        print(f"Error deleting from vector database: {e}")
-        # Log error but don't fail the deletion
+        VectorDBService(db).delete_document(document.id)
+    except Exception:
         pass
-
-    # Delete related processing logs
-    try:
-        processing_logs = db.query(ProcessingLog).filter(ProcessingLog.document_id == document_id).all()
-        for log in processing_logs:
-            db.delete(log)
-        print(f"Deleted {len(processing_logs)} processing log entries")
-    except Exception as e:
-        print(f"Error deleting processing logs: {e}")
-
-    # Delete document-tag associations
-    try:
-        document.tags.clear()
-        print("Cleared tag associations")
-    except Exception as e:
-        print(f"Error clearing tag associations: {e}")
-
-    # Delete from database
+    for log in db.query(ProcessingLog).filter(ProcessingLog.document_id == document.id).all():
+        db.delete(log)
+    document.tags.clear()
     db.delete(document)
     db.commit()
+    return {"message": "Document permanently deleted"}
 
-    print(f"Successfully deleted document: {document_id}")
-    return {"message": "Document deleted successfully"}
+@router.delete("/{document_id}/legacy-permanent")
+def legacy_permanent_delete_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_flexible),
+):
+    # Internal compatibility route; permanent deletion remains admin-only."
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return _permanently_delete_document(db, document)
 
 @router.get("/{document_id}/download")
 def download_document(
@@ -458,7 +558,9 @@ def download_document(
     current_user: User = Depends(require_permission_flexible("documents.read"))
 ):
     """Download the original document file with security checks"""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id, Document.deleted_at.is_(None)
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -643,6 +745,7 @@ async def upload_document(
         set_secure_permissions(storage_path, is_private=True)
 
         document = Document(
+            created_by=current_user.id,
             filename=storage_path.name,
             original_filename=file.filename or safe_filename,
             file_hash=digest,
@@ -1347,7 +1450,7 @@ def create_and_add_tag_to_document(
 @router.post("/cleanup/orphaned")
 def cleanup_orphaned_documents(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission_flexible("documents.delete"))
+    current_user: User = Depends(require_document_delete_flexible)
 ):
     """Remove orphaned document entries where the physical file no longer exists"""
     documents = db.query(Document).all()

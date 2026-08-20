@@ -35,6 +35,49 @@
       align-self: start;
     }
 
+    /* Recently Deleted is a focused admin workspace, not the repository filter
+       screen. Keep the page clean and remove unrelated loading placeholders. */
+    body.recently-deleted-page .grid-aside-left > aside.stack,
+    body.recently-deleted-page .filter-bar,
+    body.recently-deleted-page #active-filters,
+    body.recently-deleted-page #doc-grid,
+    body.recently-deleted-page #prev,
+    body.recently-deleted-page #next {
+      display: none !important;
+    }
+    body.recently-deleted-page .grid-aside-left { display: block; max-width: 100%; }
+    body.recently-deleted-page .grid-aside-left > section { width: 100%; }
+    body.recently-deleted-page .grid-aside-left > section > .card { border-radius: 12px; overflow: hidden; }
+    body.recently-deleted-page .grid-aside-left > section > .card__head { padding: 18px 22px; }
+    body.recently-deleted-page #doc-table { min-width: 0; }
+    body.recently-deleted-page #doc-table {
+      width: 100%; min-width: 0; table-layout: fixed;
+    }
+    body.recently-deleted-page #doc-table .dms-col-document { width: 68%; }
+    body.recently-deleted-page #doc-table .dms-col-actions { width: 32%; }
+    body.recently-deleted-page #doc-table th:last-child,
+    body.recently-deleted-page #doc-table td:last-child { text-align: left; }
+    body.recently-deleted-page #doc-table td.actions {
+      width: 32%; text-align: left; white-space: nowrap;
+    }
+    body.recently-deleted-page #doc-table td.actions .row-actions {
+      display: flex; justify-content: flex-start; align-items: center;
+      gap: 8px; min-width: 270px; white-space: nowrap;
+    }
+    body.recently-deleted-page #doc-table td.actions .btn {
+      flex: 0 0 auto; white-space: nowrap; min-width: 118px;
+    }
+    body.recently-deleted-page #doc-table .cell-title { font-weight: 650; }
+    body.recently-deleted-page #doc-table .cell-sub { margin-top: 4px; color: #6d8290; }
+    @media (max-width: 700px) {
+      body.recently-deleted-page #doc-table .dms-col-document { width: 52%; }
+      body.recently-deleted-page #doc-table .dms-col-actions { width: 48%; }
+      body.recently-deleted-page #doc-table td.actions .row-actions { min-width: 0; gap: 5px; }
+      body.recently-deleted-page #doc-table td.actions .btn { min-width: 0; padding-left: 8px; padding-right: 8px; }
+    }
+    body.recently-deleted-page #doc-table .btn--danger { background: #e94b53; color: #fff; border-color: #e94b53; }
+    body.recently-deleted-page #doc-table .btn--danger:hover { background: #c93640; border-color: #c93640; }
+
     /* Clean personal-folder workspace.  There is no synthetic "My Folder"
        folder: the page contains only folders the user actually created. */
     body.personal-documents-page .personal-folder-card {
@@ -223,7 +266,7 @@
           <!-- Filters. Every entry here is counted from the repository, so a
                view with nothing in it says zero rather than a plausible number. -->
           <aside class="stack">
-            <div class="card personal-folder-card">
+            <div class="card personal-folder-card" data-personal-folder>
               <div class="card__head">
                 <h3 class="t-h3">My Folders</h3>
                 <span class="spacer"></span>
@@ -373,8 +416,21 @@
       let matchedTotal = 0;
       const urlParams = new URLSearchParams(window.location.search);
       const personalMode = urlParams.get('personal') === '1';
+      const recentlyDeletedMode = urlParams.get('recently_deleted') === '1';
+      if (recentlyDeletedMode) {
+        document.body.dataset.page = 'recently-deleted';
+        document.body.dataset.title = 'Recently Deleted';
+        document.title = 'Recently Deleted · DMS';
+        DMS.ready.then(() => {
+          const pageTitle = document.querySelector('.topbar__title');
+          if (pageTitle) pageTitle.textContent = 'Recently Deleted';
+        });
+      }
       if (personalMode) {
         document.body.classList.add('personal-documents-page');
+      }
+      if (recentlyDeletedMode) {
+        document.body.classList.add('recently-deleted-page');
       }
 
       // Keep the repository table exactly as it was before the My Folder work.
@@ -388,6 +444,9 @@
         if (personalMode) {
           if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
           if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Status</th><th></th>';
+        } else if (recentlyDeletedMode) {
+          if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="w-tight dms-col-actions">';
+          if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Actions</th>';
         } else {
           if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-type"><col class="dms-col-supplier"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
           if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Type</th><th>Supplier</th><th>Status</th><th></th>';
@@ -433,6 +492,19 @@
         return d.folder_id ??
           d.folderId ??
           (d.folder && (d.folder.id ?? d.folder.folder_id));
+      }
+
+      function hasPermission(permission) {
+        const me = window.DMS && window.DMS.me;
+        return !!(me && (me.is_admin || (me.permissions || []).includes(permission)));
+      }
+
+      function canEditDocuments() {
+        return hasPermission('documents.update');
+      }
+
+      function canDeleteDocuments() {
+        return hasPermission('documents.create') && hasPermission('documents.update');
       }
 
       function actionSvg(name) {
@@ -501,12 +573,12 @@
               escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
             '<td>' + repositoryStatusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
-              '<button class="icon-btn tip" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit">' +
-                icon('compose') + '</button>' +
+              (canEditDocuments() ? '<button class="icon-btn tip" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit">' +
+                icon('compose') + '</button>' : '') +
               '<button class="icon-btn tip" data-tip="Download" title="Download" data-act="download">' +
                 icon('download') + '</button>' +
-              '<button class="icon-btn is-danger tip" data-tip="Delete" title="Delete" data-act="delete">' +
-                icon('trash') + '</button>' +
+              (canDeleteDocuments() ? '<button class="icon-btn is-danger tip" data-tip="Delete" title="Delete" data-act="delete">' +
+                icon('trash') + '</button>' : '') +
             '</span></td></tr>';
         }).join('');
       }
@@ -525,12 +597,12 @@
                 actionSvg('view') + '</button>' +
               '<button type="button" class="icon-btn tip dms-visible-action dms-move-action" data-tip="Move to another folder" title="Move to another folder" data-act="move" aria-label="Move document">' +
                 actionSvg('move') + '</button>' +
-              '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit" aria-label="Edit document">' +
-                actionSvg('edit') + '</button>' +
+              (canEditDocuments() ? '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit" aria-label="Edit document">' +
+                actionSvg('edit') + '</button>' : '') +
               '<button type="button" class="icon-btn tip dms-visible-action" data-tip="Download" title="Download" data-act="download" aria-label="Download document">' +
                 actionSvg('download') + '</button>' +
-              '<button type="button" class="icon-btn is-danger tip dms-visible-action" data-tip="Delete" title="Delete" data-act="delete" aria-label="Delete document">' +
-                actionSvg('delete') + '</button>' +
+              (canDeleteDocuments() ? '<button type="button" class="icon-btn is-danger tip dms-visible-action" data-tip="Delete" title="Delete" data-act="delete" aria-label="Delete document">' +
+                actionSvg('delete') + '</button>' : '') +
             '</span></td></tr>';
         }).join('');
       }
@@ -571,7 +643,32 @@
        * view counts in the sidebar are the real number of matching documents
        * rather than an estimate that disagrees with the list beside it.
        */
+      async function loadRecentlyDeleted() {
+        let data;
+        try {
+          data = await api.get('/api/documents/recently-deleted');
+        } catch (err) {
+          rows.innerHTML = '<tr><td colspan="5"><div class="empty"><h3>Could not load Recently Deleted</h3><p>' + escapeHtml(String(err.message || err)) + '</p></div></td></tr>';
+          count.textContent = 'Recently Deleted';
+          pageInfo.textContent = '';
+          return;
+        }
+        items = (data && data.documents) || [];
+        rows.innerHTML = items.length ? items.map(d =>
+          '<tr data-id="' + escapeHtml(d.id) + '"><td><div class="cell-title">' + escapeHtml(d.title) + '</div>' +
+          '<div class="cell-sub">Deleted ' + fmt.ago(d.deleted_at) + ' · ' + fmt.bytes(d.file_size) + '</div></td>' +
+          '<td class="actions"><span class="row-actions"><button class="btn btn--sm btn--outline" data-trash-action="restore">Restore</button>' +
+          '<button class="btn btn--sm btn--danger" data-trash-action="permanent">Delete permanently</button></span></td></tr>'
+        ).join('') : '<tr><td colspan="5"><div class="empty"><h3>No recently deleted documents</h3></div></td></tr>';
+        count.textContent = items.length + ' recently deleted';
+        pageInfo.textContent = items.length ? 'Showing 1 to ' + items.length + ' of ' + items.length : 'Showing 0 to 0';
+      }
+
       async function load(options = {}) {
+        if (recentlyDeletedMode) {
+          await loadRecentlyDeleted();
+          return;
+        }
         const params = new URLSearchParams();
         params.set('limit', '500');
         if (filter.folder) params.set('folder_id', filter.folder);
@@ -1146,6 +1243,23 @@
 
       // Row interactions
       rows.addEventListener('click', async e => {
+        if (recentlyDeletedMode) {
+          const action = e.target.closest('[data-trash-action]');
+          const row = e.target.closest('[data-id]');
+          if (!action || !row) return;
+          const id = encodeURIComponent(row.dataset.id);
+          try {
+            if (action.dataset.trashAction === 'restore') {
+              await api.post('/api/documents/recently-deleted/' + id + '/restore', {});
+              toast('Document restored');
+            } else {
+              await api.del('/api/documents/recently-deleted/' + id);
+              toast('Document permanently deleted');
+            }
+            await loadRecentlyDeleted();
+          } catch (err) { toast('Action failed', String(err.message || err), 'danger'); }
+          return;
+        }
         const tr = e.target.closest('tr[data-id]');
         if (!tr) return;
         const id = tr.dataset.id;
@@ -1481,6 +1595,10 @@
       // Important: in personal mode the folder must be resolved first.
       // Otherwise the first request would load every repository document.
       (async function initDocumentsPage() {
+        if (recentlyDeletedMode) {
+          await load();
+          return;
+        }
         if (personalMode) {
           await loadFolders();
         }

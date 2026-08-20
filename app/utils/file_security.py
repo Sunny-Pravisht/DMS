@@ -356,14 +356,23 @@ def check_document_access(
     if not user.has_permission(required_permission):
         return False
     # A document with an owner or personal folder is private to that owner.
-    # Documents without either marker remain repository-wide shared documents.
+    # A regular user may additionally read a document explicitly assigned to
+    # them on any approval step. Documents without either marker are not
+    # visible to regular users; this prevents admin uploads from becoming
+    # repository-wide by accident.
     owner_id = getattr(document, 'created_by', None)
     folder = getattr(document, 'folder', None)
     folder_owner_id = getattr(folder, 'user_id', None) if folder else None
-    private_owner = folder_owner_id or owner_id
-    if private_owner and private_owner != user.id:
-        return False
-    return True
+    if owner_id == user.id or folder_owner_id == user.id:
+        return True
+    workflows = getattr(document, 'approval_workflows', None) or []
+    if any(
+        any(assignee.id == user.id for assignee in (step.assignees or []))
+        for workflow in workflows
+        for step in (workflow.steps or [])
+    ):
+        return True
+    return False
 
 
 def quarantine_file(file_path: Path, reason: str):

@@ -130,6 +130,12 @@ class Document(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Soft deletion keeps the document and its file recoverable in the admin
+    # Recently Deleted area until an administrator permanently removes it.
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    deleted_by = Column(String, ForeignKey("users.id"), nullable=True)
+    deleted_from_folder_id = Column(String, nullable=True)
+
     # Processing status
     ocr_status = Column(String, default="pending")  # pending, processing, completed, failed
     ai_status = Column(String, default="pending")   # pending, processing, completed, failed
@@ -146,6 +152,11 @@ class Document(Base):
     folder = relationship("DocumentFolder", back_populates="documents")
     tags = relationship("Tag", secondary=document_tags, back_populates="documents")
     approved_by_user = relationship("User", foreign_keys=[approved_by])
+    approval_workflows = relationship(
+        "ApprovalWorkflow",
+        foreign_keys="ApprovalWorkflow.document_id",
+        back_populates="document",
+    )
 
     # Self-referential relationship for main/sub documents
     children = relationship(
@@ -295,7 +306,11 @@ class ApprovalWorkflow(Base):
     published_at = Column(DateTime(timezone=True), nullable=True)
     published_by = Column(String, ForeignKey("users.id"), nullable=True)
 
-    document = relationship("Document", foreign_keys=[document_id])
+    document = relationship(
+        "Document",
+        foreign_keys=[document_id],
+        back_populates="approval_workflows",
+    )
     creator = relationship("User", foreign_keys=[created_by])
     publisher = relationship("User", foreign_keys=[published_by])
     steps = relationship(
@@ -550,7 +565,7 @@ class User(Base):
                 import json
                 try:
                     perms = json.loads(role.permissions)
-                    if permission in perms:
+                    if "*" in perms or permission in perms:
                         return True
                 except (json.JSONDecodeError, TypeError):
                     continue

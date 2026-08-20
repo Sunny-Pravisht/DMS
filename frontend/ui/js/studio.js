@@ -1749,7 +1749,9 @@
   $('#btn-draft').onclick = () => saveDraft(false);
   $('#btn-publish').onclick = publishDialog;
   $('#btn-preview').onclick = previewPdf;
-  $('#btn-cancel-doc').onclick = () => {
+    const newDocument = $('#doc-state');
+    if (newDocument) newDocument.onclick = () => { window.location.href = '/studio?new=1'; };
+    $('#btn-cancel-doc').onclick = () => {
     window.location.href = '/home';
   };
 

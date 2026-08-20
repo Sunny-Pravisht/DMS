@@ -487,6 +487,7 @@ class UserResponse(BaseModel):
     full_name: Optional[str]
     is_active: bool
     is_admin: bool
+    permissions: List[str] = Field(default_factory=list)
     account_type: Optional[str] = None
     department: Optional[str] = None
     job_title: Optional[str] = None

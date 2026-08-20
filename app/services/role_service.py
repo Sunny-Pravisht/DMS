@@ -30,7 +30,7 @@ READ = [
 ]
 
 CONTRIBUTE = READ + [
-    "documents.create", "documents.update", "documents.delete",
+    "documents.create", "documents.update",
     "correspondents.create", "correspondents.update",
     "doctypes.create", "tags.create", "tags.update",
 ]
@@ -46,12 +46,12 @@ STANDARD_ROLES: dict[str, tuple[str, list[str]]] = {
         CONTRIBUTE,
     ),
     "approver": (
-        "Can add documents and act on approval steps addressed to them.",
-        CONTRIBUTE + ["documents.approve"],
+        "Can view documents and act on approval steps addressed to them.",
+        READ + ["documents.approve"],
     ),
     "signatory": (
         "An approver who may also apply a signature, binding the company.",
-        CONTRIBUTE + ["documents.approve", "documents.sign"],
+        READ + ["documents.approve", "documents.sign"],
     ),
 }
 

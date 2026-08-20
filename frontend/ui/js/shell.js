@@ -155,6 +155,7 @@
     { id: 'track', label: 'Status & Tracking', icon: 'workflow', href: '/track' },
     { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
     { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents?personal=1' },
+    { id: 'recently-deleted', label: 'Recently Deleted', icon: 'trash', href: '/documents?recently_deleted=1', adminOnly: true },
     { id: 'search', label: 'Search', icon: 'search', href: '/search' },
     { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
   ];
@@ -197,6 +198,7 @@
       label: 'Find', items: [
         { id: 'documents', label: 'All Documents', icon: 'documents', href: '/documents' },
         { id: 'my-folder', label: 'My Folder', icon: 'folder', href: '/documents?personal=1' },
+        { id: 'recently-deleted', label: 'Recently Deleted', icon: 'trash', href: '/documents?recently_deleted=1', adminOnly: true },
         { id: 'search', label: 'Search', icon: 'search', href: '/search' },
         { id: 'assistant', label: 'Ask AI', icon: 'ai', href: '/assistant' },
       ]
@@ -207,6 +209,20 @@
   // menu once identity is known reads as the product waking up; shrinking one
   // reads as something being taken away.
   let NAV = NAV_MEMBER;
+
+  function canUsePersonalFolder(user) {
+    return !!(user && (user.is_admin || user.account_type === 'team_member' ||
+      user.account_type === 'hr' || user.permissions?.includes('documents.create')));
+  }
+
+  function navForUser(user) {
+    const base = user && user.is_admin ? NAV_ADMIN : NAV_MEMBER;
+    if (canUsePersonalFolder(user)) return base;
+    return base.map(group => ({
+      ...group,
+      items: (group.items || []).filter(item => item.id !== 'my-folder'),
+    })).filter(group => !group.items || group.items.length);
+  }
 
   /* ------------------------------------------------------------- directory */
 
@@ -836,15 +852,18 @@
 
   function renderSidebar(active) {
     const reached = flow.reached();
-    const personalFolderPage =
-      window.location.pathname === '/documents' &&
+    const personalFolderPage = window.location.pathname === '/documents' &&
       new URLSearchParams(window.location.search).get('personal') === '1';
+    const recentlyDeletedPage = window.location.pathname === '/documents' &&
+      new URLSearchParams(window.location.search).get('recently_deleted') === '1';
 
     const groups = NAV.map(group => {
-      const items = group.items.map(item => {
+      const items = group.items.filter(item => !item.adminOnly || (window.DMS.me && window.DMS.me.is_admin)).map(item => {
         const isActive = personalFolderPage
           ? item.id === 'my-folder'
-          : item.id === active;
+          : recentlyDeletedPage
+            ? item.id === 'recently-deleted'
+            : item.id === active;
         const count = item.count
           ? '<span class="nav-link__count' + (item.alert ? ' is-alert' : '') +
             '" data-nav-count="' + item.id + '">' + item.count + '</span>'
@@ -880,7 +899,10 @@
         '<img class="sidebar__logo" src="/static/ui/assets/brand/harman-white.png" alt="HARMAN">' +
         '<span class="sidebar__product">Document Management</span>' +
       '</a>' +
-      '<nav class="sidebar__nav">' + groups + '</nav>' +
+      '<nav class="sidebar__nav">' + groups +
+        '<button class="nav-link sidebar-signout" type="button" data-logout>' +
+          icon('logout') + '<span>Sign out</span></button>' +
+      '</nav>' +
       '<div class="sidebar__foot">' + renderUserChip() + '</div>';
   }
 
@@ -904,10 +926,11 @@
         '<span class="user-chip__role truncate" data-user-role>Loading…</span>' +
       '</span>';
 
-    return NAV === NAV_ADMIN
+    const account = NAV === NAV_ADMIN
       ? '<a class="user-chip" href="/settings#profile">' + inner +
           icon('settings', 'user-chip__cog') + '</a>'
       : '<div class="user-chip user-chip--static">' + inner + '</div>';
+    return account;
   }
 
   /** Keep the current document attached while moving through the five-step journey. */
@@ -1016,10 +1039,8 @@
       '<button class="icon-btn sidebar-toggle" data-sidebar-toggle aria-label="Menu">' + icon('menu') + '</button>' +
       back +
       '<span class="topbar__title">' + title + '</span>' +
-      '<div class="topbar__actions">' +
+        '<div class="topbar__actions">' +
         (actions || '') +
-        '<button class="btn signout" data-logout>' +
-          icon('logout') + '<span>Sign out</span></button>' +
       '</div>';
   }
 
@@ -1228,10 +1249,14 @@
     if (!(me && me.is_admin)) {
       document.querySelectorAll('[data-admin-only]').forEach(el => el.remove());
     }
+    if (!canUsePersonalFolder(me)) {
+      document.body.classList.add('no-personal-folder');
+      document.querySelectorAll('[data-personal-folder]').forEach(el => el.remove());
+    }
 
     // The navigation follows who is signed in, so re-render now that we know.
     // mount() drew the smaller menu; this grows it for an administrator.
-    const wanted = me && me.is_admin ? NAV_ADMIN : NAV_MEMBER;
+    const wanted = navForUser(me);
     const navChanged = wanted !== NAV;
     if (navChanged) NAV = wanted;
 

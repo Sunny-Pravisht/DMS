@@ -5,6 +5,7 @@ Handles login, logout, user management, and authentication endpoints
 
 from datetime import timedelta, datetime
 from typing import Optional
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel

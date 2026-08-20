@@ -26,6 +26,7 @@
   overflow: hidden;
 }
 .studio__main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#doc-state { cursor: pointer; }
 .studio__rail {
   border-left: 1px solid var(--border);
   background: var(--white);
