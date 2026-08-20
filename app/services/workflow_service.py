@@ -643,8 +643,27 @@ def remind(db: Session, workflow: ApprovalWorkflow, actor: User) -> str:
 
 
 def alternative_approvers(db: Session, step: ApprovalStep) -> list[User]:
-    # List eligible replacement approvers for this step without changing it.
-    assigned_ids = {a.id for a in (step.assignees or [])}
+    # A named step may contain several possible assignees. Keep the first named
+    # person as the primary and offer the remaining named people first; an
+    # escalation must not discard the alternates that were already configured.
+    # The association table has no ordering column, so normalize named people
+    # before identifying the primary. This keeps escalation deterministic across
+    # database backends while preserving the configured primary-first behavior.
+    assigned = sorted(
+        step.assignees or [],
+        key=lambda user: (user.full_name or "", user.username or ""),
+    )
+    assigned_ids = {user.id for user in assigned}
+
+    def eligible(user: User) -> bool:
+        return (
+            user.is_active
+            and (user.can_approve or user.is_admin)
+            and (not step.department or user.department == step.department)
+            and (not step.requires_signature or user.can_sign or user.is_admin)
+        )
+
+    named_alternates = [user for user in assigned[1:] if eligible(user)]
     query = db.query(User).filter(
         User.is_active.is_(True),
         User.id.notin_(assigned_ids or {"__none__"}),
@@ -656,10 +675,10 @@ def alternative_approvers(db: Session, step: ApprovalStep) -> list[User]:
     # Keep this list identical to the candidates used by escalation itself.
     # The step's department is the category boundary; `role` is descriptive in
     # older workflows and must not hide a valid approver from the preview.
-    candidates = query.order_by(User.full_name, User.username).all()
+    unassigned = query.order_by(User.full_name, User.username).all()
     if step.requires_signature:
-        candidates = [user for user in candidates if user.can_sign or user.is_admin]
-    return candidates
+        unassigned = [user for user in unassigned if user.can_sign or user.is_admin]
+    return named_alternates + unassigned
 
 def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
                          reason: str = "Approver unavailable",
