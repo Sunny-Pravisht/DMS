@@ -31,7 +31,7 @@ from ..utils import ist
 from ..database import get_db
 from ..models import ApprovalWorkflow, Document, User, WorkflowEvent
 from ..services import version_service, workflow_service as wf
-from ..services.auth_service import require_permission_flexible
+from ..services.auth_service import require_admin_flexible, require_permission_flexible
 from ..services.docx_render import html_to_plain, render_docx
 from ..services.pdf_render import RenderError, html_to_text, render_pdf
 
@@ -93,7 +93,7 @@ def publish_queue(
 def publish(
     workflow_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission_flexible("documents.update")),
+    current_user: User = Depends(require_admin_flexible),
 ):
     """Release an approved document, and lock the version that was signed."""
     workflow = wf.load(db, workflow_id)

@@ -29,6 +29,10 @@
 
       <main class="page">
         <div class="t-eyebrow mb-3">Approval workspace · Status &amp; Tracking</div>
+        <div class="banner banner--accent mb-3" id="tracking-lead">
+          <i data-icon="approvals"></i>
+          <div><strong id="tracking-lead-text">Loading documents…</strong><div class="t-xs muted mt-1">Active approval documents currently being tracked.</div></div>
+        </div>
 
         <!-- Two ways to read the same set: one at a time with its full history,
              or all of them side by side. Neither is a filter on the other, so
@@ -44,8 +48,7 @@
         <div class="filter-bar mb-3">
           <label class="input-icon" style="flex:1;min-width:230px">
             <i data-icon="search"></i>
-            <input class="input" id="q" type="search"
-                   placeholder="Search by document, vendor, type or approval name">
+            <input class="input" id="q" type="search" placeholder="Search by document, vendor, type or approval name">
           </label>
           <select class="select" id="f-status" style="width:auto">
             <option value="">All statuses</option>
@@ -71,8 +74,7 @@
         <!-- A little wider than the default aside: these rows carry a document
              title and a status, and a title cut to three characters is not a
              title. -->
-        <div class="grid grid-aside-left" id="view-split"
-             style="grid-template-columns:330px minmax(0,1fr)">
+        <div class="grid grid-aside-left" id="view-split" style="grid-template-columns:330px minmax(0,1fr)">
           <aside>
             <div class="card">
               <div class="card__head">
@@ -82,13 +84,19 @@
                   <i data-icon="refresh"></i></button>
               </div>
               <ul class="list" id="wf-list" style="max-height:70vh;overflow-y:auto">
-                <li><div class="list-item"><div class="skeleton" style="height:34px;width:100%"></div></div></li>
+                <li>
+                  <div class="list-item">
+                    <div class="skeleton" style="height:34px;width:100%"></div>
+                  </div>
+                </li>
               </ul>
             </div>
           </aside>
 
           <section id="detail">
-            <div class="card card--pad"><div class="skeleton" style="height:200px"></div></div>
+            <div class="card card--pad">
+              <div class="skeleton" style="height:200px"></div>
+            </div>
           </section>
         </div>
 
@@ -138,11 +146,12 @@
   <script>
     (function () {
       const { api, fmt, escapeHtml, toast, icon, flow, workflow, signatureMark,
-              confirmDanger, openOverlay, closeOverlays } = DMS;
+        confirmDanger, openOverlay, closeOverlays } = DMS;
       const $ = s => document.querySelector(s);
       const params = new URLSearchParams(location.search);
 
       let list = [];
+      let workflowCount = 0;
       let selected = null;
       let wantDocId = params.get('id') || null;
 
@@ -156,7 +165,8 @@
         if ($('#q').value.trim()) query.set('q', $('#q').value.trim());
         query.set('limit', '60');
 
-        const data = await api.safe('/api/workflow/?' + query.toString(), { workflows: [] });
+        const data = await api.safe('/api/workflow/?' + query.toString(), { workflows: [], count: 0 });
+        workflowCount = data.count || 0;
         // Published workflows belong in the publishing history, not the active
         // approvals workspace.
         list = (data.workflows || []).filter(w =>
@@ -179,8 +189,15 @@
       }
 
       function renderList() {
+        $('#tracking-lead-text').innerHTML = list.length
+          ? '<strong>' + list.length + (list.length === 1 ? ' document' : ' documents') +
+          ' available in status and tracking.</strong>'
+          : '<strong>No documents found.</strong> Try a different search or clear the filters.';
+        $('#tracking-lead').classList.toggle('banner--grey', !list.length);
         $('#result-count').textContent = list.length
-          ? list.length + (list.length === 1 ? ' approval' : ' approvals') : 'Nothing found';
+          ? list.length + (list.length === 1 ? ' document' : ' documents') +
+          (workflowCount > list.length ? ' · ' + workflowCount + ' total' : '')
+          : 'Nothing found';
 
         const host = $('#wf-list');
         if (!list.length) {
@@ -198,22 +215,22 @@
           return '<li><button class="list-item' + (active ? ' is-active' : '') +
             '" style="width:100%;text-align:left" data-wf="' + escapeHtml(w.id) + '">' +
             '<span class="tile-icon tile-icon--grey">' +
-              icon(doc.origin === 'composed' ? 'compose' : 'file') + '</span>' +
+            icon(doc.origin === 'composed' ? 'compose' : 'file') + '</span>' +
             '<span class="list-item__body">' +
-              '<span class="list-item__title truncate">' +
-                escapeHtml(doc.title || 'Untitled') + '</span>' +
-              // Abbreviated here and only here: the column is 330px wide and
-              // this line has a step number in front of it. The full list of
-              // names is spelled out in the panel and in the table.
-              '<span class="list-item__sub truncate">' +
-                (step ? 'Step ' + step.order + '/' + w.progress.total + ' · ' +
-                        escapeHtml(workflow.addressee(step, { short: true }))
-                      : ((workflow.STATUS[w.status] || {}).label || w.status)) +
-              '</span></span>' +
+            '<span class="list-item__title truncate">' +
+            escapeHtml(doc.title || 'Untitled') + '</span>' +
+            // Abbreviated here and only here: the column is 330px wide and
+            // this line has a step number in front of it. The full list of
+            // names is spelled out in the panel and in the table.
+            '<span class="list-item__sub truncate">' +
+            (step ? 'Step ' + step.order + '/' + w.progress.total + ' · ' +
+              escapeHtml(workflow.addressee(step, { short: true }))
+              : ((workflow.STATUS[w.status] || {}).label || w.status)) +
+            '</span></span>' +
             '<span class="list-item__end">' +
-              (step && step.overdue
-                ? '<span class="badge badge--danger">' + icon('alert') + 'Late</span>'
-                : workflow.statusBadge(w.status)) +
+            (step && step.overdue
+              ? '<span class="badge badge--danger">' + icon('alert') + 'Late</span>'
+              : workflow.statusBadge(w.status)) +
             '</span></button></li>';
         }).join('');
 
@@ -245,8 +262,8 @@
           // naming somebody who already signed as "waiting on" is wrong.
           const waiting = step
             ? ((step.outstanding || []).length
-                ? step.outstanding.map(p => p.name).join(', ')
-                : workflow.addressee(step))
+              ? step.outstanding.map(p => p.name).join(', ')
+              : workflow.addressee(step))
             : '—';
 
           const signed = (step && step.requires_signature)
@@ -254,35 +271,35 @@
             : step ? '<span class="badge">Approval only</span>' : '—';
 
           return '<tr data-wf="' + escapeHtml(w.id) + '"' +
-              (selected && selected.id === w.id ? ' class="is-active"' : '') + '>' +
+            (selected && selected.id === w.id ? ' class="is-active"' : '') + '>' +
             '<td><div class="cell-title truncate" style="max-width:290px">' +
-              escapeHtml(doc.title || 'Untitled') + '</div>' +
-              '<div class="cell-sub truncate" style="max-width:290px">' +
-              escapeHtml(w.name || 'Approval') + '</div></td>' +
+            escapeHtml(doc.title || 'Untitled') + '</div>' +
+            '<div class="cell-sub truncate" style="max-width:290px">' +
+            escapeHtml(w.name || 'Approval') + '</div></td>' +
             '<td>' + workflow.statusBadge(w.status) + '</td>' +
             '<td>' + workflow.priorityBadge(w.priority) + '</td>' +
             '<td><div class="truncate" style="max-width:230px">' +
-              escapeHtml(waiting) + '</div>' +
-              (step && (step.outstanding || []).length > 1
-                ? '<div class="cell-sub">all ' + step.outstanding.length +
-                  ' must act</div>' : '') + '</td>' +
+            escapeHtml(waiting) + '</div>' +
+            (step && (step.outstanding || []).length > 1
+              ? '<div class="cell-sub">all ' + step.outstanding.length +
+              ' must act</div>' : '') + '</td>' +
             '<td>' + (step ? escapeHtml(step.name || '') +
-                '<div class="cell-sub">' + step.order + ' of ' + total + '</div>'
+              '<div class="cell-sub">' + step.order + ' of ' + total + '</div>'
               : '<span class="muted-2">' + done + ' of ' + total + ' done</span>') + '</td>' +
             '<td>' + signed + '</td>' +
             '<td class="truncate" style="max-width:150px">' +
-              escapeHtml((w.created_by && w.created_by.name) || 'Not set') + '</td>' +
+            escapeHtml((w.created_by && w.created_by.name) || 'Not set') + '</td>' +
             '<td>' + escapeHtml(fmt.date(w.started_at) || '—') + '</td>' +
             '<td>' + (w.due_date
-                ? (step && step.overdue
-                    ? '<span class="badge badge--danger">' + icon('alert') +
-                      escapeHtml(fmt.date(w.due_date)) + '</span>'
-                    : escapeHtml(fmt.date(w.due_date)))
-                : '<span class="muted-2">Not set</span>') + '</td>' +
+              ? (step && step.overdue
+                ? '<span class="badge badge--danger">' + icon('alert') +
+                escapeHtml(fmt.date(w.due_date)) + '</span>'
+                : escapeHtml(fmt.date(w.due_date)))
+              : '<span class="muted-2">Not set</span>') + '</td>' +
             '<td>' + (step && step.due_date
-                ? escapeHtml(fmt.date(step.due_date))
-                : '<span class="muted-2">—</span>') + '</td>' +
-          '</tr>';
+              ? escapeHtml(fmt.date(step.due_date))
+              : '<span class="muted-2">—</span>') + '</td>' +
+            '</tr>';
         }).join('');
       }
 
@@ -342,12 +359,12 @@
           '<div class="empty" style="padding:44px">' +
           '<span class="tile-icon tile-icon--grey">' + icon('workflow') + '</span>' +
           '<h3>' + (q ? 'No approval matches “' + escapeHtml(q) + '”'
-                      : 'Nothing is in an approval process') + '</h3>' +
+            : 'Nothing is in an approval process') + '</h3>' +
           '<p>' + (q ? 'Try another word, or clear the search.'
-                     : 'Choose a document and set up who approves it.') + '</p>' +
+            : 'Choose a document and set up who approves it.') + '</p>' +
           '<div class="btn-row">' +
-            '<a class="btn btn--outline" href="/documents">Browse documents</a>' +
-            '<a class="btn btn--primary" href="/process">Set up an approval</a>' +
+          '<a class="btn btn--outline" href="/documents">Browse documents</a>' +
+          '<a class="btn btn--primary" href="/process">Set up an approval</a>' +
           '</div></div></div>';
       }
 
@@ -374,9 +391,9 @@
           outcomeBar(w) +
           (mine ? decisionCard(w, step) : blockedNote(step)) +
           '<div class="grid grid-sidebar mt-3">' +
-            '<div class="stack">' + progressCard(w) + viewerCard(doc) + '</div>' +
-            '<aside class="stack">' + summaryCard(w, doc) + signaturesCard(w) +
-              versionsCard(doc) + trailCard(w) + '</aside>' +
+          '<div class="stack">' + progressCard(w) + viewerCard(doc) + '</div>' +
+          '<aside class="stack">' + summaryCard(w, doc) + signaturesCard(w) +
+          versionsCard(doc) + trailCard(w) + '</aside>' +
           '</div>';
 
         wireDetail(w, step, doc);
@@ -416,14 +433,14 @@
           say('Every approver has acted.', 'The approval is complete. Publish it from the Publish queue.', false);
         } else if (w.status === 'rejected') {
           say('Rejected, so the process has ended.',
-              'Edit the document and start a new approval when it is ready.', false);
+            'Edit the document and start a new approval when it is ready.', false);
         } else if (w.status === 'changes_requested') {
           say('Sent back to its author.',
-              'It returns to step 1 of the chain once they resubmit it.', false);
+            'It returns to step 1 of the chain once they resubmit it.', false);
         } else if (step) {
           say('Waiting on ' + workflow.addressee(step) + '.',
-              'Step ' + step.order + ' of ' + w.progress.total +
-              '. Publishing opens once every step is done.', false);
+            'Step ' + step.order + ' of ' + w.progress.total +
+            '. Publishing opens once every step is done.', false);
         } else {
           say('In progress.', 'Publishing opens once every step is done.', false);
         }
@@ -455,9 +472,9 @@
             (s.decided_by ? ' · ' + escapeHtml(s.decided_by.name) : '') + '</div></div>' +
             '<span class="spacer"></span>' +
             '<a class="btn btn--outline" href="/studio?id=' + encodeURIComponent(w.document_id) + '">' +
-              icon('compose') + 'Edit the document</a>' +
+            icon('compose') + 'Edit the document</a>' +
             '<button class="btn btn--primary" data-resubmit>' + icon('refresh') +
-              'Resubmit</button></div>';
+            'Resubmit</button></div>';
         }
         return '';
       }
@@ -482,153 +499,159 @@
       function decisionCard(w, step) {
         return '<div class="card">' +
           '<div class="card__head">' +
-            '<span class="tile-icon tile-icon--solid">' + icon('approvals') + '</span>' +
-            '<div><h3 class="t-h3">It is waiting on you</h3>' +
-            '<div class="t-xs muted">Step ' + step.order + ' of ' + w.progress.total + ' · ' +
-              escapeHtml(step.name) +
-              (step.due_date ? ' · due ' + fmt.date(step.due_date) : '') + '</div></div>' +
-            '<span class="spacer"></span>' +
-            (step.requires_signature
-              ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature required</span>'
-              : '<span class="badge">Approval only</span>') +
+          '<span class="tile-icon tile-icon--solid">' + icon('approvals') + '</span>' +
+          '<div><h3 class="t-h3">It is waiting on you</h3>' +
+          '<div class="t-xs muted">Step ' + step.order + ' of ' + w.progress.total + ' · ' +
+          escapeHtml(step.name) +
+          (step.due_date ? ' · due ' + fmt.date(step.due_date) : '') + '</div></div>' +
+          '<span class="spacer"></span>' +
+          (step.requires_signature
+            ? '<span class="badge badge--accent">' + icon('stamp') + 'Signature required</span>'
+            : '<span class="badge">Approval only</span>') +
           '</div>' +
           '<div class="card__body"><div class="decision">' +
-            '<div><div class="decision__prompt">Do you approve this document?</div>' +
-            '<div class="decision__sub">' +
-              (step.requires_signature
-                ? 'Your signature is applied to the document and locks this version.'
-                : 'Your approval is recorded against your name. No signature is needed here.') +
-            '</div></div>' +
-            '<div class="decision__actions">' +
-              '<button class="btn btn--danger" data-act="reject">' + icon('x') + 'Reject</button>' +
-              '<button class="btn btn--warn" data-act="changes">' + icon('refresh') +
-                'Request changes</button>' +
-              '<button class="btn btn--primary" data-act="approve">' +
-                icon(step.requires_signature ? 'stamp' : 'check') +
-                (step.requires_signature ? 'Approve &amp; sign' : 'Approve') + '</button>' +
-            '</div></div></div></div>';
+          '<div><div class="decision__prompt">Do you approve this document?</div>' +
+          '<div class="decision__sub">' +
+          (step.requires_signature
+            ? 'Your signature is applied to the document and locks this version.'
+            : 'Your approval is recorded against your name. No signature is needed here.') +
+          '</div></div>' +
+          '<div class="decision__actions">' +
+          '<button class="btn btn--danger" data-act="reject">' + icon('x') + 'Reject</button>' +
+          '<button class="btn btn--warn" data-act="changes">' + icon('refresh') +
+          'Request changes</button>' +
+          '<button class="btn btn--primary" data-act="approve">' +
+          icon(step.requires_signature ? 'stamp' : 'check') +
+          (step.requires_signature ? 'Approve &amp; sign' : 'Approve') + '</button>' +
+          '</div></div></div></div>';
       }
 
       function progressCard(w) {
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">Approval progress</h3>' +
-            '<span class="spacer"></span>' +
-            '<span class="t-sm muted">' + w.progress.done + ' of ' + w.progress.total +
-            ' approved</span></div>' +
+          '<span class="spacer"></span>' +
+          '<span class="t-sm muted">' + w.progress.done + ' of ' + w.progress.total +
+          ' approved</span></div>' +
           '<div class="card__body">' +
-            '<div class="progress progress--tall mb-3"><div class="progress__bar" style="width:' +
-              w.progress.percent + '%"></div></div>' +
-            (w.steps || []).map(stepRow).join('') +
+          '<div class="progress progress--tall mb-3"><div class="progress__bar" style="width:' +
+          w.progress.percent + '%"></div></div>' +
+          (w.steps || []).map(stepRow).join('') +
           '</div></div>';
       }
 
       function stepRow(s) {
-        const cls = { approved: 'is-approved', current: 'is-current', rejected: 'is-rejected',
-                      changes_requested: 'is-changes', pending: 'is-pending',
-                      skipped: 'is-pending' }[s.status] || '';
-        const mark = { approved: 'check', current: 'clock', rejected: 'x',
-                       changes_requested: 'refresh' }[s.status] || 'clock';
-        const verb = { approved: 'Approved', current: 'Waiting', rejected: 'Rejected',
-                       changes_requested: 'Sent back', skipped: 'Not reached',
-                       pending: 'Not started' }[s.status] || s.status;
+        const cls = {
+          approved: 'is-approved', current: 'is-current', rejected: 'is-rejected',
+          changes_requested: 'is-changes', pending: 'is-pending',
+          skipped: 'is-pending'
+        }[s.status] || '';
+        const mark = {
+          approved: 'check', current: 'clock', rejected: 'x',
+          changes_requested: 'refresh'
+        }[s.status] || 'clock';
+        const verb = {
+          approved: 'Approved', current: 'Waiting', rejected: 'Rejected',
+          changes_requested: 'Sent back', skipped: 'Not reached',
+          pending: 'Not started'
+        }[s.status] || s.status;
 
         return '<div class="trail__item ' + cls + '">' +
           '<span class="trail__icon">' + icon(mark) + '</span>' +
           '<div class="trail__body">' +
-            '<div class="row wrap" style="gap:6px">' +
-              '<span class="trail__title">' + s.order + '. ' + escapeHtml(s.name) + '</span>' +
-              '<span class="spacer"></span>' +
-              (s.status === 'current' ? '<span class="badge badge--accent">Now</span>' : '') +
-              (s.requires_signature
-                ? '<span class="badge">' + icon('stamp') + 'Signature</span>'
-                : '<span class="badge">Approval only</span>') +
-              (s.status === 'current' ? workflow.dueBadge(s) : '') +
-            '</div>' +
-            '<div class="trail__meta">' + escapeHtml(verb) + ' · ' +
-              escapeHtml(workflow.addressee(s)) +
-              (s.decided_by ? ' · by ' + escapeHtml(s.decided_by.name) : '') +
-              (s.decided_at ? ' · ' + fmt.dateTime(s.decided_at) : '') +
-            '</div>' +
-            (s.reason ? '<div class="trail__note"><strong>Reason:</strong> ' +
-              escapeHtml(s.reason) + '</div>' : '') +
-            (s.comment ? '<div class="trail__note">' + escapeHtml(s.comment) + '</div>' : '') +
-            (s.signature ? '<div class="mt-2">' + signatureMark(s.signature,
-              'Signed ' + fmt.dateTime(s.signature.signedAt)) + '</div>' : '') +
+          '<div class="row wrap" style="gap:6px">' +
+          '<span class="trail__title">' + s.order + '. ' + escapeHtml(s.name) + '</span>' +
+          '<span class="spacer"></span>' +
+          (s.status === 'current' ? '<span class="badge badge--accent">Now</span>' : '') +
+          (s.requires_signature
+            ? '<span class="badge">' + icon('stamp') + 'Signature</span>'
+            : '<span class="badge">Approval only</span>') +
+          (s.status === 'current' ? workflow.dueBadge(s) : '') +
+          '</div>' +
+          '<div class="trail__meta">' + escapeHtml(verb) + ' · ' +
+          escapeHtml(workflow.addressee(s)) +
+          (s.decided_by ? ' · by ' + escapeHtml(s.decided_by.name) : '') +
+          (s.decided_at ? ' · ' + fmt.dateTime(s.decided_at) : '') +
+          '</div>' +
+          (s.reason ? '<div class="trail__note"><strong>Reason:</strong> ' +
+            escapeHtml(s.reason) + '</div>' : '') +
+          (s.comment ? '<div class="trail__note">' + escapeHtml(s.comment) + '</div>' : '') +
+          (s.signature ? '<div class="mt-2">' + signatureMark(s.signature,
+            'Signed ' + fmt.dateTime(s.signature.signedAt)) + '</div>' : '') +
           '</div></div>';
       }
 
       function viewerCard(doc) {
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">The document as it stands</h3>' +
-            '<span class="spacer"></span>' +
-            '<span class="version__tag">v' + escapeHtml(doc.version || '1.0') + '</span>' +
-            '<a class="btn btn--sm btn--outline" target="_blank" rel="noopener" ' +
-              'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
-              icon('external') + 'Open in a new tab</a>' +
+          '<span class="spacer"></span>' +
+          '<span class="version__tag">v' + escapeHtml(doc.version || '1.0') + '</span>' +
+          '<a class="btn btn--sm btn--outline" target="_blank" rel="noopener" ' +
+          'href="/documents/view?id=' + encodeURIComponent(doc.id || '') + '">' +
+          icon('external') + 'Open in a new tab</a>' +
           '</div>' +
           '<div class="viewer" id="track-viewer" style="min-height:430px;border-radius:0;border:0;' +
-            'border-top:1px solid var(--border)"></div></div>';
+          'border-top:1px solid var(--border)"></div></div>';
       }
 
       function summaryCard(w, doc) {
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">This approval</h3>' +
-            '<span class="spacer"></span>' + workflow.statusBadge(w.status) + '</div>' +
+          '<span class="spacer"></span>' + workflow.statusBadge(w.status) + '</div>' +
           '<div class="card__body"><dl class="dl">' +
-            '<dt>Document</dt><dd class="truncate"><a class="accent-text" href="/documents/detail?id=' +
-              encodeURIComponent(doc.id || '') + '">' +
-              escapeHtml(doc.title || 'Untitled') + '</a></dd>' +
-            '<dt>Priority</dt><dd>' + workflow.priorityBadge(w.priority) + '</dd>' +
-            // Every name, and separately the ones still to act: on a step
-            // requiring everybody, "assigned to" and "waiting on" stop being
-            // the same list the moment the first person signs.
-            '<dt>Assigned to</dt><dd>' +
-              (w.current_step ? escapeHtml(workflow.addressee(w.current_step))
-                              : '<span class="muted-2">Nobody, it is finished</span>') + '</dd>' +
-            (w.current_step && (w.current_step.outstanding || []).length
-              ? '<dt>Still to act</dt><dd>' +
-                escapeHtml(w.current_step.outstanding.map(p => p.name).join(', ')) +
-                '</dd>'
-              : '') +
-            (w.current_step && (w.current_step.approved_by || []).length
-              ? '<dt>Already approved</dt><dd>' +
-                escapeHtml(w.current_step.approved_by.map(p => p.name).join(', ')) +
-                '</dd>'
-              : '') +
-            '<dt>This step needs</dt><dd>' +
-              (w.current_step
-                ? (w.current_step.requires_signature ? 'A signature' : 'Approval only') +
-                  ((w.current_step.assignees || []).length > 1
-                    ? ' · ' + (w.current_step.approval_mode === 'any'
-                        ? 'any one of them' : 'all of them')
-                    : '')
-                : '<span class="muted-2">—</span>') + '</dd>' +
-            '<dt>Started by</dt><dd>' +
-              (w.created_by ? escapeHtml(w.created_by.name) : 'Not set') + '</dd>' +
-            '<dt>Started</dt><dd>' + fmt.dateTime(w.started_at) + '</dd>' +
-            '<dt>Needed by</dt><dd>' +
-              (w.due_date
-                ? (w.current_step && w.current_step.overdue
-                    ? '<span class="badge badge--danger">' + icon('alert') +
-                      fmt.date(w.due_date) + '</span>'
-                    : fmt.date(w.due_date))
-                : 'Not set') + '</dd>' +
-            '<dt>This step due</dt><dd>' +
-              (w.current_step && w.current_step.due_date
-                ? fmt.dateTime(w.current_step.due_date) : 'Not set') + '</dd>' +
-            '<dt>Route</dt><dd>' + escapeHtml(w.name || 'Approval') + '</dd>' +
-            '<dt>Retention</dt><dd>' + escapeHtml(w.retention_policy || 'Not set') + '</dd>' +
-            '<dt>After approval</dt><dd>' + escapeHtml(w.after_approval || 'File it') + '</dd>' +
+          '<dt>Document</dt><dd class="truncate"><a class="accent-text" href="/documents/detail?id=' +
+          encodeURIComponent(doc.id || '') + '">' +
+          escapeHtml(doc.title || 'Untitled') + '</a></dd>' +
+          '<dt>Priority</dt><dd>' + workflow.priorityBadge(w.priority) + '</dd>' +
+          // Every name, and separately the ones still to act: on a step
+          // requiring everybody, "assigned to" and "waiting on" stop being
+          // the same list the moment the first person signs.
+          '<dt>Assigned to</dt><dd>' +
+          (w.current_step ? escapeHtml(workflow.addressee(w.current_step))
+            : '<span class="muted-2">Nobody, it is finished</span>') + '</dd>' +
+          (w.current_step && (w.current_step.outstanding || []).length
+            ? '<dt>Still to act</dt><dd>' +
+            escapeHtml(w.current_step.outstanding.map(p => p.name).join(', ')) +
+            '</dd>'
+            : '') +
+          (w.current_step && (w.current_step.approved_by || []).length
+            ? '<dt>Already approved</dt><dd>' +
+            escapeHtml(w.current_step.approved_by.map(p => p.name).join(', ')) +
+            '</dd>'
+            : '') +
+          '<dt>This step needs</dt><dd>' +
+          (w.current_step
+            ? (w.current_step.requires_signature ? 'A signature' : 'Approval only') +
+            ((w.current_step.assignees || []).length > 1
+              ? ' · ' + (w.current_step.approval_mode === 'any'
+                ? 'any one of them' : 'all of them')
+              : '')
+            : '<span class="muted-2">—</span>') + '</dd>' +
+          '<dt>Started by</dt><dd>' +
+          (w.created_by ? escapeHtml(w.created_by.name) : 'Not set') + '</dd>' +
+          '<dt>Started</dt><dd>' + fmt.dateTime(w.started_at) + '</dd>' +
+          '<dt>Needed by</dt><dd>' +
+          (w.due_date
+            ? (w.current_step && w.current_step.overdue
+              ? '<span class="badge badge--danger">' + icon('alert') +
+              fmt.date(w.due_date) + '</span>'
+              : fmt.date(w.due_date))
+            : 'Not set') + '</dd>' +
+          '<dt>This step due</dt><dd>' +
+          (w.current_step && w.current_step.due_date
+            ? fmt.dateTime(w.current_step.due_date) : 'Not set') + '</dd>' +
+          '<dt>Route</dt><dd>' + escapeHtml(w.name || 'Approval') + '</dd>' +
+          '<dt>Retention</dt><dd>' + escapeHtml(w.retention_policy || 'Not set') + '</dd>' +
+          '<dt>After approval</dt><dd>' + escapeHtml(w.after_approval || 'File it') + '</dd>' +
           '</dl>' +
           '<div class="divider"></div>' +
           '<div class="btn-row" style="flex-wrap:wrap">' +
-            '<a class="btn btn--sm btn--outline" href="/documents/detail?id=' +
-              encodeURIComponent(doc.id || '') + '">' + icon('eye') + 'Document</a>' +
-            '<a class="btn btn--sm btn--outline" href="/studio?id=' +
-              encodeURIComponent(doc.id || '') + '">' + icon('compose') + 'Edit</a>' +
-            (w.status === 'active'
-              ? '<button class="btn btn--sm btn--danger-soft" data-cancel>' + icon('x') +
-                'Cancel</button>' : '') +
+          '<a class="btn btn--sm btn--outline" href="/documents/detail?id=' +
+          encodeURIComponent(doc.id || '') + '">' + icon('eye') + 'Document</a>' +
+          '<a class="btn btn--sm btn--outline" href="/studio?id=' +
+          encodeURIComponent(doc.id || '') + '">' + icon('compose') + 'Edit</a>' +
+          (w.status === 'active'
+            ? '<button class="btn btn--sm btn--danger-soft" data-cancel>' + icon('x') +
+            'Cancel</button>' : '') +
           '</div></div></div>';
       }
 
@@ -639,43 +662,43 @@
 
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">Signatures</h3>' +
-            '<span class="spacer"></span><span class="t-sm muted">' + sigs.length + '</span></div>' +
+          '<span class="spacer"></span><span class="t-sm muted">' + sigs.length + '</span></div>' +
           '<div class="card__body">' +
-            (sigs.length
-              ? sigs.map(s => '<div class="mb-2">' +
-                  signatureMark({ dataUrl: s.dataUrl, name: s.name, signedAt: s.signedAt },
-                    (s.designation ? s.designation + ' · ' : '') +
-                    'Step ' + s.order + ' · ' + fmt.dateTime(s.signedAt)) + '</div>').join('') +
-                // These go onto the document itself when it is published.
-                '<div class="divider"></div>' +
-                '<p class="t-xs muted-2">Stamped onto the document when it is published. ' +
-                  'The approved version is kept separately and never overwritten.</p>' +
-                (canPlace
-                  ? '<div class="btn-row mt-2" style="flex-wrap:wrap">' +
-                      '<button class="btn btn--sm btn--outline" data-place>' +
-                        icon('signature') + 'Adjust placement</button>' +
-                      '<a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" ' +
-                        'href="/api/signatures/' + encodeURIComponent(w.id) + '/preview">' +
-                        icon('eye') + 'Preview signed</a>' +
-                    '</div>'
-                  : w.status === 'published'
-                    ? '<div class="banner banner--grey mt-2">' + icon('check') +
-                      '<div>Already stamped on the published version.</div></div>'
-                    : '')
-              : '<p class="t-sm muted-2">None yet. Signatures appear here as approvers sign. ' +
-                'Steps marked “approval only” never produce one, by design.</p>') +
+          (sigs.length
+            ? sigs.map(s => '<div class="mb-2">' +
+              signatureMark({ dataUrl: s.dataUrl, name: s.name, signedAt: s.signedAt },
+                (s.designation ? s.designation + ' · ' : '') +
+                'Step ' + s.order + ' · ' + fmt.dateTime(s.signedAt)) + '</div>').join('') +
+            // These go onto the document itself when it is published.
+            '<div class="divider"></div>' +
+            '<p class="t-xs muted-2">Stamped onto the document when it is published. ' +
+            'The approved version is kept separately and never overwritten.</p>' +
+            (canPlace
+              ? '<div class="btn-row mt-2" style="flex-wrap:wrap">' +
+              '<button class="btn btn--sm btn--outline" data-place>' +
+              icon('signature') + 'Adjust placement</button>' +
+              '<a class="btn btn--sm btn--ghost" target="_blank" rel="noopener" ' +
+              'href="/api/signatures/' + encodeURIComponent(w.id) + '/preview">' +
+              icon('eye') + 'Preview signed</a>' +
+              '</div>'
+              : w.status === 'published'
+                ? '<div class="banner banner--grey mt-2">' + icon('check') +
+                '<div>Already stamped on the published version.</div></div>'
+                : '')
+            : '<p class="t-sm muted-2">None yet. Signatures appear here as approvers sign. ' +
+            'Steps marked “approval only” never produce one, by design.</p>') +
           '</div></div>';
       }
 
       function versionsCard(doc) {
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">Versions</h3>' +
-            '<span class="spacer"></span>' +
-            '<a class="btn btn--sm btn--ghost" href="/documents/detail?id=' +
-              encodeURIComponent(doc.id || '') + '">All' + icon('chevronRight') + '</a></div>' +
+          '<span class="spacer"></span>' +
+          '<a class="btn btn--sm btn--ghost" href="/documents/detail?id=' +
+          encodeURIComponent(doc.id || '') + '">All' + icon('chevronRight') + '</a></div>' +
           '<ul class="list" id="version-list">' +
-            '<li><div class="list-item"><div class="skeleton" style="height:26px;width:100%">' +
-            '</div></div></li></ul></div>';
+          '<li><div class="list-item"><div class="skeleton" style="height:26px;width:100%">' +
+          '</div></div></li></ul></div>';
       }
 
       function trailCard(w) {
@@ -683,16 +706,18 @@
         return '<div class="card">' +
           '<div class="card__head"><h3 class="t-h3">What has happened</h3></div>' +
           '<div class="card__body"><div class="timeline">' +
-            (events.length
-              ? events.slice().reverse().map(e =>
-                  '<div class="timeline__item ' +
-                    ({ approved: 'is-accent', rejected: 'is-danger',
-                       changes: 'is-warn', escalated: 'is-warn' }[e.kind] || '') + '">' +
-                    '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
-                    '<div class="timeline__meta">' + fmt.dateTime(e.at) +
-                      (e.detail ? ' · “' + escapeHtml(e.detail) + '”' : '') + '</div>' +
-                  '</div>').join('')
-              : '<p class="t-sm muted-2">Nothing yet.</p>') +
+          (events.length
+            ? events.slice().reverse().map(e =>
+              '<div class="timeline__item ' +
+              ({
+                approved: 'is-accent', rejected: 'is-danger',
+                changes: 'is-warn', escalated: 'is-warn'
+              }[e.kind] || '') + '">' +
+              '<div class="timeline__title">' + escapeHtml(e.summary) + '</div>' +
+              '<div class="timeline__meta">' + fmt.dateTime(e.at) +
+              (e.detail ? ' · “' + escapeHtml(e.detail) + '”' : '') + '</div>' +
+              '</div>').join('')
+            : '<p class="t-sm muted-2">Nothing yet.</p>') +
           '</div></div></div>';
       }
 
@@ -709,21 +734,21 @@
             const versions = data.versions || [];
             host.innerHTML = versions.length
               ? versions.slice(0, 5).map(v =>
-                  '<li><a class="list-item" target="_blank" rel="noopener" href="' +
-                    escapeHtml(v.file_url) + '">' +
-                    '<span class="version__tag' + (v.is_locked ? ' is-locked' : '') + '">v' +
-                      escapeHtml(v.version) + '</span>' +
-                    '<span class="list-item__body">' +
-                      '<span class="list-item__title truncate">' +
-                        escapeHtml(v.note || 'Saved') + '</span>' +
-                      '<span class="list-item__sub">' +
-                        (v.author ? escapeHtml(v.author) + ' · ' : '') + fmt.ago(v.created_at) +
-                      '</span></span>' +
-                    (v.is_current ? '<span class="badge badge--accent">Current</span>'
-                      : v.is_locked ? '<span class="badge">' + icon('lock') + 'Locked</span>' : '') +
-                  '</a></li>').join('')
+                '<li><a class="list-item" target="_blank" rel="noopener" href="' +
+                escapeHtml(v.file_url) + '">' +
+                '<span class="version__tag' + (v.is_locked ? ' is-locked' : '') + '">v' +
+                escapeHtml(v.version) + '</span>' +
+                '<span class="list-item__body">' +
+                '<span class="list-item__title truncate">' +
+                escapeHtml(v.note || 'Saved') + '</span>' +
+                '<span class="list-item__sub">' +
+                (v.author ? escapeHtml(v.author) + ' · ' : '') + fmt.ago(v.created_at) +
+                '</span></span>' +
+                (v.is_current ? '<span class="badge badge--accent">Current</span>'
+                  : v.is_locked ? '<span class="badge">' + icon('lock') + 'Locked</span>' : '') +
+                '</a></li>').join('')
               : '<li><div class="list-item"><span class="t-sm muted-2">' +
-                'No versions recorded yet.</span></div></li>';
+              'No versions recorded yet.</span></div></li>';
           });
         }
 
@@ -747,8 +772,10 @@
             }
             if (!updated) return;
 
-            toast({ approve: 'Approved', reject: 'Rejected',
-                    changes: 'Sent back for changes' }[btn.dataset.act],
+            toast({
+              approve: 'Approved', reject: 'Rejected',
+              changes: 'Sent back for changes'
+            }[btn.dataset.act],
               updated.current_step
                 ? 'Now with ' + workflow.addressee(updated.current_step)
                 : ((workflow.STATUS[updated.status] || {}).label || ''));
@@ -788,7 +815,7 @@
             const ok = await confirmDanger({
               title: 'Cancel this approval?',
               message: 'The chain stops and nobody is asked to act. The document is not deleted, ' +
-                       'and everything already recorded stays in the trail.',
+                'and everything already recorded stays in the trail.',
               confirmLabel: 'Cancel approval',
             });
             if (!ok) return;
@@ -822,11 +849,14 @@
       };
       $('#btn-escalate').onclick = async () => {
         if (!selected) return;
-        const reason = await escalationReasonDialog();
-        if (reason === null) return;
+        const options = await api.safe('/api/workflow/' + encodeURIComponent(selected.id) + '/escalation-options', { alternatives: [] });
+        const choice = await escalationReasonDialog(options);
+        if (!choice) return;
+        const reason = choice.reason;
         try {
           const updated = await api.post('/api/workflow/' + selected.id + '/escalate', {
-            reason: reason.trim() || 'Approver unavailable'
+            reason: reason.trim() || 'Approver unavailable',
+            alternate_user_id: choice.alternateUserId
           });
           toast('Approval escalated', 'The alternate approver and new deadline are now shown in the timeline.');
           selected = (updated && updated.workflow) ||
@@ -837,7 +867,7 @@
           toast('Could not escalate approval', String(err.message || err).slice(0, 220), 'danger');
         }
       };
-      function escalationReasonDialog() {
+      function escalationReasonDialog(options) {
         return new Promise(resolve => {
           const el = document.createElement('div');
           el.className = 'modal';
@@ -845,7 +875,10 @@
             '<span class="tile-icon tile-icon--warn">' + icon('alert') + '</span>' +
             '<div><h3 class="t-h2">Escalate approval</h3>' +
             '<p class="t-sm muted mt-1">Reassign this approval to an alternate approver and start a new deadline.</p></div></div></div>' +
-            '<div class="modal__body"><label class="field"><span class="field__label">Reason for escalation</span>' +
+            '<div class="modal__body"><p class="t-sm muted">Current step: ' + escapeHtml((options && (options.role || options.department)) || 'Approval') + '</p>' +
+            '<div class="field"><span class="field__label">Select the replacement approver</span><div class="t-xs muted mt-1">Choose one eligible person from the same department or role.</div><div class="stack mt-1">' +
+            ((options && options.alternatives || []).length ? options.alternatives.map(p => '<label class="check check--choice"><input type="radio" name="escalation-approver" value="' + escapeHtml(p.id) + '"><span class="check__box">' + icon('check') + '</span><span class="check__text"><strong>' + escapeHtml(p.name || p.username) + '</strong><span class="check__meta">' + escapeHtml(p.job_title || p.department || '') + '</span></span></label>').join('') : '<span class="t-sm muted">No eligible alternatives found for this role or department.</span>') +
+            '</div></div><label class="field mt-2"><span class="field__label">Reason for escalation</span>' +
             '<textarea class="textarea" rows="4" data-escalation-reason>Approver unavailable before deadline</textarea></label></div>' +
             '<div class="modal__foot"><div class="btn-row"><button class="btn btn--outline" data-cancel>Cancel</button>' +
             '<button class="btn btn--primary" data-submit>' + icon('alert') + 'Escalate approval</button></div></div>';
@@ -853,7 +886,30 @@
           openOverlay(el);
           const finish = value => { closeOverlays(); setTimeout(() => el.remove(), 260); resolve(value); };
           el.querySelector('[data-cancel]').onclick = () => finish(null);
-          el.querySelector('[data-submit]').onclick = () => finish(el.querySelector('[data-escalation-reason]').value);
+          // Radios are used for the one-approver rule, but clicking the selected
+          // card again should clear it so the choice is never trapped.
+          el.querySelectorAll('input[name="escalation-approver"]').forEach(input => {
+            input.addEventListener('click', event => {
+              if (input.dataset.wasChecked === 'true') {
+                event.preventDefault();
+                input.checked = false;
+              }
+              el.querySelectorAll('input[name="escalation-approver"]').forEach(other => {
+                other.dataset.wasChecked = other === input && input.checked ? 'true' : 'false';
+              });
+            });
+          });
+          el.querySelector('[data-submit]').onclick = () => {
+            const selected = el.querySelector('input[name="escalation-approver"]:checked');
+            if ((options.alternatives || []).length && !selected) {
+              toast('Select an approver', 'Choose the person who should receive this approval.', 'danger');
+              return;
+            }
+            finish({
+              alternateUserId: selected ? selected.value : null,
+              reason: el.querySelector('[data-escalation-reason]').value,
+            });
+          };
           el.querySelector('[data-escalation-reason]').focus();
         });
       }

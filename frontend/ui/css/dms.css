@@ -719,21 +719,27 @@ table { border-collapse: collapse; width: 100%; }
 .search-input { height: 38px; border-radius: var(--r); }
 
 /* Checkbox / radio */
-.check { display: inline-flex; align-items: flex-start; gap: 9px; cursor: pointer; }
-.check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; user-select: none; }
+.check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .check__box {
-  width: 17px; height: 17px; margin-top: 1px;
+  width: 18px; height: 18px; margin-top: 1px;
   border: 1.5px solid var(--border-strong); border-radius: 5px;
-  background: var(--white);
-  display: grid; place-items: center;
-  flex: 0 0 auto;
-  transition: all var(--dur) var(--ease);
+  background: var(--white); display: grid; place-items: center;
+  flex: 0 0 auto; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.check__box svg { width: 11px; height: 11px; color: var(--white); opacity: 0; transform: scale(.6); transition: all var(--dur) var(--ease); }
+.check__box svg { width: 12px; height: 12px; color: var(--white); opacity: 0; transform: scale(.6); transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
 .check input:checked + .check__box { background: var(--accent); border-color: var(--accent); }
 .check input:checked + .check__box svg { opacity: 1; transform: scale(1); }
 .check input:focus-visible + .check__box { box-shadow: var(--ring); }
-.check__text { font-size: 13.5px; }
+.check__text { font-size: 13.5px; line-height: 1.4; }
+.check__meta { display: block; margin-top: 3px; color: var(--text-3); font-size: 12px; }
+.check--choice { width: 100%; align-items: center; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.check--choice:hover { border-color: var(--blue-300); background: var(--blue-50); }
+.check--choice:has(input:checked) { border-color: var(--accent); background: var(--blue-50); box-shadow: 0 0 0 3px var(--blue-100); }
+.check--choice .check__text { flex: 1; }
+.check--choice input[type="radio"] + .check__box { border-radius: 50%; }
+.check--choice input[type="radio"]:checked + .check__box::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--white); }
+.check--choice input[type="radio"]:checked + .check__box svg { display: none; }
 /* Inline by default (table cells, toolbars) but block-level inside a stack. */
 .stack > .check, .stack-sm > .check, .col > .check { display: flex; }
 
@@ -1505,9 +1511,9 @@ ol.md-list { list-style: decimal; }
 }
 .modal.is-open { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
 .modal--wide { width: min(820px, calc(100vw - 40px)); }
-.modal__head { padding: 20px 22px 0; }
-.modal__body { padding: 16px 22px; overflow-y: auto; }
-.modal__foot { padding: 15px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+.modal__head { padding: 22px 24px 0; }
+.modal__body { padding: 18px 24px; overflow-y: auto; }
+.modal__foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--grey-50); border-radius: 0 0 var(--r-lg) var(--r-lg); }
 .modal__foot .btn-row { margin-left: auto; }
 
 .drawer {

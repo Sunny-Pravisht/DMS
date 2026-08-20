@@ -27,7 +27,11 @@ from ..models import (
     WorkflowEvent,
 )
 from ..services import workflow_service as wf
-from ..services.auth_service import get_current_user_flexible, require_permission_flexible
+from ..services.auth_service import (
+    get_current_user_flexible,
+    require_admin_flexible,
+    require_permission_flexible,
+)
 
 router = APIRouter()
 
@@ -79,6 +83,7 @@ class ResubmitPayload(BaseModel):
 
 class EscalationPayload(BaseModel):
     reason: str = "Approver unavailable"
+    alternate_user_id: Optional[str] = None
 
 
 # ------------------------------------------------------------ serialisation
@@ -488,6 +493,25 @@ def remind(
     return {"message": f"Reminder sent to {who}", "notified": who}
 
 
+@router.get("/{workflow_id}/escalation-options", dependencies=[Depends(require_admin_flexible)])
+def escalation_options(
+    workflow_id: str,
+    db: Session = Depends(get_db),
+):
+    workflow = wf.load(db, workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Approval process not found")
+    step = wf.current_step(workflow)
+    if not step:
+        raise HTTPException(status_code=400, detail="There is no current approval step.")
+    return {
+        "step_id": step.id,
+        "department": step.department,
+        "role": step.role,
+        "requires_signature": bool(step.requires_signature),
+        "alternatives": [_person(user) for user in wf.alternative_approvers(db, step)],
+    }
+
 @router.post("/{workflow_id}/escalate")
 def escalate(
     workflow_id: str,
@@ -505,7 +529,10 @@ def escalate(
         raise HTTPException(status_code=400, detail="There is no step waiting for escalation.")
 
     try:
-        escalated = wf.escalate_current_step(db, workflow, current_user, reason=payload.reason)
+        escalated = wf.escalate_current_step(
+            db, workflow, current_user, reason=payload.reason,
+            alternate_user_id=payload.alternate_user_id,
+        )
     except wf.WorkflowError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     if not escalated:

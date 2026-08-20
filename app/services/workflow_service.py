@@ -291,17 +291,20 @@ def can_act(user: User, step: ApprovalStep) -> tuple[bool, str]:
     if has_decided(step, user):
         return False, "You have already given your decision on this step."
 
+    # A named assignee is a deliberate delegation, including for administrators.
+    # Admin rights must not let an admin approve or sign in place of another
+    # person who was explicitly named on the step.
+    if step.assignees and not any(a.id == user.id for a in step.assignees):
+        names = ", ".join(a.full_name or a.username for a in step.assignees)
+        return False, f"This step is assigned to {names}."
+
     if user.is_admin:
         return True, ""
 
     if not (user.can_approve or user.has_permission("documents.approve")):
         return False, "You do not have permission to approve documents."
 
-    if step.assignees:
-        if not any(a.id == user.id for a in step.assignees):
-            names = ", ".join(a.full_name or a.username for a in step.assignees)
-            return False, f"This step is assigned to {names}."
-    elif step.department and user.department and step.department != user.department:
+    if not step.assignees and step.department and user.department and step.department != user.department:
         return False, f"This step is for the {step.department} department."
 
     if step.requires_signature and not user.can_sign:
@@ -586,7 +589,14 @@ def tasks_for(db: Session, user: User) -> list[tuple[ApprovalWorkflow, ApprovalS
         if has_decided(step, user):
             continue
         if user.is_admin:
-            out.append((step.workflow, step))
+            # Administrators may monitor the queue, but an explicitly assigned
+            # approval belongs only to the named person. This keeps My Tasks
+            # aligned with can_act() and prevents admin takeover.
+            if step.assignees:
+                if any(a.id == user.id for a in step.assignees):
+                    out.append((step.workflow, step))
+            else:
+                out.append((step.workflow, step))
             continue
         if not (user.can_approve or user.has_permission("documents.approve")):
             continue
@@ -608,6 +618,8 @@ def is_overdue(step: ApprovalStep) -> bool:
 
 def publish(db: Session, workflow: ApprovalWorkflow, actor: User) -> ApprovalWorkflow:
     """Release an approved document. Only approval earns this."""
+    if not actor or not (actor.is_admin or actor.has_permission("documents.publish")):
+        raise WorkflowError("You do not have permission to publish documents.")
     if workflow.status != APPROVED:
         raise WorkflowError("Only a fully approved document can be published.")
     workflow.status = PUBLISHED
@@ -630,8 +642,28 @@ def remind(db: Session, workflow: ApprovalWorkflow, actor: User) -> str:
     return who
 
 
+def alternative_approvers(db: Session, step: ApprovalStep) -> list[User]:
+    # List eligible replacement approvers for this step without changing it.
+    assigned_ids = {a.id for a in (step.assignees or [])}
+    query = db.query(User).filter(
+        User.is_active.is_(True),
+        User.id.notin_(assigned_ids or {"__none__"}),
+        or_(User.can_approve.is_(True), User.is_admin.is_(True)),
+    )
+    if step.department:
+        query = query.filter(User.department == step.department)
+
+    # Keep this list identical to the candidates used by escalation itself.
+    # The step's department is the category boundary; `role` is descriptive in
+    # older workflows and must not hide a valid approver from the preview.
+    candidates = query.order_by(User.full_name, User.username).all()
+    if step.requires_signature:
+        candidates = [user for user in candidates if user.can_sign or user.is_admin]
+    return candidates
+
 def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
-                         reason: str = "Approver unavailable") -> Optional[ApprovalStep]:
+                         reason: str = "Approver unavailable",
+                         alternate_user_id: Optional[str] = None) -> Optional[ApprovalStep]:
     """Escalate a pending step when the primary approver is unavailable."""
     step = current_step(workflow)
     if not step or workflow.status != ACTIVE:
@@ -639,58 +671,12 @@ def escalate_current_step(db: Session, workflow: ApprovalWorkflow, actor: User,
     if not (actor and (actor.is_admin or is_overdue(step))):
         raise WorkflowError("Only an administrator or an overdue approval can be escalated.")
 
-    assignees = sorted(
-        list(step.assignees or []),
-        key=lambda u: (u.full_name or u.username or "").lower(),
-    )
-    alternate = None
-
-    if len(assignees) > 1:
-        alternate = assignees[1]
-    elif assignees:
-        primary_id = assignees[0].id
-        if step.department:
-            candidates = (
-                db.query(User)
-                .filter(
-                    User.is_active.is_(True),
-                    User.department == step.department,
-                    User.id != primary_id,
-                )
-                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name, User.username)
-                .all()
-            )
-        else:
-            candidates = (
-                db.query(User)
-                .filter(User.is_active.is_(True), User.id != primary_id)
-                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name, User.username)
-                .all()
-            )
-        if candidates:
-            alternate = candidates[0]
-    else:
-        if step.department:
-            candidates = (
-                db.query(User)
-                .filter(User.is_active.is_(True), User.department == step.department)
-                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name, User.username)
-                .all()
-            )
-        else:
-            candidates = (
-                db.query(User)
-                .filter(User.is_active.is_(True))
-                .filter(or_(User.can_approve.is_(True), User.is_admin.is_(True)))
-                .order_by(User.full_name, User.username)
-                .all()
-            )
-        if candidates:
-            alternate = candidates[0]
-
+    alternatives = alternative_approvers(db, step)
+    alternate = next((user for user in alternatives
+                      if user.id == alternate_user_id), None) if alternate_user_id else None
+    if alternate_user_id and not alternate:
+        raise WorkflowError("That user is not an eligible alternative for this approval step.")
+    alternate = alternate or (alternatives[0] if alternatives else None)
     if not alternate:
         return None
 

@@ -1284,7 +1284,7 @@
     const badges = stats ? [
       ['tasks', stats.my_tasks, stats.my_tasks_overdue > 0],
       ['publish', stats.ready_to_publish, false],
-      ['track', stats.awaiting_changes, false],
+      ['track', stats.in_progress || 0, false],
     ] : [];
 
     document.querySelectorAll('[data-nav-count]').forEach(el => { el.hidden = true; });
