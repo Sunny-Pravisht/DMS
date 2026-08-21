@@ -12,17 +12,31 @@
        no sidebar, no navigation, no page padding. Long documents are read
        here, and everything on screen that is not the document is a
        distraction from it. */
-    body { overflow: hidden; }
+    body { overflow: auto; }
     @media print {
       .viewer-bar { display: none; }
       .viewer-shell { height: auto; }
     }
-    .version-modal-backdrop { position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(3,31,48,.56); }
+    .version-modal-backdrop { position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; padding:0; background:rgba(3,31,48,.56); }
     .version-modal-backdrop.is-open { display:flex; }
-    .version-modal { width:min(760px,100%); max-height:min(760px,calc(100vh - 40px)); overflow:auto; background:#fff; border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.3); }
-    .version-modal__head, .version-modal__foot { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid #e6edf1; }
+    .version-modal { width:min(760px,100%); max-height:min(760px,calc(100vh - 40px)); overflow:hidden; background:#fff; border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.3); display:flex; flex-direction:column; }
+    .compare-modal { width:100%; height:100%; overflow:hidden; background:#fff; border-radius:0; box-shadow:none; display:flex; flex-direction:column; }
+    .version-modal__head { flex:0 0 auto; display:flex; align-items:flex-start; gap:12px; padding:18px 20px 14px; }
+    .version-modal__head > div:first-child { min-width:0; }
+    .version-modal__body { flex:1 1 auto; min-height:0; overflow:auto; padding:18px 20px; }
+    .version-modal__foot { flex:0 0 auto; padding:12px 20px; }
+    .compare-modal .version-modal__body { min-height:0; overflow:auto; }
+    .compare-modal .version-modal__head { flex-shrink:0; }
+    .compare-modal .version-modal__foot { flex-shrink:0; }
+    .compare-modal .version-modal__body { padding:12px; }
+    .compare-modal .version-result { margin-top:12px; }
+    .compare-modal .compare-pane__body { max-height:none; min-height:360px; }
+    .compare-modal .compare-file iframe { height:calc(100vh - 112px); min-height:480px; }
+    .compare-launch { margin-top:16px; }
+    .version-tabs { display:flex; gap:8px; align-items:center; }
+    @media (max-width:650px) { .compare-modal { height:calc(100vh - 20px); } }
     .version-modal__foot { justify-content:flex-end; border-top:1px solid #e6edf1; border-bottom:0; }
-    .version-modal__body { padding:18px 20px; }
+    .version-modal__foot .btn { flex:0 0 auto; }
     .version-list { display:grid; gap:8px; margin:12px 0 20px; }
     .version-item { display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid #dce8ee; border-radius:9px; }
     .version-item__body { flex:1; min-width:0; }
@@ -60,11 +74,19 @@
       <span class="badge badge--accent" id="v-badge" hidden></span>
       <a class="btn btn--outline btn--sm" id="v-edit" hidden><i data-icon="compose"></i>Edit</a>
       <button class="btn btn--outline btn--sm" id="v-versions"><i data-icon="history"></i>Versions</button>
-      <a class="btn btn--outline btn--sm" id="v-download" hidden><i data-icon="download"></i>Download</a>
+      <button class="btn btn--outline btn--sm" id="open-compare" type="button"><i data-icon="history"></i>Compare versions</button>
       <a class="btn btn--outline btn--sm" id="v-detail" hidden><i data-icon="external"></i>Details</a>
     </header>
 
     <div class="viewer viewer--full" id="viewer"></div>
+  </div>
+
+  <div class="version-modal-backdrop" id="compare-modal" aria-hidden="true">
+    <section class="compare-modal" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
+      <header class="version-modal__head"><div><div class="t-h3" id="compare-modal-title">Compare versions</div><div class="t-sm muted">Compare two saved versions side by side.</div></div><span class="spacer"></span><button class="icon-btn" type="button" data-compare-close aria-label="Close">×</button></header>
+      <div class="version-modal__body" id="compare-modal-body"></div>
+      <footer class="version-modal__foot"><button class="btn btn--sm btn--outline" type="button" data-compare-close>Close</button></footer>
+    </section>
   </div>
 
   <div class="version-modal-backdrop" id="version-modal" aria-hidden="true">
@@ -102,7 +124,6 @@
         return;
       }
 
-      $('#v-download').href = '/api/documents/' + encodeURIComponent(id) + '/download';
       $('#v-detail').href = '/documents/detail?id=' + encodeURIComponent(id);
       $('#back').href = '/documents';
 
@@ -136,14 +157,8 @@
             (!v.is_current ? '<button class="btn btn--sm btn--outline" type="button" data-checkout="' + escapeHtml(v.id) + '">Check out this version</button>' : '<span class="t-xs muted">Current working copy</span>') +
             '</div>'
           ).join('') + '</div>' +
-          '<div class="divider"></div><div class="t-h3" style="margin:16px 0 4px">Compare versions</div>' +
-          '<p class="t-sm muted">Select two saved versions. Text files show changed lines; PDFs and images open as exact files side by side.</p>' +
-          '<div class="version-compare"><label class="field"><span class="field__label">Older version</span><select class="select" id="compare-left">' + options + '</select></label>' +
-          '<label class="field"><span class="field__label">Newer version</span><select class="select" id="compare-right">' + options + '</select></label>' +
-          '<button class="btn btn--primary btn--sm" type="button" id="compare-versions"' + (versions.length < 2 ? ' disabled' : '') + '>Compare</button></div>' +
-          '<div class="version-result" id="version-result"><div class="compare-note">Choose two different versions to see their differences.</div></div>';
-        $('#compare-left').value = older;
-        $('#compare-right').value = newer;
+            '';
+          $('#open-compare').disabled = versions.length < 2;
       }
 
       async function openVersions() {
@@ -177,8 +192,8 @@
           const panes = data.comparison_mode === 'text'
             ? '<div class="compare-columns"><section class="compare-pane"><div class="compare-pane__head">' + versionLabel(data.left_version) + ' · Changed / removed</div><pre class="compare-pane__body">' + escapeHtml(data.left_excerpt || 'No changed lines') + '</pre></section>' +
               '<section class="compare-pane"><div class="compare-pane__head">' + versionLabel(data.right_version) + ' · Changed / added</div><pre class="compare-pane__body">' + escapeHtml(data.right_excerpt || 'No changed lines') + '</pre></section></div>'
-            : '<div class="compare-files"><section class="compare-file"><div class="compare-file__head">' + versionLabel(data.left_version) + ' · Older exact file</div><iframe title="Older exact file" src="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(left) + '/file"></iframe><a class="btn btn--sm btn--ghost compare-open" target="_blank" rel="noopener" href="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(left) + '/file">Open older PDF</a></section>' +
-              '<section class="compare-file"><div class="compare-file__head">' + versionLabel(data.right_version) + ' · Newer exact file</div><iframe title="Newer exact file" src="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(right) + '/file"></iframe><a class="btn btn--sm btn--ghost compare-open" target="_blank" rel="noopener" href="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(right) + '/file">Open newer PDF</a></section></div>';
+            : '<div class="compare-files"><section class="compare-file"><div class="compare-file__head">' + versionLabel(data.left_version) + ' · Older exact file</div><iframe title="Older exact file" src="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(left) + '/file#view=FitH&navpanes=0&zoom=page-width"></iframe><a class="btn btn--sm btn--ghost compare-open" target="_blank" rel="noopener" href="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(left) + '/file">Open older PDF</a></section>' +
+              '<section class="compare-file"><div class="compare-file__head">' + versionLabel(data.right_version) + ' · Newer exact file</div><iframe title="Newer exact file" src="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(right) + '/file#view=FitH&navpanes=0&zoom=page-width"></iframe><a class="btn btn--sm btn--ghost compare-open" target="_blank" rel="noopener" href="/api/documents/' + encodeURIComponent(id) + '/versions/' + encodeURIComponent(right) + '/file">Open newer PDF</a></section></div>';
           const note = data.comparison_note && data.comparison_mode === 'text'
             ? '<div class="compare-note">' + escapeHtml(data.comparison_note) + '</div>' : '';
           result.innerHTML = summary + note + panes;
@@ -188,6 +203,42 @@
         }
       }
 
+      const compareModal = $('#compare-modal');
+      const compareModalBody = $('#compare-modal-body');
+      function closeCompare() {
+        compareModal.classList.remove('is-open');
+        compareModal.setAttribute('aria-hidden', 'true');
+      }
+      $('#open-compare').addEventListener('click', async () => {
+        if (!versions.length) {
+          try {
+            const data = await api.get('/api/documents/' + encodeURIComponent(id) + '/versions');
+            versions = data.versions || [];
+          } catch (err) {
+            toast('Could not load versions', String(err.message || err), 'danger');
+            return;
+          }
+        }
+        if (versions.length < 2) {
+          toast('Not enough versions', 'At least two saved versions are needed to compare.', 'danger');
+          return;
+        }
+        const options = versions.map(v => '<option value="' + escapeHtml(v.id) + '">' + versionLabel(v.version) + '</option>').join('');
+        compareModalBody.innerHTML = '<p class="t-sm muted">Select two saved versions. Text files show changed lines; PDFs and images open as exact files side by side.</p>' +
+          '<div class="version-compare"><label class="field"><span class="field__label">Older version</span><select class="select" id="compare-left">' + options + '</select></label>' +
+          '<label class="field"><span class="field__label">Newer version</span><select class="select" id="compare-right">' + options + '</select></label>' +
+          '<button class="btn btn--primary btn--sm" type="button" id="compare-versions">Compare</button></div>' +
+          '<div class="version-result" id="version-result"><div class="compare-note">Choose two different versions to see their differences.</div></div>';
+        $('#compare-left').value = versions[1].id;
+        $('#compare-right').value = versions[0].id;
+        closeVersions();
+        compareModal.classList.add('is-open');
+        compareModal.setAttribute('aria-hidden', 'false');
+      });
+      compareModal.addEventListener('click', async e => {
+        if (e.target === compareModal || e.target.closest('[data-compare-close]')) { closeCompare(); return; }
+        if (e.target.closest('#compare-versions')) { await compareVersions(); return; }
+      });
       $('#v-versions').addEventListener('click', openVersions);
       versionModal.addEventListener('click', async e => {
         if (e.target === versionModal || e.target.closest('[data-version-close]')) { closeVersions(); return; }
@@ -240,13 +291,11 @@
         const canEdit = isAdmin || permissions.includes('documents.update');
         const canDownload = isAdmin || permissions.includes('documents.read');
         const edit = $('#v-edit');
-        const download = $('#v-download');
         const detail = $('#v-detail');
         if (info.editable && canEdit) {
           edit.hidden = false;
           edit.href = '/studio?id=' + encodeURIComponent(id);
         }
-        if (canDownload) download.hidden = false;
         if (isAdmin || canDownload) detail.hidden = false;
       })();
     })();
