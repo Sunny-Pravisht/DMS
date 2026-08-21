@@ -415,6 +415,8 @@
         // approval to change. Once it is published or rejected the chain is
         // history, so back means back to the document itself.
         const settled = ['published', 'rejected'].includes(w.status);
+        const isAdmin = !!(window.DMS.me && window.DMS.me.is_admin);
+        back.hidden = !isAdmin;
         if (settled) {
           back.innerHTML = icon('chevronLeft') + 'Open the document';
           back.href = docId ? '/documents/detail?id=' + encodeURIComponent(docId) : '/documents';
@@ -439,8 +441,7 @@
             'It returns to step 1 of the chain once they resubmit it.', false);
         } else if (step) {
           say('Waiting on ' + workflow.addressee(step) + '.',
-            'Step ' + step.order + ' of ' + w.progress.total +
-            '. Publishing opens once every step is done.', false);
+            'Step ' + step.order + ' of ' + w.progress.total + '. Publishing opens once every step is done.', false);
         } else {
           say('In progress.', 'Publishing opens once every step is done.', false);
         }
@@ -647,8 +648,10 @@
           '<div class="btn-row" style="flex-wrap:wrap">' +
           '<a class="btn btn--sm btn--outline" href="/documents/detail?id=' +
           encodeURIComponent(doc.id || '') + '">' + icon('eye') + 'Document</a>' +
-          '<a class="btn btn--sm btn--outline" href="/studio?id=' +
-          encodeURIComponent(doc.id || '') + '">' + icon('compose') + 'Edit</a>' +
+          ((window.DMS.me && (window.DMS.me.is_admin || (window.DMS.me.permissions || []).includes('documents.update')))
+            ? '<a class="btn btn--sm btn--outline" href="/studio?id=' +
+              encodeURIComponent(doc.id || '') + '">' + icon('compose') + 'Edit</a>'
+            : '') +
           (w.status === 'active'
             ? '<button class="btn btn--sm btn--danger-soft" data-cancel>' + icon('x') +
             'Cancel</button>' : '') +

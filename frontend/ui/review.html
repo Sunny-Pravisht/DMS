@@ -618,6 +618,10 @@
           docId = selected && selected.id;
         }
 
+        const canEdit = !!(DMS.me && (DMS.me.is_admin || (DMS.me.permissions || []).includes('documents.update')));
+        $('#btn-edit-doc').hidden = !canEdit;
+        $('#btn-edit').hidden = !canEdit;
+
         const [types, corrs] = await Promise.all([
           api.safe('/api/doctypes/', []),
           api.safe('/api/correspondents/', []),
