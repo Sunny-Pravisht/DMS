@@ -57,7 +57,7 @@
             <h2 class="t-h2">Choose how to set up approval</h2>
           </div>
 
-          <div class="mode-choice">
+          <div class="mode-choice" data-admin-config>
             <label class="mode-card">
               <input type="radio" name="build-mode" value="manual" checked>
               <span class="mode-card__dot"></span>
@@ -78,7 +78,7 @@
             </label>
           </div>
 
-          <div class="card mt-3 hidden" id="tpl-panel">
+          <div class="card mt-3 hidden" id="tpl-panel" data-admin-config>
             <div class="card__head">
               <span class="tile-icon"><i data-icon="layers"></i></span>
               <h3 class="t-h3">Saved approval routes</h3>
@@ -99,7 +99,13 @@
             </div>
           </div>
 
-          <div class="card mt-3" id="manual-panel">
+          <div class="card card--pad" data-contributor-submit hidden>
+            <h3 class="t-h3">Send for approval</h3>
+            <p class="t-sm muted mt-1">Only administrators configure approval routes. Choose an administrator to review or sign this document.</p>
+            <div class="list mt-3" id="admin-people"></div>
+          </div>
+
+          <div class="card mt-3" id="manual-panel" data-admin-config>
             <div class="card__head">
               <span class="tile-icon"><i data-icon="sliders"></i></span>
               <h3 class="t-h3">1. Select department</h3>
@@ -344,6 +350,19 @@
        */
       function renderSteps() {
         const host = $('#steps');
+        const contributorOnly = !!(DMS.me && !DMS.me.is_admin && DMS.me.account_type === 'team_member');
+        if (contributorOnly) {
+          const admins = people.filter(p => p.is_admin);
+          host.innerHTML = '<div class="card card--pad"><h3 class="t-h3">Send to an administrator</h3>' +
+            '<p class="t-sm muted mt-1">Only administrators can configure approval steps. Select an administrator to review and sign this document.</p>' +
+            '<div class="list mt-3">' + (admins.length ? admins.map(p =>
+              '<label class="list-item"><span class="check"><input type="checkbox" data-admin-assignee value="' + escapeHtml(p.id) + '"><span class="check__box"><i data-icon="check"></i></span><span class="check__text"><strong>' + escapeHtml(p.name) + '</strong><br><span class="t-xs muted">' + escapeHtml(p.job_title || 'Administrator') + '</span></span></span></label>').join('') : '<p class="t-sm muted">No active administrators are available.</p>') + '</div></div>';
+          steps = [{ name: 'Administrator approval', department: null, role: null, assignee_ids: [], requires_signature: false, approval_mode: 'any', sla: '2 days' }];
+          $('#step-count').textContent = '1 step';
+          renderSummary();
+          syncProcessUI();
+          return;
+        }
         $('#step-count').textContent = steps.length
           ? steps.length + (steps.length === 1 ? ' step' : ' steps') : '';
 
@@ -750,6 +769,13 @@
       }
 
       function syncProcessUI() {
+        if (DMS.me && !DMS.me.is_admin) {
+          const start = $('#btn-start');
+          const selected = document.querySelector('[name="admin-target"]:checked');
+          start.disabled = !selected;
+          start.title = selected ? '' : 'Choose an administrator';
+          return;
+        }
         const readyToConfigure = !!docId && (mode === 'template' ? !!chosenTemplate : !!$('#m-dept').value);
         ['#chain-section', '#timing-section', '#confirm-section'].forEach(sel => {
           const el = $(sel);
@@ -769,10 +795,48 @@
         $('#problems-list').innerHTML = list.map(p => '<li>' + escapeHtml(p) + '</li>').join('');
       }
 
-      /* ------------------------------------------------------------- start */
+      $('#steps').addEventListener('change', e => {
+        if (!e.target.matches('[data-admin-assignee]')) return;
+        steps[0].assignee_ids = [...$('#steps').querySelectorAll('[data-admin-assignee]:checked')].map(x => x.value);
+        syncProcessUI();
+      });
+
+
+      function setupContributorView() {
+        const me = DMS.me || {};
+        // Only administrators configure approval routes. Every other signed-in
+        // user gets the simple submit-to-admin view, regardless of stale legacy
+        // role or permission data returned by an older session.
+        const isContributor = !me.is_admin;
+        if (!isContributor) return false;
+        document.querySelectorAll('[data-admin-config], #chain-section, #timing-section, #confirm-section, #btn-save-tpl, [data-save-route]').forEach(el => el.hidden = true);
+        const box = $('[data-contributor-submit]');
+        box.hidden = false;
+        const admins = people.filter(p => p.is_admin);
+        $('#admin-people').innerHTML = admins.map(p => '<label class="list-item"><span class="check"><input type="radio" name="admin-target" value="' + escapeHtml(p.id) + '"><span class="check__box"><i data-icon="check"></i></span><span class="check__text"><strong>' + escapeHtml(p.name) + '</strong><br><span class="t-xs muted">' + escapeHtml(p.job_title || 'Administrator') + '</span></span></span></label>').join('') || '<p class="t-sm muted">No active administrator is available.</p>';
+        steps = [{ name: 'Administrator approval', department: null, role: null, assignee_ids: [], requires_signature: false, approval_mode: 'any', sla: '2 days' }];
+        $('#admin-people').addEventListener('change', e => {
+          if (e.target.matches('[name="admin-target"]')) {
+            steps[0].assignee_ids = [e.target.value];
+            $('#btn-start').disabled = false;
+          }
+        });
+        $('#btn-start').disabled = !admins.length;
+        $('#btn-start').textContent = 'Send to administrator';
+        return true;
+      }
       $('#btn-start').onclick = async () => {
         const problems = validate().filter(p => !p.startsWith('No step captures'));
-        if (problems.length) {
+        const contributor = DMS.me && !DMS.me.is_admin;
+        if (contributor) {
+          const selected = document.querySelector('[name="admin-target"]:checked');
+          if (!selected) {
+            toast('Choose an administrator', 'Select an administrator before sending this document.', 'danger');
+            return;
+          }
+          steps[0].assignee_ids = [selected.value];
+        }
+        if (problems.length && !contributor) {
           showProblems(validate());
           toast('Not ready yet', problems[0], 'danger');
           window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -952,19 +1016,33 @@
       }
 
       (async function () {
+        if (DMS.ready) {
+          try { await DMS.ready; } catch (e) { /* API calls below report errors */ }
+        }
         fillTemplateMenu();
 
-        const data = await api.safe('/api/workflow/people/approvers', { people: [] });
+        const me = DMS.me || {};
+        const isContributor = !me.is_admin;
+        const data = await api.safe('/api/workflow/people/approvers?requires_signature=false', { people: [] });
         people = data.people || [];
+        if (isContributor) {
+          // Contributors may submit documents, but approval routing is owned by
+          // administrators. Show only administrators as selectable approvers.
+          people = people.filter(person => person.is_admin);
+        }
 
         if (!people.length) {
           toast('No approvers yet',
             'Add people under People & Departments so steps can be assigned.', 'danger');
         }
 
+        // Apply the contributor layout before loading any document-specific
+        // data, so the admin-only configuration cannot flash or remain visible
+        // if a document request is slow.
+        const contributorView = setupContributorView();
         await loadDocument();
-        if (!steps.length && $('#m-dept').value) applyDepartment($('#m-dept').value);
-        renderSteps();
+        if (!contributorView && !steps.length && $('#m-dept').value) applyDepartment($('#m-dept').value);
+        if (!contributorView) renderSteps();
       })();
     })();
   </script>

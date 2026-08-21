@@ -211,13 +211,17 @@
   let NAV = NAV_MEMBER;
 
   function canUsePersonalFolder(user) {
-    return !!(user && (user.is_admin || user.account_type === 'team_member' ||
-      user.account_type === 'hr' || user.permissions?.includes('documents.create')));
+    return !!(user && (user.is_admin ||
+      ['team_member', 'hr', 'approver', 'signatory'].includes(user.account_type) ||
+      user.permissions?.includes('documents.create')));
   }
 
   function navForUser(user) {
     const base = user && user.is_admin ? NAV_ADMIN : NAV_MEMBER;
-    if (canUsePersonalFolder(user)) return base;
+    if (canUsePersonalFolder(user)) {
+      if (user && user.is_admin) return base;
+      return [{ label: 'Workflow', journey: true, items: WORKFLOW_SIDEBAR }].concat(base);
+    }
     return base.map(group => ({
       ...group,
       items: (group.items || []).filter(item => item.id !== 'my-folder'),
@@ -992,7 +996,13 @@
     // Approval setup is document-scoped too. A valid id in the link is enough
     // to open it; requiring localStorage step history made Confirm & set up
     // approval appear to do nothing after a session change or hard refresh.
-    if (stepNo === 3 && new URLSearchParams(window.location.search).get('id')) return true;
+    if (stepNo === 3 && new URLSearchParams(window.location.search).get('id')) {
+      // The workflow page must be reachable for document contributors. The API
+      // remains the authority for whether they may submit or edit a workflow;
+      // redirecting here caused valid Team member links to fall back to Home
+      // before the page could load its document.
+      return true;
+    }
     if (stepNo === 4) return true;
     if (stepNo <= 1) return true;
     if (flow.canEnter(stepNo)) return true;

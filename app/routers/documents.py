@@ -283,6 +283,15 @@ def get_documents(
         .limit(limit)
         .all()
     )
+    for document in documents:
+        workflow = next((w for w in document.approval_workflows if w.status != "draft"), None)
+        sender = workflow.creator if workflow and workflow.creator else None
+        document.created_by_name = (sender.full_name or sender.username) if sender else None
+        document.approval_sender = document.created_by_name
+        document.publisher_name = (
+            (workflow.publisher.full_name or workflow.publisher.username)
+            if workflow and workflow.publisher else None
+        )
     return documents
 
 # These literal Recently Deleted routes must be registered before the generic

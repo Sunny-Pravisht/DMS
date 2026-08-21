@@ -228,7 +228,7 @@ async def create_user(
     account_type = (user_data.account_type or "approver").strip().lower()
     account_defaults = {
         "employee": (False, False),
-        "team_member": (True, False),
+        "team_member": (False, False),
         "hr": (True, False),
         "approver": (True, False),
         "signatory": (True, True),
@@ -333,7 +333,7 @@ async def update_user(
     # Approval authority may have changed, so the role has to follow it.
     if "account_type" in update_data:
         account_type = (update_data["account_type"] or "employee").strip().lower()
-        defaults = {"employee": (False, False), "team_member": (True, False), "hr": (True, False), "approver": (True, False), "signatory": (True, True), "administrator": (True, True)}
+        defaults = {"employee": (False, False), "team_member": (False, False), "hr": (True, False), "approver": (True, False), "signatory": (True, True), "administrator": (True, True)}
         if account_type not in defaults:
             raise HTTPException(status_code=400, detail="Invalid account type")
         user.account_type = account_type
@@ -343,9 +343,11 @@ async def update_user(
             user.is_admin = True
         del update_data["account_type"]
 
-    if {"can_approve", "can_sign", "is_admin"} & set(update_data):
-        from ..services.role_service import apply_role
-        apply_role(db, user)
+    # Account type is the single source of truth. Always resync the standard
+    # role after an account edit so Team member immediately gets upload/edit
+    # access instead of keeping a previous read-only role.
+    from ..services.role_service import apply_role
+    apply_role(db, user)
 
     db.refresh(user)
 

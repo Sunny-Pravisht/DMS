@@ -42,7 +42,7 @@ STANDARD_ROLES: dict[str, tuple[str, list[str]]] = {
         READ,
     ),
     "contributor": (
-        "Can add documents and correct their details. Cannot approve.",
+        "Can add documents, correct their details, and send them for approval. Cannot approve.",
         CONTRIBUTE,
     ),
     "approver": (
@@ -81,6 +81,8 @@ def ensure_standard_roles(db: Session) -> int:
 
 def role_for(user: User) -> str:
     """Which standard role matches this person's approval authority."""
+    if user.account_type == "team_member":
+        return "contributor"
     if user.can_sign:
         return "signatory"
     if user.can_approve:
@@ -120,10 +122,16 @@ def backfill(db: Session) -> int:
 
     fixed = 0
     for user in db.query(User).filter(User.is_active.is_(True)).all():
-        if user.is_admin or user.roles:
+        if user.is_admin:
             continue
-        apply_role(db, user)
-        fixed += 1
+        # Account type is authoritative, so repair stale standard roles too.
+        # This fixes users created before the account-type permissions were
+        # unified, including existing Team member accounts.
+        wanted = role_for(user)
+        current_standard = next((r.name for r in user.roles if r.name in STANDARD_ROLES), None)
+        if current_standard != wanted:
+            apply_role(db, user)
+            fixed += 1
 
     if fixed:
         logger.info(f"Assigned a standard role to {fixed} user(s) who had none")

@@ -181,6 +181,10 @@ class Document(DocumentBase):
     version: Optional[str] = "1.0"
     revision_of: Optional[str] = None
 
+    created_by_name: Optional[str] = None
+    approval_sender: Optional[str] = None
+    approver_name: Optional[str] = None
+    publisher_name: Optional[str] = None
     correspondent: Optional[Correspondent] = None
     doctype: Optional[DocType] = None
     tags: List[Tag] = []

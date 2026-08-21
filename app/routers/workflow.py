@@ -231,9 +231,20 @@ def _workflow_json(workflow: ApprovalWorkflow, viewer: Optional[User] = None,
 def create(
     payload: WorkflowPayload,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission_flexible("documents.update")),
+    current_user: User = Depends(get_current_user_flexible),
 ):
     """Build an approval process for a document and start it."""
+    if not current_user.is_admin and not current_user.has_permission("documents.update"):
+        raise HTTPException(status_code=403, detail="Upload and edit access is required to send for approval.")
+    if not current_user.is_admin:
+        # Contributors may submit, but every approval step must go to an admin.
+        admin_ids = {u.id for u in db.query(User).filter(User.is_admin.is_(True), User.is_active.is_(True)).all()}
+        if not admin_ids:
+            raise HTTPException(status_code=400, detail="No active administrator is available for approval.")
+        for step in payload.steps:
+            step.assignee_ids = list(admin_ids)
+            step.department = None
+            step.role = None
     document = db.query(Document).filter(Document.id == payload.document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -300,6 +311,23 @@ def list_workflows(
 
     if status:
         query = query.filter(ApprovalWorkflow.status.in_([s.strip() for s in status.split(",")]))
+
+    # Tracking is personal for regular users: only administrators may see the
+    # organisation-wide approval queue. A member may see a workflow addressed
+    # directly to them, to their department, or to their job role. This is
+    # intentionally independent of approval permission: upload/edit users must
+    # still be able to track work assigned to them, without appearing in My
+    # Tasks or being allowed to approve.
+    if not current_user.is_admin:
+        visibility_rules = [
+            ApprovalWorkflow.created_by == current_user.id,
+            ApprovalStep.assignees.any(User.id == current_user.id),
+        ]
+        if current_user.department:
+            visibility_rules.append(ApprovalStep.department == current_user.department)
+        if current_user.job_title:
+            visibility_rules.append(ApprovalStep.role == current_user.job_title)
+        query = query.filter(ApprovalWorkflow.steps.any(or_(*visibility_rules)))
     if priority:
         query = query.filter(ApprovalWorkflow.priority == priority)
     if mine:

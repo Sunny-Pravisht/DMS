@@ -327,18 +327,19 @@
 
               <div class="table-wrap">
                 <table class="table table--clickable" id="doc-table">
-                  <colgroup><col><col><col><col><col class="w-tight"></colgroup>
+                  <colgroup><col><col><col><col><col><col class="w-tight"></colgroup>
                   <thead>
                     <tr>
                       <th>Document</th>
                       <th>Type</th>
-                      <th>Supplier</th>
+                      <th>From / sent by</th>
+                      <th>Publisher</th>
                       <th>Status</th>
                       <th></th>
                     </tr>
                   </thead>
                   <tbody id="doc-rows">
-                    <tr><td colspan="5" style="padding:0">
+                    <tr><td colspan="6" style="padding:0">
                       <div style="height:180px;border-radius:0;background:transparent"></div>
                     </td></tr>
                   </tbody>
@@ -448,8 +449,8 @@
           if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="w-tight dms-col-actions">';
           if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Actions</th>';
         } else {
-          if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-type"><col class="dms-col-supplier"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
-          if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Type</th><th>Supplier</th><th>Status</th><th></th>';
+          if (colgroup) colgroup.innerHTML = '<col class="dms-col-document"><col class="dms-col-type"><col class="dms-col-supplier"><col class="dms-col-supplier"><col class="dms-col-status"><col class="w-tight dms-col-actions">';
+          if (theadRow) theadRow.innerHTML = '<th>Document</th><th>Type</th><th>From / sent by</th><th>Publisher</th><th>Status</th><th></th>';
         }
       }
       configureTableForMode();
@@ -570,7 +571,9 @@
               (d.origin === 'composed' ? ' · written here' : '') + '</div></td>' +
             '<td>' + (d.doctype ? '<span class="badge">' + escapeHtml(d.doctype.name) + '</span>' : '<span class="muted-2">Not set</span>') + '</td>' +
             '<td class="truncate" style="max-width:26ch">' +
-              escapeHtml((d.correspondent && d.correspondent.name) || 'Not set') + '</td>' +
+              escapeHtml(d.approval_sender || d.created_by_name || 'Not set') + '</td>' +
+            '<td class="truncate" style="max-width:26ch">' +
+              escapeHtml(d.publisher_name || 'Not published') + '</td>' +
             '<td>' + repositoryStatusBadge(d) + '</td>' +
             '<td class="actions"><span class="row-actions">' +
               (canEditDocuments() ? '<button class="icon-btn tip" data-tip="Edit in the Studio" title="Edit in the Studio" data-act="edit">' +

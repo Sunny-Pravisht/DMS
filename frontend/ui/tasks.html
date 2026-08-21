@@ -106,8 +106,14 @@
        * here, not when a step refuses them.
        */
       function renderAuthority() {
+        const accountType = (me && me.account_type) || '';
+        const canContribute = me && (me.is_admin || accountType === 'team_member' ||
+          (me.permissions || []).includes('documents.create'));
         const badge = $('#authority');
-        badge.textContent = authority.can_sign ? 'Can approve and sign'
+        badge.textContent = canContribute
+          ? (authority.can_sign ? 'Can upload, edit, approve and sign' :
+            authority.can_approve ? 'Can upload, edit and approve' : 'Can upload and edit')
+          : authority.can_sign ? 'Can approve and sign'
           : authority.can_approve ? 'Can approve' : 'Read only';
         badge.className = 'badge ' + (authority.can_sign ? 'badge--accent' : '');
 

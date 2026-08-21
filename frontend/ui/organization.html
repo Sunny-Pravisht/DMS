@@ -102,32 +102,21 @@
 
       <div class="divider"></div>
 
-      <div class="t-eyebrow mb-2">Account type</div>
-      <label class="field"><span class="field__label">Choose access level</span>
+      <div class="t-eyebrow mb-2">Access &amp; permissions</div>
+      <label class="field"><span class="field__label">Account type</span>
         <select class="select" id="new-account-type">
-          <option value="employee">Employee · read documents</option>
-          <option value="team_member">Team member · upload and edit</option>
-          <option value="hr">HR · approve HR documents</option>
+          <option value="employee">Employee · view documents only</option>
+          <option value="team_member">Team member · upload and edit documents</option>
+          <option value="hr">HR reviewer · approve HR documents</option>
           <option value="approver" selected>Approver · review assigned approvals</option>
-          <option value="signatory">Signatory · approve and sign</option>
-          <option value="administrator">Administrator · full access</option>
+          <option value="signatory">Signatory · approve and sign documents</option>
+          <option value="administrator">Administrator · manage the entire system</option>
         </select>
+        <span class="field__hint">Choose a preset first. You can fine-tune approval and signature access below.</span>
       </label>
-      <!-- Advanced approval permissions remain available for custom cases. -->
-      <div class="t-eyebrow mb-2">Approval permissions</div>
-      <label class="check mb-2"><input type="checkbox" id="new-approve" checked>
-        <span class="check__box"><i data-icon="check"></i></span>
-        <span class="check__text"><strong>Approve documents.</strong> They can act on any
-          approval step addressed to them.</span></label>
-      <label class="check mb-2"><input type="checkbox" id="new-sign">
-        <span class="check__box"><i data-icon="check"></i></span>
-        <span class="check__text"><strong>Apply a signature.</strong> Only people with this can be
-          put on a step marked “signature required”. Grant it to those who may bind the
-          company, not to everyone who reviews.</span></label>
-      <label class="check"><input type="checkbox" id="new-admin">
-        <span class="check__box"><i data-icon="check"></i></span>
-        <span class="check__text"><strong>Administrator.</strong> Full access, including user
-          management. Administrators can always sign.</span></label>
+      <div class="banner banner--info mt-2">
+        <i data-icon="info"></i><div>Permissions are controlled by the account type. This keeps upload, edit, approval, signature, and administrator access consistent.</div>
+      </div>
     </div>
     <div class="modal__foot">
       <div class="btn-row">
@@ -165,15 +154,7 @@
         $('#title-list').appendChild(o);
       });
 
-      // An administrator can always sign, so the checkbox follows and locks.
-      $('#new-admin').addEventListener('change', e => {
-        if (e.target.checked) {
-          $('#new-sign').checked = true;
-          $('#new-approve').checked = true;
-        }
-        $('#new-sign').disabled = e.target.checked;
-        $('#new-approve').disabled = e.target.checked;
-      });
+      // Account type is the single source of truth for access and approval authority.
 
       /* ------------------------------------------------------------- table */
       async function loadUsers() {
@@ -309,11 +290,7 @@
 
         $('#new-account-type').value = user && user.account_type ? user.account_type :
           (user && user.is_admin ? 'administrator' : user && user.can_sign ? 'signatory' : user && user.can_approve ? 'approver' : 'employee');
-        $('#new-approve').checked = user ? (user.can_approve !== false) : true;
-        $('#new-sign').checked = user ? !!user.can_sign : false;
-        $('#new-admin').checked = user ? !!user.is_admin : false;
-        $('#new-sign').disabled = $('#new-admin').checked;
-        $('#new-approve').disabled = $('#new-admin').checked;
+
 
         DMS.openOverlay($('#modal-user'));
       }
@@ -325,8 +302,8 @@
       });
 
       $('#btn-create-user').onclick = async () => {
-        const isAdmin = $('#new-admin').checked;
         const accountType = $('#new-account-type').value;
+        const isAdmin = accountType === 'administrator';
         const payload = {
           account_type: accountType,
           username: $('#new-username').value.trim(),
@@ -335,8 +312,10 @@
           department: $('#new-dept').value || null,
           job_title: $('#new-title').value.trim() || null,
           is_admin: isAdmin,
-          can_approve: isAdmin || ['team_member', 'hr', 'approver', 'signatory'].includes(accountType) ? true : $('#new-approve').checked,
-          can_sign: isAdmin || accountType === 'signatory' ? true : $('#new-sign').checked,
+          // The server derives these values from account_type. They are sent
+          // only for compatibility with older API clients.
+          can_approve: ['hr', 'approver', 'signatory', 'administrator'].includes(accountType),
+          can_sign: ['signatory', 'administrator'].includes(accountType),
         };
 
         const password = $('#new-password').value;

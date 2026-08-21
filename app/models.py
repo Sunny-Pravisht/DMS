@@ -559,7 +559,16 @@ class User(Base):
         """Check if user has specific permission"""
         if self.is_admin:
             return True
-
+        account_permissions = {
+            "employee": {"documents.read"},
+            "team_member": {"documents.read", "documents.create", "documents.update"},
+            "hr": {"documents.read", "documents.create", "documents.update", "documents.approve"},
+            "approver": {"documents.read", "documents.approve"},
+            "signatory": {"documents.read", "documents.approve", "documents.sign"},
+            "administrator": {"*"},
+        }
+        if permission in account_permissions.get(self.account_type or "employee", set()):
+            return True
         for role in self.roles:
             if role.permissions:
                 import json

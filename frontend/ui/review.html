@@ -300,7 +300,13 @@
 
         renderTags();
 
-        $('#btn-next').href = '/process?id=' + encodeURIComponent(docId);
+        const nextButton = $('#btn-next');
+        nextButton.href = '/process?id=' + encodeURIComponent(docId);
+        nextButton.hidden = false;
+        nextButton.onclick = e => {
+          e.preventDefault();
+          window.location.assign('/process?id=' + encodeURIComponent(docId));
+        };
         $('#btn-full').href = '/documents/view?id=' + encodeURIComponent(docId);
         $('#btn-edit-doc').href = '/studio?id=' + encodeURIComponent(docId);
         // Back means "back to this document in the Studio", not "back to a

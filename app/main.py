@@ -312,7 +312,7 @@ async def login_page():
 # Enforced on the server, not just hidden in the menu. A hidden link is a
 # courtesy; a redirect is a rule.
 ADMIN_ONLY_PAGES = {
-    "/templates", "/organization", "/audit", "/settings", "/publish", "/process",
+    "/templates", "/organization", "/audit", "/settings", "/publish",
 }
 
 
