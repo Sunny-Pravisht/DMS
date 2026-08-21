@@ -154,6 +154,10 @@
       let workflowCount = 0;
       let selected = null;
       let wantDocId = params.get('id') || null;
+      // Polling should not rebuild the whole tracking workspace when nothing
+      // changed. Replacing the detail HTML also remounts the document viewer,
+      // which is what causes the visible flicker.
+      let lastListSignature = null;
 
       if (params.get('filter') === 'overdue') $('#f-overdue').checked = true;
 
@@ -177,6 +181,11 @@
         if ($('#f-overdue').checked) {
           list = list.filter(w => w.current_step && w.current_step.overdue);
         }
+
+        const listSignature = JSON.stringify(list);
+        const unchanged = keepSelection && listSignature === lastListSignature;
+        lastListSignature = listSignature;
+        if (unchanged) return;
 
         renderList();
 
@@ -920,7 +929,8 @@
       $('#btn-print').onclick = () => window.print();
       $('#btn-refresh').onclick = () => loadList(true);
       // Keep the standalone tracking workspace current while approvals are being
-      // created or decided in another tab. Preserve the selected workflow.
+      // created or decided in another tab. loadList skips the DOM rebuild when
+      // the response is unchanged, so the document viewer remains mounted.
       setInterval(() => {
         if (!document.hidden) loadList(true);
       }, 15000);
